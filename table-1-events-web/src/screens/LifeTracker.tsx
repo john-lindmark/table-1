@@ -52,6 +52,7 @@ import {
   type TableRow,
 } from "../lib/trackerTable";
 import { TrackerChooser, TrackerDicePanel, TrackerOptionsPanel, TrackerSetup } from "./TrackerOptions";
+import { paneStyle, useWindowFold } from "../lib/fold";
 
 /* ── model ─────────────────────────────────────────────────────────────────
    One board for both kinds of session. Local: no event, stored on this device, 2–5 players set up on Setup
@@ -365,6 +366,8 @@ function Board({
 
   const m = ctl.model;
   const now = useNow(m?.clock?.timer_status === "running");
+  // Foldables (contract/foldables-2026-11-10.md § The screens): tabletop and book split the tracker at the fold.
+  const fold = useWindowFold("tracker");
 
   if (!m) {
     return (
@@ -503,6 +506,8 @@ function Board({
     return scoreLabel(s.wins[bottom], s.wins[top], s.draws);
   };
 
+  const folded = fold.mode === "tabletop" || fold.mode === "book";
+
   const strip = (
       /* Lifetracker Info (Figma 73:5617): clock + context, progress bar, Record / Options / Reset. */
       <div key="strip" className="shrink-0 flex flex-col gap-px bg-t1-bg">
@@ -549,14 +554,57 @@ function Board({
       }`}
       style={{ touchAction: "manipulation" }}
     >
-      {rows.map((row, i) =>
-        row === "strip" ? (
-          strip
-        ) : (
-          <div key={i} className="flex-1 min-h-0 flex gap-px bg-t1-surface">
-            {row.map((p) => seat(p.side, p.seat))}
+      {folded ? (
+        <>
+          {/* Every seat upright, facing whoever holds the phone: the opponent first, you last. */}
+          <div
+            className={`absolute flex gap-px bg-t1-surface ${fold.mode === "book" ? "flex-col" : ""}`}
+            style={paneStyle(fold.panes[0])}
+          >
+            {(players === 2 ? [top, bottom] : Array.from({ length: players }, (_, i) => i as Side)).map((side) => (
+              <div key={side} className="relative flex-1 min-w-0 min-h-0 flex">
+                {seat(side, "bottom")}
+                <span className={`${LABEL} absolute bottom-3 inset-x-0 text-center text-t1-muted pointer-events-none`}>
+                  {m.names[side]}
+                </span>
+              </div>
+            ))}
           </div>
-        ),
+          {/* The strip grown to fill the flat half (tabletop) or the right page (book). */}
+          <div className="absolute flex flex-col gap-px bg-t1-surface" style={paneStyle(fold.panes[1])}>
+            <div className="flex-1 min-h-0 bg-t1-bg flex flex-col items-center justify-center gap-3 px-4">
+              {remaining != null && tone && (
+                <span role="timer" className={`font-mono text-[56px] font-semibold tabular-nums ${TONE_TEXT[tone]}`}>
+                  {formatTrackerClock(remaining)}
+                </span>
+              )}
+              <span className={`${LABEL} truncate max-w-full text-t1-disabled`}>{m.status || m.subtitle}</span>
+              <span className={`${LABEL} text-t1-muted`}>Game {gameNo} · {scoreText}</span>
+            </div>
+            <div className={`flex gap-px ${fold.mode === "book" ? "flex-col" : "h-[72px]"}`}>
+              {canEdit && (
+                <FoldAction
+                  accent={winner != null}
+                  onClick={() => setFlow(winner != null ? { step: "confirm", winner, draw: false } : { step: "pick" })}
+                >
+                  Record
+                </FoldAction>
+              )}
+              <FoldAction onClick={() => setPanel("options")}>Options</FoldAction>
+              {canEdit && <FoldAction onClick={() => setResetOpen(true)}>Reset</FoldAction>}
+            </div>
+          </div>
+        </>
+      ) : (
+        rows.map((row, i) =>
+          row === "strip" ? (
+            strip
+          ) : (
+            <div key={i} className="flex-1 min-h-0 flex gap-px bg-t1-surface">
+              {row.map((p) => seat(p.side, p.seat))}
+            </div>
+          ),
+        )
       )}
 
       {panel === "options" && (
@@ -884,6 +932,20 @@ function DecidedDialog({
 }
 
 /* ── pieces ────────────────────────────────────────────────────────────── */
+
+/** One of the folded tracker's controls: a full-size target on the flat half. */
+function FoldAction({ children, onClick, accent }: { children: ReactNode; onClick: () => void; accent?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`${LABEL} flex-1 min-h-[72px] bg-t1-bg active:bg-t1-surface transition-colors duration-150 ${
+        accent ? "text-t1-accent" : "text-t1-text"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
 
 /** Strip Button (Figma 73:5656): label, pressed = surface. Accent means "the result" (a game was lost). */
 function StripButton({ children, onClick, accent }: { children: ReactNode; onClick: () => void; accent?: boolean }) {

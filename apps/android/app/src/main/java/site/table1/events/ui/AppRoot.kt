@@ -4,6 +4,9 @@ import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
@@ -333,8 +336,18 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
     if (offer == site.table1.events.library.SharingOffer.ForTrade) site.table1.events.library.SharingOfferDialog(offer!!,
         "Share For trade with friends?", "Friends can see these copies, and trade matches can find you.",
         listOf(site.table1.events.library.SharePart.ForTrade)) { site.table1.events.library.SharingOffer.due.value = null }
-    Column(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(1f).let { if (topLevel) it.consumeWindowInsets(WindowInsets.navigationBars) else it }) {
+    // Landscape windows (unfolded or not) put the tab bar down the start edge as a rail; tabletop keeps it along the
+    // bottom, on the flat half (contract/foldables-2026-11-10.md). One Layout with two slots, so the NavHost (and
+    // every screen's state) stays put when the bar moves.
+    val rail = site.table1.events.ui.components.LocalWindowFold.current.layout.rail
+    androidx.compose.ui.layout.Layout(contents = listOf({
+        Box(Modifier.let {
+            when {
+                !topLevel -> it
+                rail -> it.consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Start))
+                else -> it.consumeWindowInsets(WindowInsets.navigationBars)
+            }
+        }) {
             // A tapped person opens their profile on this back stack (ui/components/PersonLink.kt).
             CompositionLocalProvider(site.table1.events.ui.components.LocalOpenProfile provides { id: String -> nav.navigate("profile/$id") }) {
             NavHost(navController = nav, startDestination = "events") {
@@ -665,8 +678,10 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
             }
             }
         }
+    }, {
         if (topLevel) {
             T1TabBar(
+                rail = rail,
                 tabs = listOf(
                     T1Tab("events", "Events", T1Icon.TabEvents),
                     T1Tab("collection", "Collection", T1Icon.TabCollection),
@@ -680,6 +695,24 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     tab(it)
                 },
             )
+        }
+    }), Modifier.fillMaxSize()) { (content, bar), constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val b = bar.firstOrNull()?.measure(loose)
+        if (rail) {
+            val bw = b?.width ?: 0
+            val c = content.first().measure(androidx.compose.ui.unit.Constraints.fixed(constraints.maxWidth - bw, constraints.maxHeight))
+            layout(constraints.maxWidth, constraints.maxHeight) {
+                b?.place(0, 0)
+                c.place(bw, 0)
+            }
+        } else {
+            val bh = b?.height ?: 0
+            val c = content.first().measure(androidx.compose.ui.unit.Constraints.fixed(constraints.maxWidth, constraints.maxHeight - bh))
+            layout(constraints.maxWidth, constraints.maxHeight) {
+                c.place(0, 0)
+                b?.place(0, constraints.maxHeight - bh)
+            }
         }
     }
 }

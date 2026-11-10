@@ -15,6 +15,11 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -404,7 +409,8 @@ data class T1Tab(
 /** Bottom tabs (Figma 407:9333): icon + label on the background. Selected = text color with a 1 dp accent line along
  *  its top; others icon and label both muted (Figma Neutral_4); disabled greyed. */
 @Composable
-fun T1TabBar(tabs: List<T1Tab>, selected: String?, onSelect: (String) -> Unit) {
+fun T1TabBar(tabs: List<T1Tab>, selected: String?, rail: Boolean = false, onSelect: (String) -> Unit) {
+    if (rail) { T1TabRail(tabs, selected, onSelect); return }
     Row(Modifier.fillMaxWidth().background(T1.bg).navigationBarsPadding()) {
         tabs.forEach { tab ->
             val on = tab.id == selected
@@ -433,6 +439,39 @@ fun T1TabBar(tabs: List<T1Tab>, selected: String?, onSelect: (String) -> Unit) {
                 }
             }
         }
+    }
+}
+
+/** The tab bar as a navigation rail along the start edge (contract/foldables-2026-11-10.md): landscape windows,
+ *  unfolded or not. Same items; the selected one's accent line runs down its inner (end) edge, a hairline beside. */
+@Composable
+private fun T1TabRail(tabs: List<T1Tab>, selected: String?, onSelect: (String) -> Unit) {
+    Row(Modifier.fillMaxHeight().background(T1.bg)
+        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Start + WindowInsetsSides.Vertical))) {
+        Column(Modifier.width(76.dp).fillMaxHeight().padding(top = 8.dp)) {
+            tabs.forEach { tab ->
+                val on = tab.id == selected
+                val iconColor = when {
+                    !tab.enabled -> T1.disabled
+                    on -> T1.text
+                    else -> T1.muted
+                }
+                Column(
+                    Modifier.fillMaxWidth()
+                        .let { if (tab.enabled) it.clickable { onSelect(tab.id) } else it }
+                        .semantics { contentDescription = tab.label + (tab.note?.let { " ($it)" } ?: "") }
+                        .drawBehind { if (on) drawRect(T1.accent, topLeft = Offset(size.width - 1.dp.toPx(), 0f), size = Size(1.dp.toPx(), size.height)) }
+                        .padding(vertical = 14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    IconGlyph(tab.icon, color = iconColor)
+                    Text(tab.label.uppercase(), color = iconColor, fontFamily = T1.mono, fontSize = 9.sp, letterSpacing = 1.5.sp, maxLines = 1)
+                    tab.note?.let { Text(it.uppercase(), color = T1.disabled, fontFamily = T1.mono, fontSize = 8.sp, letterSpacing = 1.sp, maxLines = 1) }
+                }
+            }
+        }
+        Box(Modifier.width(1.dp).fillMaxHeight().background(T1.surface))
     }
 }
 

@@ -1,5 +1,10 @@
 package site.table1.events.ui.screens
 
+import site.table1.events.ui.components.FoldMode
+import site.table1.events.ui.components.FoldSplit
+import site.table1.events.ui.components.paneInsets
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.clickable
 import android.Manifest
@@ -326,7 +331,9 @@ internal fun OrganizerScreen(
         }
     }
 
-    T1Screen {
+    /** The organizer screen; `hero` false leaves the round clock to a tabletop fold's upright half. */
+    @Composable
+    fun ColumnScope.Screen(hero: Boolean) {
         Bar(event.name, subtitle, onBack = onBack) {
             if (!event.isCancelled) BarAction("More") { moreMenu = true }
         }
@@ -345,7 +352,7 @@ internal fun OrganizerScreen(
                 }
                 OrganizerPhase.Live -> when (selected) {
                     "round" -> LiveRound(
-                        b, active, secondsLeft, paused, busy, standings.clinched,
+                        b, active, secondsLeft, paused, busy, standings.clinched, hero = hero,
                         onClock = { action -> active?.let { r -> act { Repo.setRoundClock(r.id, action, 300) } } },
                         onEdit = { editing = it },
                         onRepair = { repairFrom = "notice" },
@@ -423,6 +430,47 @@ internal fun OrganizerScreen(
             OrganizerPhase.Results -> {}
         }
     }
+
+    // Foldables (contract/foldables-2026-11-10.md § The screens): tabletop turns the upright half into the venue's
+    // round clock; wide or book put standings beside the round.
+    val foldModes = buildSet {
+        if (phase == OrganizerPhase.Live && active != null && event.showClock) add(FoldMode.Tabletop)
+        if (phase == OrganizerPhase.Live && selected == "round") { add(FoldMode.Wide); add(FoldMode.Book) }
+    }
+    FoldSplit("organizer_live", allow = foldModes, enabled = foldModes.isNotEmpty(), single = { T1Screen { Screen(hero = true) } },
+        first = { layout ->
+            val round = active
+            if (layout.mode == FoldMode.Tabletop && round != null) {
+                Column(Modifier.fillMaxSize().background(T1.surface).paneInsets(layout.mode, first = true).padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)) {
+                    BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        // As large as the half allows: five characters at about 0.62 em each.
+                        val size = minOf(maxWidth.value / 3.4f, maxHeight.value * 0.8f)
+                        Text(clockText(secondsLeft ?: 0), color = if (paused) T1.muted else if (secondsLeft == 0) T1.danger else T1.text,
+                            fontFamily = T1.mono, fontSize = size.sp, letterSpacing = 4.sp, maxLines = 1)
+                    }
+                    Label(if (paused) "Paused · ${round.name(event.numberOfRounds)}" else round.name(event.numberOfRounds))
+                }
+            } else {
+                Column(Modifier.fillMaxSize().background(T1.bg).paneInsets(layout.mode, first = true),
+                    verticalArrangement = Arrangement.spacedBy(1.dp)) { Screen(hero = true) }
+            }
+        },
+        second = { layout ->
+            Column(Modifier.fillMaxSize().background(T1.bg).paneInsets(layout.mode, first = false),
+                verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                if (layout.mode == FoldMode.Tabletop) {
+                    Screen(hero = false)
+                } else {
+                    Bar("Standings", active?.name(event.numberOfRounds))
+                    Box(Modifier.weight(1f)) {
+                        StandingsList(standings.standings, standings.teams, tags, highlight = null, userIds = b.userIds,
+                            bracket = standings.bracket, seating = standings.seating)
+                    }
+                }
+            }
+        })
 
     /* ── overlays and alerts ── */
 
@@ -1103,6 +1151,8 @@ private fun LiveRound(
     onClock: (String) -> Unit,
     onEdit: (MatchRow) -> Unit,
     onRepair: () -> Unit,
+    /** False when a tabletop fold draws the clock on the upright half. */
+    hero: Boolean = true,
 ) {
     val event = b.event
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -1143,7 +1193,7 @@ private fun LiveRound(
             .joinToString(" · ")
 
         if (event.showClock) {
-            item(key = "clock") { BigNumber(clockText(secondsLeft ?: 0), caption) }
+            if (hero) item(key = "clock") { BigNumber(clockText(secondsLeft ?: 0), caption) }
             item(key = "clock-actions") {
                 Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                     Ghost(if (paused) "Resume clock" else "Pause clock", enabled = !busy) { onClock(if (paused) "resume" else "pause") }

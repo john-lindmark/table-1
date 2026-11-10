@@ -62,16 +62,27 @@ struct LifeTrackerView: View {
                                      },
                                      close: onClose)
                 } else {
-                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                        switch row {
-                        case .strip:
-                            infoStrip
-                        case .seats(let places):
-                            HStack(spacing: 1) {
-                                ForEach(places, id: \.side) { seat($0) }
+                    // Foldables (contract/foldables-2026-11-10.md § The screens): tabletop stands every seat upright on
+                    // the top half with the controls on the flat half; book puts the seats on the left page and the
+                    // controls on the right. Flat, folded or not: the table as always.
+                    FoldSplit(screen: "tracker", allow: [.tabletop, .book]) {
+                        VStack(spacing: 1) {
+                            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                                switch row {
+                                case .strip:
+                                    infoStrip
+                                case .seats(let places):
+                                    HStack(spacing: 1) {
+                                        ForEach(places, id: \.side) { seat($0) }
+                                    }
+                                    .background(T1.surface)
+                                }
                             }
-                            .background(T1.surface)
                         }
+                    } first: { layout in
+                        uprightSeats(book: layout.mode == .book)
+                    } second: { layout in
+                        foldControls(book: layout.mode == .book)
                     }
                 }
             }
@@ -160,6 +171,67 @@ struct LifeTrackerView: View {
         TrackerHalf(model: model, side: place.side, seat: place.seat,
                     pickerOpen: Binding(get: { picker == place.side }, set: { picker = $0 ? place.side : nil }),
                     tap: tap)
+    }
+
+    // MARK: folded (contract/foldables-2026-11-10.md)
+
+    /// Every seat facing whoever holds the phone: the opponent first, you last; at a bigger table P1 to P5.
+    private func uprightSeats(book: Bool) -> some View {
+        let order = model.players == 2 ? [model.topSide, model.bottomSide] : Array(model.sides)
+        let stack = book ? AnyLayout(VStackLayout(spacing: 1)) : AnyLayout(HStackLayout(spacing: 1))
+        return stack {
+            ForEach(order, id: \.self) { side in
+                // Side by side and all facing one way, the seats say whose they are.
+                seat(TrackerTable.Place(side: side, seat: .bottom))
+                    .overlay(alignment: .bottom) {
+                        LabelText(model.name(side), color: T1.muted).padding(.bottom, 12).allowsHitTesting(false)
+                    }
+            }
+        }
+        .background(T1.surface)
+    }
+
+    /// The strip grown to fill the flat half (tabletop) or the right page (book): the round clock large, the match
+    /// line, then Record · Options · Reset as full-size targets, kept away from the fold by the pane's own edge.
+    private func foldControls(book: Bool) -> some View {
+        VStack(spacing: 1) {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let remaining = model.clock?.remaining(at: context.date)
+                VStack(spacing: 12) {
+                    Spacer(minLength: 0)
+                    if let remaining {
+                        Text(TrackerClock.format(remaining))
+                            .font(T1.mono(56, .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.4)
+                            .foregroundStyle(Self.color(TrackerClock.tone(remaining)))
+                    }
+                    LabelText(contextLine, color: contextColor).truncationMode(.tail)
+                    LabelText("Game \(model.currentGame) · \(model.scoreText)", color: T1.muted)
+                    Spacer(minLength: 0)
+                    if let remaining, let clock = model.clock {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                T1.surface
+                                Self.color(TrackerClock.tone(remaining)).frame(width: geo.size.width * clock.progress(remaining))
+                            }
+                        }
+                        .frame(height: 4)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .background(T1.bg)
+            let actions = book ? AnyLayout(VStackLayout(spacing: 1)) : AnyLayout(HStackLayout(spacing: 1))
+            actions {
+                if !model.readOnly {
+                    FoldAction(text: busy ? "Saving…" : "Record", accent: model.settledWinner != nil) { if !busy { recordTapped() } }
+                }
+                FoldAction(text: "Options") { showOptions() }
+                if !model.readOnly { FoldAction(text: "Reset") { resetPrompt = true } }
+            }
+            .frame(height: book ? 72 * (model.readOnly ? 1 : 3) + (model.readOnly ? 0 : 2) : 72)
+        }
+        .background(T1.surface)
     }
 
     // MARK: info strip (Lifetracker Info, 73:5617)
@@ -652,6 +724,21 @@ private struct CounterPicker: View {
 }
 
 /// Strip Button: a label with a surface fill while pressed. Accent means "the result" (a game was lost).
+/// One of the folded tracker's controls: a full-width target on the flat half.
+private struct FoldAction: View {
+    let text: String
+    var accent = false
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            LabelText(text, color: accent ? T1.accent : T1.text)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressFill())
+    }
+}
+
 struct StripButton: View {
     let title: String
     var accent = false

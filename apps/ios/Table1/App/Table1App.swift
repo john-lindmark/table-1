@@ -60,6 +60,8 @@ struct Table1App: App {
                 #endif
                 // App-drawn menus and panels sit above everything (tabs, life tracker); only alerts are native.
                 .overlay { T1OverlayHost() }
+                // Foldables (contract/foldables-2026-11-10.md): the window's posture, rail and rotation.
+                .windowFold()
                 .sheet(item: $session.webPage) { WebPageView(url: $0.url).ignoresSafeArea() }
                 .environment(session)
                 .preferredColorScheme(.dark)
@@ -112,6 +114,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         UNUserNotificationCenter.current().delegate = self
         PushController.shared.start()
         return true
+    }
+
+    /// Phones stay portrait; a foldable's inner display (the window's shorter side 600+) turns with the device
+    /// (contract/foldables-2026-11-10.md). Info.plist lists portrait and both landscapes so this can widen it.
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        MainActor.assumeIsolated { WindowFold.shared.mask }
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
@@ -360,7 +368,14 @@ struct SignedInView: View {
     ]
 
     var body: some View {
-        VStack(spacing: 0) {
+        // Landscape windows and iPhone Duo's vertical bars put the tab bar down the side (contract/foldables-2026-11-10.md).
+        // AnyLayout keeps every tab's stack (and where it was) when the bar moves.
+        let rail = WindowFold.shared.rail
+        let stack = rail == nil ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
+        stack {
+            if rail == .leading && !keyboardUp && atTabRoot {
+                T1TabBar(items: Self.tabs, selection: tab, rail: .leading) { select($0) }
+            }
             ZStack {
                 NavigationStack(path: $path) {
                     EventsHomeView(path: $path, isFront: tab == .events)
@@ -418,8 +433,8 @@ struct SignedInView: View {
 
             // Only on a tab's main view (anything pushed above it hides the bar), and hidden while typing
             // so it doesn't ride up on the keyboard.
-            if !keyboardUp && atTabRoot {
-                T1TabBar(items: Self.tabs, selection: tab) { select($0) }
+            if rail != .leading && !keyboardUp && atTabRoot {
+                T1TabBar(items: Self.tabs, selection: tab, rail: rail) { select($0) }
             }
         }
         .background(T1.bg.ignoresSafeArea())

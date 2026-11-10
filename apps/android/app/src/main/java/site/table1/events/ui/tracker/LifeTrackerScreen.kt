@@ -1,5 +1,7 @@
 package site.table1.events.ui.tracker
 
+import site.table1.events.ui.components.FoldMode
+import site.table1.events.ui.components.FoldSplit
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -212,6 +214,20 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
         TrackerTable.layout(d.players)
     }
 
+    val stripContext = reportNotice ?: controller.error ?: contextLine(d)
+    val stripColor = when {
+        reportNotice != null -> T1.accent
+        controller.error != null -> T1.danger
+        else -> T1.disabled
+    }
+    val onRecord = {
+        val winner = d.settledWinner()
+        if (winner != null) confirming = Winner(winner, false) else picking = true
+    }
+
+    // Foldables (contract/foldables-2026-11-10.md § The screens): tabletop stands every seat upright on the top half
+    // with the controls on the flat half; book puts the seats on the left page and the controls on the right.
+    FoldSplit("tracker", allow = setOf(FoldMode.Tabletop, FoldMode.Book), single = {
     // Edge to edge: the halves' tap zones and column hairlines reach the very top and bottom of the screen.
     // Hairlines between seats at a bigger table.
     Column(
@@ -234,23 +250,49 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
         }
         InfoStrip(
             d,
-            context = reportNotice ?: controller.error ?: contextLine(d),
-            contextColor = when {
-                reportNotice != null -> T1.accent
-                controller.error != null -> T1.danger
-                else -> T1.disabled
-            },
+            context = stripContext,
+            contextColor = stripColor,
             recordAccent = !d.readOnly && d.settledWinner() != null,
             busy = controller.busy,
             onOptions = { panel = "options" },
             onReset = { resetting = true },
-            onRecord = {
-                val winner = d.settledWinner()
-                if (winner != null) confirming = Winner(winner, false) else picking = true
-            },
+            onRecord = onRecord,
         )
       }
     }
+    }, first = { layout ->
+        // Every seat facing whoever holds the phone: the opponent first, you last; at a bigger table P1 to P5.
+        val book = layout.mode == FoldMode.Book
+        val order = if (d.players == 2) listOf(them, me) else d.sides.toList()
+        @Composable
+        fun Upright(side: Int, modifier: Modifier) {
+            Box(modifier) {
+                TrackerHalf(
+                    d, side = side, pickerOpen = picker == side,
+                    onPicker = { picker = if (it) side else null },
+                    onTap = ::tap, onToggle = { controller.toggleCounter(side, it) },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                // Side by side and all facing one way, the seats say whose they are.
+                Label(d.name(side), Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp), color = T1.muted)
+            }
+        }
+        if (book) {
+            Column(Modifier.fillMaxSize().background(T1.surface), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                order.forEach { Upright(it, Modifier.weight(1f).fillMaxWidth()) }
+            }
+        } else {
+            Row(Modifier.fillMaxSize().background(T1.surface), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                order.forEach { Upright(it, Modifier.weight(1f).fillMaxHeight()) }
+            }
+        }
+    }, second = { layout ->
+        FoldControls(
+            d, book = layout.mode == FoldMode.Book, context = stripContext, contextColor = stripColor,
+            recordAccent = !d.readOnly && d.settledWinner() != null, busy = controller.busy,
+            onRecord = onRecord, onOptions = { panel = "options" }, onReset = { resetting = true },
+        )
+    })
 
     when (panel) {
         "options" -> TrackerOptionsPanel(
@@ -457,6 +499,70 @@ private fun InfoStrip(
             StripButton("Options", onClick = onOptions)
             Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                 if (!d.readOnly) StripButton("Reset", onClick = onReset)
+            }
+        }
+    }
+}
+
+/** The strip grown to fill the flat half (tabletop) or the right page (book): the round clock large, the match
+ *  line, then Record · Options · Reset as full-size targets (contract/foldables-2026-11-10.md). */
+@Composable
+private fun FoldControls(
+    d: TrackerDoc,
+    book: Boolean,
+    context: String,
+    contextColor: Color,
+    recordAccent: Boolean,
+    busy: Boolean,
+    onRecord: () -> Unit,
+    onOptions: () -> Unit,
+    onReset: () -> Unit,
+) {
+    val clock = d.clock
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(clock?.timerStatus, clock?.timerLastStartedAt) {
+        while (isActive && clock?.timerStatus == "running") {
+            now = System.currentTimeMillis()
+            delay(1_000 - now % 1_000)
+        }
+        now = System.currentTimeMillis()
+    }
+    val remaining = clock?.remaining(now)
+    val tone = remaining?.let { clockTone(it) }
+    Column(Modifier.fillMaxSize().background(T1.surface), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Column(
+            Modifier.weight(1f).fillMaxWidth().background(T1.bg).padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+        ) {
+            if (remaining != null && tone != null) {
+                Text(formatTrackerClock(remaining), color = toneColor(tone), fontFamily = T1.mono, fontSize = 56.sp,
+                    fontWeight = FontWeight.SemiBold, maxLines = 1)
+            }
+            Label(context, color = contextColor)
+            Label("Game ${d.currentGame} · ${d.scoreText}", color = T1.muted)
+        }
+        @Composable
+        fun Action(text: String, accent: Boolean, modifier: Modifier, onClick: () -> Unit) {
+            val interaction = remember { MutableInteractionSource() }
+            val pressed by interaction.collectIsPressedAsState()
+            Box(
+                modifier.background(if (pressed) T1.surface else T1.bg)
+                    .clickable(interactionSource = interaction, indication = null, onClick = onClick),
+                contentAlignment = Alignment.Center,
+            ) { Label(text, color = if (accent) T1.accent else T1.text) }
+        }
+        if (book) {
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                if (!d.readOnly) Action(if (busy) "Saving…" else "Record", recordAccent, Modifier.fillMaxWidth().height(72.dp)) { if (!busy) onRecord() }
+                Action("Options", false, Modifier.fillMaxWidth().height(72.dp), onOptions)
+                if (!d.readOnly) Action("Reset", false, Modifier.fillMaxWidth().height(72.dp), onReset)
+            }
+        } else {
+            Row(Modifier.fillMaxWidth().height(72.dp), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                if (!d.readOnly) Action(if (busy) "Saving…" else "Record", recordAccent, Modifier.weight(1f).fillMaxHeight()) { if (!busy) onRecord() }
+                Action("Options", false, Modifier.weight(1f).fillMaxHeight(), onOptions)
+                if (!d.readOnly) Action("Reset", false, Modifier.weight(1f).fillMaxHeight(), onReset)
             }
         }
     }

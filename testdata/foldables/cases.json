@@ -1,0 +1,584 @@
+{
+ "constants": {
+  "clear": 8,
+  "minPane": 120,
+  "wide": 840,
+  "heightMin": 480
+ },
+ "cases": [
+  {
+   "name": "phone portrait",
+   "w": 390,
+   "h": 844,
+   "folds": [],
+   "out": {
+    "width": "compact",
+    "height": "medium",
+    "mode": "single",
+    "panes": [
+     [
+      0,
+      0,
+      390,
+      844
+     ]
+    ],
+    "rail": false,
+    "rotates": false
+   }
+  },
+  {
+   "name": "phone landscape",
+   "w": 844,
+   "h": 390,
+   "folds": [],
+   "out": {
+    "width": "expanded",
+    "height": "compact",
+    "mode": "single",
+    "panes": [
+     [
+      0,
+      0,
+      844,
+      390
+     ]
+    ],
+    "rail": true,
+    "rotates": false
+   }
+  },
+  {
+   "name": "foldable cover screen",
+   "w": 412,
+   "h": 915,
+   "folds": [],
+   "out": {
+    "width": "compact",
+    "height": "expanded",
+    "mode": "single",
+    "panes": [
+     [
+      0,
+      0,
+      412,
+      915
+     ]
+    ],
+    "rail": false,
+    "rotates": false
+   }
+  },
+  {
+   "name": "unfolded, portrait, flat",
+   "w": 673,
+   "h": 841,
+   "folds": [],
+   "out": {
+    "width": "medium",
+    "height": "medium",
+    "mode": "single",
+    "panes": [
+     [
+      0,
+      0,
+      673,
+      841
+     ]
+    ],
+    "rail": false,
+    "rotates": true
+   }
+  },
+  {
+   "name": "unfolded, landscape, flat",
+   "w": 841,
+   "h": 673,
+   "folds": [],
+   "out": {
+    "width": "expanded",
+    "height": "medium",
+    "mode": "wide",
+    "panes": [
+     [
+      0,
+      0,
+      420.0,
+      673
+     ],
+     [
+      421.0,
+      0,
+      420.0,
+      673
+     ]
+    ],
+    "rail": true,
+    "rotates": true
+   }
+  },
+  {
+   "name": "unfolded, flat fold is not separating",
+   "w": 841,
+   "h": 673,
+   "folds": [
+    {
+     "x": 420,
+     "y": 0,
+     "w": 0,
+     "h": 673,
+     "vertical": true,
+     "separating": false,
+     "margin": 0
+    }
+   ],
+   "out": {
+    "width": "expanded",
+    "height": "medium",
+    "mode": "wide",
+    "panes": [
+     [
+      0,
+      0,
+      420.0,
+      673
+     ],
+     [
+      421.0,
+      0,
+      420.0,
+      673
+     ]
+    ],
+    "rail": true,
+    "rotates": true
+   }
+  },
+  {
+   "name": "tabletop: horizontal fold half opened",
+   "w": 841,
+   "h": 673,
+   "folds": [
+    {
+     "x": 0,
+     "y": 336,
+     "w": 841,
+     "h": 0,
+     "vertical": false,
+     "separating": true,
+     "margin": 0
+    }
+   ],
+   "out": {
+    "width": "expanded",
+    "height": "medium",
+    "mode": "tabletop",
+    "panes": [
+     [
+      0,
+      0,
+      841,
+      328
+     ],
+     [
+      0,
+      344,
+      841,
+      329
+     ]
+    ],
+    "rail": false,
+    "rotates": true
+   }
+  },
+  {
+   "name": "book: vertical fold half opened",
+   "w": 673,
+   "h": 841,
+   "folds": [
+    {
+     "x": 336,
+     "y": 0,
+     "w": 0,
+     "h": 841,
+     "vertical": true,
+     "separating": true,
+     "margin": 0
+    }
+   ],
+   "out": {
+    "width": "medium",
+    "height": "medium",
+    "mode": "book",
+    "panes": [
+     [
+      0,
+      0,
+      328,
+      841
+     ],
+     [
+      344,
+      0,
+      329,
+      841
+     ]
+    ],
+    "rail": false,
+    "rotates": true
+   }
+  },
+  {
+   "name": "book on a landscape window",
+   "w": 1000,
+   "h": 700,
+   "folds": [
+    {
+     "x": 500,
+     "y": 0,
+     "w": 0,
+     "h": 700,
+     "vertical": true,
+     "separating": true,
+     "margin": 0
+    }
+   ],
+   "out": {
+    "width": "expanded",
+    "height": "medium",
+    "mode": "book",
+    "panes": [
+     [
+      0,
+      0,
+      492,
+      700
+     ],
+     [
+      508,
+      0,
+      492,
+      700
+     ]
+    ],
+    "rail": true,
+    "rotates": true
+   }
+  },
+  {
+   "name": "dual screen: flat but a 34 dp hinge separates",
+   "w": 1114,
+   "h": 720,
+   "folds": [
+    {
+     "x": 540,
+     "y": 0,
+     "w": 34,
+     "h": 720,
+     "vertical": true,
+     "separating": true,
+     "margin": 0
+    }
+   ],
+   "out": {
+    "width": "expanded",
+    "height": "medium",
+    "mode": "book",
+    "panes": [
+     [
+      0,
+      0,
+      532,
+      720
+     ],
+     [
+      582,
+      0,
+      532,
+      720
+     ]
+    ],
+    "rail": true,
+    "rotates": true
+   }
+  },
+  {
+   "name": "iPhone-style division region with margins",
+   "w": 700,
+   "h": 820,
+   "folds": [
+    {
+     "x": 0,
+     "y": 400,
+     "w": 700,
+     "h": 20,
+     "vertical": false,
+     "separating": true,
+     "margin": 12
+    }
+   ],
+   "out": {
+    "width": "medium",
+    "height": "medium",
+    "mode": "tabletop",
+    "panes": [
+     [
+      0,
+      0,
+      700,
+      388
+     ],
+     [
+      0,
+      432,
+      700,
+      388
+     ]
+    ],
+    "rail": false,
+    "rotates": true
+   }
+  },
+  {
+   "name": "fold grazes the container's top: one column",
+   "w": 841,
+   "h": 400,
+   "folds": [
+    {
+     "x": 0,
+     "y": 60,
+     "w": 841,
+     "h": 0,
+     "vertical": false,
+     "separating": true,
+     "margin": 0
+    }
+   ],
+   "out": {
+    "width": "expanded",
+    "height": "compact",
+    "mode": "single",
+    "panes": [
+     [
+      0,
+      0,
+      841,
+      400
+     ]
+    ],
+    "rail": true,
+    "rotates": false
+   }
+  },
+  {
+   "name": "fold grazes the container's right edge",
+   "w": 673,
+   "h": 841,
+   "folds": [
+    {
+     "x": 600,
+     "y": 0,
+     "w": 0,
+     "h": 841,
+     "vertical": true,
+     "separating": true,
+     "margin": 0
+    }
+   ],
+   "out": {
+    "width": "medium",
+    "height": "medium",
+    "mode": "single",
+    "panes": [
+     [
+      0,
+      0,
+      673,
+      841
+     ]
+    ],
+    "rail": false,
+    "rotates": true
+   }
+  },
+  {
+   "name": "container below a bar: fold offset",
+   "w": 841,
+   "h": 623,
+   "folds": [
+    {
+     "x": 0,
+     "y": 286,
+     "w": 841,
+     "h": 0,
+     "vertical": false,
+     "separating": true,
+     "margin": 0
+    }
+   ],
+   "out": {
+    "width": "expanded",
+    "height": "medium",
+    "mode": "tabletop",
+    "panes": [
+     [
+      0,
+      0,
+      841,
+      278
+     ],
+     [
+      0,
+      294,
+      841,
+      329
+     ]
+    ],
+    "rail": false,
+    "rotates": true
+   }
+  },
+  {
+   "name": "second fold wins when the first doesn't count",
+   "w": 841,
+   "h": 673,
+   "folds": [
+    {
+     "x": 0,
+     "y": 20,
+     "w": 841,
+     "h": 0,
+     "vertical": false,
+     "separating": true,
+     "margin": 0
+    },
+    {
+     "x": 420,
+     "y": 0,
+     "w": 0,
+     "h": 673,
+     "vertical": true,
+     "separating": true,
+     "margin": 0
+    }
+   ],
+   "out": {
+    "width": "expanded",
+    "height": "medium",
+    "mode": "book",
+    "panes": [
+     [
+      0,
+      0,
+      412,
+      673
+     ],
+     [
+      428,
+      0,
+      413,
+      673
+     ]
+    ],
+    "rail": true,
+    "rotates": true
+   }
+  },
+  {
+   "name": "small wide window: not tall enough for two",
+   "w": 900,
+   "h": 420,
+   "folds": [],
+   "out": {
+    "width": "expanded",
+    "height": "compact",
+    "mode": "single",
+    "panes": [
+     [
+      0,
+      0,
+      900,
+      420
+     ]
+    ],
+    "rail": true,
+    "rotates": false
+   }
+  },
+  {
+   "name": "square tablet-ish window",
+   "w": 900,
+   "h": 900,
+   "folds": [],
+   "out": {
+    "width": "expanded",
+    "height": "expanded",
+    "mode": "wide",
+    "panes": [
+     [
+      0,
+      0,
+      449.5,
+      900
+     ],
+     [
+      450.5,
+      0,
+      449.5,
+      900
+     ]
+    ],
+    "rail": false,
+    "rotates": true
+   }
+  },
+  {
+   "name": "exactly the wide breakpoint",
+   "w": 840,
+   "h": 600,
+   "folds": [],
+   "out": {
+    "width": "expanded",
+    "height": "medium",
+    "mode": "wide",
+    "panes": [
+     [
+      0,
+      0,
+      419.5,
+      600
+     ],
+     [
+      420.5,
+      0,
+      419.5,
+      600
+     ]
+    ],
+    "rail": true,
+    "rotates": true
+   }
+  },
+  {
+   "name": "just under",
+   "w": 839,
+   "h": 600,
+   "folds": [],
+   "out": {
+    "width": "medium",
+    "height": "medium",
+    "mode": "single",
+    "panes": [
+     [
+      0,
+      0,
+      839,
+      600
+     ]
+    ],
+    "rail": true,
+    "rotates": true
+   }
+  }
+ ]
+}

@@ -75,7 +75,8 @@ targets:
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: Table 1
         UILaunchScreen: {}
-        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        # Portrait on phones; AppDelegate widens it on a foldable's inner display (contract/foldables-2026-11-10.md).
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UIUserInterfaceStyle: Dark
         # Only standard HTTPS/TLS is used, so no export-compliance question on each upload.
         ITSAppUsesNonExemptEncryption: false

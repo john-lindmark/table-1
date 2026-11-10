@@ -48,12 +48,19 @@ class MainActivity : ComponentActivity() {
         if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0 && intent?.getBooleanExtra("permissionsDemo", false) == true) {
             site.table1.events.util.PermissionsStep.demo = true
         }
+        // Debug builds: `--es t1Fold tabletop|book` simulates a fold across the middle (contract/foldables-2026-11-10.md).
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            site.table1.events.ui.components.FoldDebug.mode = intent?.getStringExtra("t1Fold")
+        }
         setContent {
             Table1Theme {
-                AppRoot(
-                    pendingJoin = pendingJoin, onJoinConsumed = { pendingJoin = null },
-                    pendingLink = pendingLink, onLinkConsumed = { pendingLink = null },
-                )
+                // Foldables: the window's folds (Jetpack WindowManager) for the rail and every FoldSplit.
+                site.table1.events.ui.components.ProvideWindowFold(this) {
+                    AppRoot(
+                        pendingJoin = pendingJoin, onJoinConsumed = { pendingJoin = null },
+                        pendingLink = pendingLink, onLinkConsumed = { pendingLink = null },
+                    )
+                }
             }
         }
     }

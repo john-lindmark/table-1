@@ -450,9 +450,55 @@ struct T1TabItem<ID: Hashable>: Identifiable {
 struct T1TabBar<ID: Hashable>: View {
     let items: [T1TabItem<ID>]
     let selection: ID
+    /// A rail down that edge of the window instead of a bottom bar (contract/foldables-2026-11-10.md): landscape
+    /// windows and iPhone Duo's vertical bars. The accent line sits on the edge facing the content.
+    var rail: HorizontalEdge? = nil
     let onSelect: (ID) -> Void
 
     var body: some View {
+        if let rail { railBody(rail) } else { barBody }
+    }
+
+    private func railBody(_ edge: HorizontalEdge) -> some View {
+        HStack(spacing: 0) {
+            if edge == .trailing { T1.surface.frame(width: 1) }
+            VStack(spacing: 0) {
+                ForEach(items) { item in
+                    let on = item.id == selection && item.enabled
+                    Button { onSelect(item.id) } label: {
+                        itemLabel(item, on: on)
+                            .frame(width: 76).padding(.vertical, 14)
+                            .overlay(alignment: edge == .leading ? .trailing : .leading) { if on { T1.accent.frame(width: 1) } }
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(on ? .isSelected : [])
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 8)
+            if edge == .leading { T1.surface.frame(width: 1) }
+        }
+        .frame(maxHeight: .infinity)
+        .background(T1.bg.ignoresSafeArea(edges: [.vertical, edge == .leading ? .leading : .trailing]))
+        .sensoryFeedback(.selection, trigger: selection)
+    }
+
+    private func itemLabel(_ item: T1TabItem<ID>, on: Bool) -> some View {
+        VStack(spacing: 4) {
+            item.icon
+                .fill(on ? T1.text : item.enabled ? T1.muted : T1.disabled)
+                .frame(width: 18, height: 18)
+            Text(item.label.uppercased()).font(T1.mono(9)).tracking(1.5)
+                .foregroundStyle(on ? T1.text : item.enabled ? T1.muted : T1.disabled).lineLimit(1)
+                .minimumScaleFactor(0.8)
+            if let note = item.note {
+                Text(note.uppercased()).font(T1.mono(8)).tracking(1).foregroundStyle(T1.disabled).lineLimit(1)
+            }
+        }
+    }
+
+    private var barBody: some View {
         HStack(spacing: 0) {
             ForEach(items) { item in
                 let on = item.id == selection && item.enabled

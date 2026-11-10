@@ -842,24 +842,26 @@ private struct OrganizerLiveView: View {
     var body: some View {
         let groups = MatchGroups(round?.matches ?? [])
         T1Screen {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                Bar(title: event.name, subtitle: subtitle(at: context.date), back: { dismiss() }) {
-                    BarButton("More") { showMore() }
+            // Foldables (contract/foldables-2026-11-10.md § The screens): tabletop turns the upright half into the
+            // venue's round clock; wide or book put standings beside the round.
+            FoldSplit(screen: "organizer_live", allow: foldModes) {
+                VStack(spacing: 1) { column(groups, hero: true) }
+            } first: { layout in
+                if layout.mode == .tabletop, let round {
+                    RoundClockHero(round: round, caption: caption(round, groups), fill: true)
+                } else {
+                    VStack(spacing: 1) { column(groups, hero: true) }
+                }
+            } second: { layout in
+                if layout.mode == .tabletop {
+                    VStack(spacing: 1) { column(groups, hero: false) }
+                } else {
+                    VStack(spacing: 1) {
+                        Bar(title: "Standings", subtitle: round.map { $0.name(of: event.numberOfRounds) })
+                        standingsTab(groups)
+                    }
                 }
             }
-            PhaseTabs(tabs: tabs, selection: $tab)
-            if let error = ctx.error { Notice(error, error: true) }
-
-            switch tab {
-            case "standings": standingsTab(groups)
-            case "schedule": RotoScheduleView(b: b)
-            case "players": playersTab
-            case "teams": TeamsEditor(b: b, refresh: ctx.refresh)
-            case "rounds": earlierTab
-            default: roundTab(groups)
-            }
-
-            bigAction
         }
         .alert(repairAlert.title, isPresented: Binding(get: { repairFrom != nil }, set: { if !$0 { repairFrom = nil } })) {
             Button("Not yet", role: .cancel) {}
@@ -867,6 +869,36 @@ private struct OrganizerLiveView: View {
         } message: {
             Text(repairAlert.message)
         }
+    }
+
+    /// Tabletop while a round's clock runs; standings beside the round tab when there's room.
+    private var foldModes: Set<FoldLayout.Mode> {
+        var modes: Set<FoldLayout.Mode> = []
+        if round != nil && event.showClock { modes.insert(.tabletop) }
+        if tab == "round" { modes.formUnion([.wide, .book]) }
+        return modes
+    }
+
+    @ViewBuilder
+    private func column(_ groups: MatchGroups, hero: Bool) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Bar(title: event.name, subtitle: subtitle(at: context.date), back: { dismiss() }) {
+                BarButton("More") { showMore() }
+            }
+        }
+        PhaseTabs(tabs: tabs, selection: $tab)
+        if let error = ctx.error { Notice(error, error: true) }
+
+        switch tab {
+        case "standings": standingsTab(groups)
+        case "schedule": RotoScheduleView(b: b)
+        case "players": playersTab
+        case "teams": TeamsEditor(b: b, refresh: ctx.refresh)
+        case "rounds": earlierTab
+        default: roundTab(groups, hero: hero)
+        }
+
+        bigAction
     }
 
     private var repairAlert: (title: String, message: String, results: Int) {
@@ -913,7 +945,7 @@ private struct OrganizerLiveView: View {
     // MARK: round
 
     @ViewBuilder
-    private func roundTab(_ g: MatchGroups) -> some View {
+    private func roundTab(_ g: MatchGroups, hero: Bool = true) -> some View {
         HairlineList {
             if let prompt = RepairRound.prompt(b.rounds) {
                 Notice(prompt.text)
@@ -922,7 +954,7 @@ private struct OrganizerLiveView: View {
             if let clinch = ctx.engine.clinched { Notice("\(clinch.text) You can finish now; open matches won't count.") }
             if let round {
                 if event.showClock {
-                    RoundClockHero(round: round, caption: caption(round, g))
+                    if hero { RoundClockHero(round: round, caption: caption(round, g)) }
                     HStack(spacing: 1) {
                         Ghost(text: round.clockPaused ? "Resume clock" : "Pause clock") {
                             clock(round, round.clockPaused ? .resume : .pause)
@@ -1217,6 +1249,8 @@ private struct MatchGroups {
 private struct RoundClockHero: View {
     let round: RoundRow
     let caption: String
+    /// Folded into tabletop: the clock fills the upright half, large enough to read across the room.
+    var fill = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -1229,15 +1263,15 @@ private struct RoundClockHero: View {
             }
             LabelText(caption)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: fill ? .infinity : nil)
         .padding(.vertical, 20).padding(.horizontal, 16)
         .background(T1.surface)
     }
 
     private func clock(_ left: Int) -> some View {
         Text(clockText(left))
-            .font(T1.mono(64)).tracking(4).monospacedDigit()
-            .lineLimit(1).minimumScaleFactor(0.5)
+            .font(T1.mono(fill ? 200 : 64)).tracking(fill ? 8 : 4).monospacedDigit()
+            .lineLimit(1).minimumScaleFactor(fill ? 0.2 : 0.5)
             .foregroundStyle(round.clockPaused ? T1.muted : left == 0 ? T1.danger : T1.text)
     }
 }

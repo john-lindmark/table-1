@@ -78,29 +78,41 @@ struct CardDetailView: View {
         let inView = chosen.map { [$0] } ?? versions
         let current = chosen ?? CardDetailRules.main(versions) ?? draft ?? fresh
         T1Screen {
-            bar(current, inView: inView)
-            if let message = error ?? col.error { Notice(message, error: true) }
-            CatalogStatusRow(catalog: catalog)
-            if looked && oracle == nil && catalog.phase == .ready { Notice("That card isn't in the card data.", error: true) }
-            if let oracle, let current {
-                if info {
-                    status
-                    CardInfoView(oracle: oracle, printing: byId[current.cardId], version: current, printings: printings,
-                                 context: context, path: path, versions: versions,
-                                 report: { label, undo in report(label, undo) })
-                } else {
-                    cardArea(versions, current: current)
-                    status
-                    if last == nil, let list = listId.flatMap({ lists.list(id: $0) }) { matchRow(list) }
-                    attributes(inView.isEmpty ? [current] : inView, owned: !versions.isEmpty)
-                    if isSearch {
-                        BigBarButton(text: "Add to") { openAddTo([current]) }
+            // Foldables (contract/foldables-2026-11-10.md § The screens): wide, tabletop or book put the card alone in
+            // the first pane and everything you do with it in the second; Details then keeps the card in view.
+            FoldSplit(screen: "card_detail", enabled: oracle != nil && current != nil) {
+                VStack(spacing: 1) {
+                    bar(current, inView: inView)
+                    notices
+                    if let oracle, let current {
+                        if info {
+                            status
+                            infoView(oracle, current: current, versions: versions)
+                        } else {
+                            cardArea(versions, current: current)
+                            status
+                            controls(versions, chosen: chosen, inView: inView, current: current)
+                        }
                     } else {
-                        stepper(versions, chosen: chosen, inView: inView, current: current)
+                        Spacer(minLength: 0)
                     }
                 }
-            } else {
-                Spacer(minLength: 0)
+            } first: { _ in
+                if let current { cardArea(versions, current: current) }
+            } second: { _ in
+                VStack(spacing: 1) {
+                    bar(current, inView: inView)
+                    notices
+                    if let oracle, let current {
+                        status
+                        if info {
+                            infoView(oracle, current: current, versions: versions)
+                        } else {
+                            Spacer(minLength: 0)
+                            controls(versions, chosen: chosen, inView: inView, current: current)
+                        }
+                    }
+                }
             }
         }
         .task(id: catalog.generation) {
@@ -118,6 +130,29 @@ struct CardDetailView: View {
         }
         .onChange(of: versions.map(\.id)) { _, ids in
             if let s = selected, s != Self.editionId, !ids.contains(s) { selected = nil }
+        }
+    }
+
+    @ViewBuilder private var notices: some View {
+        if let message = error ?? col.error { Notice(message, error: true) }
+        CatalogStatusRow(catalog: catalog)
+        if looked && oracle == nil && catalog.phase == .ready { Notice("That card isn't in the card data.", error: true) }
+    }
+
+    private func infoView(_ oracle: CatalogOracle, current: CardVersion, versions: [CardVersion]) -> some View {
+        CardInfoView(oracle: oracle, printing: byId[current.cardId], version: current, printings: printings,
+                     context: context, path: path, versions: versions,
+                     report: { label, undo in report(label, undo) })
+    }
+
+    /// Match collection, the attribute row and the stepper (or Add to): under the card, or the second pane.
+    @ViewBuilder private func controls(_ versions: [CardVersion], chosen: CardVersion?, inView: [CardVersion], current: CardVersion) -> some View {
+        if last == nil, let list = listId.flatMap({ lists.list(id: $0) }) { matchRow(list) }
+        attributes(inView.isEmpty ? [current] : inView, owned: !versions.isEmpty)
+        if isSearch {
+            BigBarButton(text: "Add to") { openAddTo([current]) }
+        } else {
+            stepper(versions, chosen: chosen, inView: inView, current: current)
         }
     }
 

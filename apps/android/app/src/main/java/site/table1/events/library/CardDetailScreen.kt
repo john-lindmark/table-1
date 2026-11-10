@@ -1,5 +1,7 @@
 package site.table1.events.library
 
+import site.table1.events.ui.components.FoldSplit
+import site.table1.events.ui.components.paneInsets
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -358,17 +360,21 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
         scope.launch { CardImageLoader.load(url, 1400)?.let { zoom = it.asAndroidBitmap() to p.setLabel } }
     }
 
-    T1Screen {
+    /** The screen whole (part 0), the card alone (1, a fold's first pane) or the bar and controls (2, the second). */
+    @Composable
+    fun ColumnScope.Body(part: Int) {
         val price = pricesVersion.let { current?.let { PriceBook.marked(PriceBook.text(PriceBook.usd(it.cardId, it.finish, it.condition)), PriceBook.converted(it.cardId, it.finish)) } }
-        CardBar(o?.name ?: "Card", price, onBack, info,
+        if (part != 1) CardBar(o?.name ?: "Card", price, onBack, info,
             onAdd = if (!isSearch && o != null && current != null) ({ openAddTo(current) }) else null,
             onInfo = if (o != null) ({ info = !info; if (info) Telemetry.capture("card_info_opened", mapOf("scope" to scopeName)) }) else null)
-        (error ?: col.error)?.let { Notice(it, error = true) }
-        CatalogStatus(cat)
-        if (looked && o == null && cat.phase == "ready") Notice("That card isn't in the card data.", error = true)
+        if (part != 1) {
+            (error ?: col.error)?.let { Notice(it, error = true) }
+            CatalogStatus(cat)
+            if (looked && o == null && cat.phase == "ready") Notice("That card isn't in the card data.", error = true)
+        }
         if (o == null || current == null) {
             Box(Modifier.weight(1f))
-            return@T1Screen
+            return
         }
         @Composable fun Status() {
             last?.let { u ->
@@ -382,14 +388,16 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
                 }
             } ?: notice?.let { Notice(it) }
         }
-        if (info) {
+        if (info && part != 1) {
             Status()
             CardInfo(o, byId[current.cardId], current, printings, list, context, lists.lists, Modifier.weight(1f), onList,
                 match?.let { m -> m.detail to { openMatch() } }) { l, u -> report(l, u) }
-            return@T1Screen
+            return
         }
-        // The card: one image as large as fits, or a two-column grid of versions.
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().background(T1.bg)) {
+        // The card: one image as large as fits, or a two-column grid of versions. In the second pane (part 2) the
+        // controls sit at the bottom under the bar.
+        if (part == 2) Box(Modifier.weight(1f))
+        if (part != 2) BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().background(T1.bg)) {
             val tiles = versions.map { Triple(it, it.id, false) } + listOfNotNull(edition?.let { Triple(it, EDITION, true) })
             if (tiles.size > 1) {
                 val tile = ((minOf(maxWidth - 64.dp, maxWidth * (376f / 440f)) - 1.dp) / 2)
@@ -435,6 +443,7 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
                 }
             }
         }
+        if (part == 1) return
         Status()
         if (last == null) match?.let { m ->
             Row(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -486,6 +495,15 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
             }
         }
     }
+
+    // Foldables (contract/foldables-2026-11-10.md § The screens): wide, tabletop or book put the card alone in the
+    // first pane and everything you do with it in the second; Details then keeps the card in view.
+    FoldSplit("card_detail", enabled = o != null && current != null, single = { T1Screen { Body(0) } }, first = { layout ->
+        Column(Modifier.fillMaxSize().background(T1.bg).paneInsets(layout.mode, first = true)) { Body(1) }
+    }, second = { layout ->
+        Column(Modifier.fillMaxSize().background(T1.bg).paneInsets(layout.mode, first = false),
+            verticalArrangement = Arrangement.spacedBy(1.dp)) { Body(2) }
+    })
 
     // Pickers and panels over the screen.
     picker?.let { a ->

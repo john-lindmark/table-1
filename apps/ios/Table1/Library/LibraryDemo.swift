@@ -387,7 +387,9 @@ struct LibraryDemoRoot: View {
 
     var body: some View {
         // Stacked over the app's tab bar on the Collection home, as in the app, for design QA (taps do nothing here).
-        VStack(spacing: 0) {
+        let rail = WindowFold.shared.rail
+        let stack = rail == nil ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
+        stack {
             NavigationStack(path: $path) {
                 LibraryHomeView(path: $path)
                     .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $path) }
@@ -399,7 +401,7 @@ struct LibraryDemoRoot: View {
                     T1TabItem(id: 1, label: "Collection", icon: .tabCollection),
                     T1TabItem(id: 2, label: "Insights", icon: .tabInsights),
                     T1TabItem(id: 3, label: "Account", icon: .tabAccount),
-                ], selection: 1) { _ in }
+                ], selection: 1, rail: rail) { _ in }
             }
         }
         .overlay(alignment: .top) {

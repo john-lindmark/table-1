@@ -42,10 +42,14 @@
              join QR's code scanner (play-services-code-scanner): starting it before it's installed crashes (bug #34). -->
         <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="ocr,ocr_japanese,ocr_chinese,ocr_korean,barcode_ui" />
 
+        <!-- Folding, unfolding, turning and resizing (contract/foldables-2026-11-10.md): Compose redraws for the new
+             window instead of the activity restarting, so a ranking screen, a tracker picker or a half-typed form
+             stays exactly where it was (Android's foldables guidance on continuity). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|keyboard|keyboardHidden|navigation"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

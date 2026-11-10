@@ -1236,6 +1236,8 @@ struct RankingPackView: View {
     @Environment(\.dismiss) private var dismiss
     private var model: RankingModel { RankingsStore.shared.model(rankingId) }
     @State private var pack: [String] = []
+    /// The grid's own width (never the screen's: iPhone Duo and resizable windows, contract/foldables-2026-11-10.md).
+    @State private var gridWidth: CGFloat = 390
     @State private var picked: String?
     /// After Pick: the verdict before it's saved (disagreements), or after (agreed / settled).
     @State private var verdict: Verdict?
@@ -1299,11 +1301,12 @@ struct RankingPackView: View {
             .padding(16)
         }
         .frame(height: packHeight)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { gridWidth = $0 }
         .background(T1.bg)
     }
 
     private var packHeight: CGFloat {
-        let w = (UIScreen.main.bounds.width - 32 - 16) / 3
+        let w = (gridWidth - 32 - 16) / 3
         let rows = CGFloat((pack.count + 2) / 3)
         return 32 + rows * (w / CardArt.aspect) + max(0, rows - 1) * 8
     }
