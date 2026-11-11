@@ -28,10 +28,10 @@ create or replace function pg_temp.seat_of(p_name text) returns text language sq
   select d.name || '#' || p.seat from public.participants p join public.pods d on d.id = p.pod_id
    where p.display_name = p_name order by p.created_at desc limit 1
 $$;
-create or replace function pg_temp.pid(p_name text) returns uuid language sql as $$
+create or replace function pg_temp.pid(p_name text) returns uuid language sql security definer as $$
   select id from public.participants where display_name = p_name order by created_at desc limit 1
 $$;
-create or replace function pg_temp.pod(p_event uuid, p_name text) returns uuid language sql as $$
+create or replace function pg_temp.pod(p_event uuid, p_name text) returns uuid language sql security definer as $$
   select id from public.pods where event_id = p_event and name = p_name
 $$;
 

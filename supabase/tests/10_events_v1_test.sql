@@ -1,6 +1,7 @@
 -- End-to-end checks for 20261006120000_events_v1_accounts_records.sql against the local baseline.
 \set ON_ERROR_STOP 1
 \set QUIET 1
+\ir _helpers.sql
 
 create or replace function pg_temp.as_user(p uuid) returns void language plpgsql as $$
 begin perform set_config('request.jwt.claim.sub', coalesce(p::text, ''), false); end $$;
@@ -109,10 +110,11 @@ select pg_temp.eq('dan joins by scanning the current QR',
 reset role;
 select pg_temp.eq('join path audited', (select string_agg(after->>'via', ',' order by at) from public.audit_log where action = 'participant.joined'), 'nearby,nearby_alert,qr');
 
--- Exact event location is not readable by clients, and events select * still works
+-- Exact event location is not readable by clients; signed out, the events table is closed too
+-- (privacy lockdown step 3: signed-out reads go through event_preview / event_public).
 set role anon;
-select pg_temp.eq('event_locations hidden from clients', (select count(*)::text from public.event_locations), '0');
-select pg_temp.eq('anon still reads events', (select name from public.events), 'Tuesday Cube');
+select pg_temp.throws('event_locations hidden from clients', $$select count(*) from public.event_locations$$, '42501');
+select pg_temp.throws('signed out reads no events table', $$select name from public.events$$, '42501');
 reset role;
 
 -- Walk-in without an account (V0 token flow)

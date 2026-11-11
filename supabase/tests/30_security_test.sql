@@ -54,7 +54,7 @@ select pg_temp.throws('anon cannot make binders', $$select public.binder_save(ge
 select pg_temp.throws('anon cannot move copies', $$select public.binder_move('[]'::jsonb, gen_random_uuid())$$);
 select pg_temp.throws('anon cannot change wants', $$select public.wants_apply('[]'::jsonb, gen_random_uuid())$$);
 select pg_temp.throws('anon cannot sync binders', $$select public.library_changes(0, 10)$$);
-select pg_temp.eq('anon reads no tokens', (select count(*)::text from public.participant_tokens), '0');
+select pg_temp.throws('anon reads no tokens', $$select count(*) from public.participant_tokens$$, '42501');
 reset role;
 
 -- Trigger-only and internal functions are not callable as RPCs by clients.

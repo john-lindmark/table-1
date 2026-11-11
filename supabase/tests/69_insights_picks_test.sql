@@ -51,5 +51,5 @@ select pg_temp.eq('the owner''s picks are untouched',
 -- Signed out: nothing.
 reset role;
 set role anon;
-select pg_temp.eq('signed out reads no settings', (select count(*) from public.user_settings)::text, '0');
+select pg_temp.throws('signed out reads no settings', $$select count(*) from public.user_settings$$, '42501');
 reset role;

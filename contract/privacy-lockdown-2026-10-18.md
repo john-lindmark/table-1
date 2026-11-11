@@ -79,3 +79,18 @@ engine's ranked rows (no participant list); guests send their claim token to `ev
 
 Step 3 (needs John's OK, after the iOS build with `event_bundle` is on TestFlight): `profiles` readable only as your own
 row; event tables readable by members only; signed-out callers get nothing from tables.
+
+**Step 3, built 2026-11-11** (migration `20261111170000_privacy_lockdown_tables.sql`, test
+`supabase/tests/90b_privacy_lockdown_tables_test.sql`; found in a security audit: the tables were still open to anyone
+with the public key, so every event (private ones too), every participant's name and account id, every result and
+every account's name and handle could be read directly):
+
+- `events`, `participants`, `pods`, `event_teams`, `rounds`, `matches`, `match_sides`: every read policy dropped; one
+  `*_member_read` policy each, `to authenticated using (public.in_event(event_id))` (organizer or player). Members on
+  any build, and the tracker's `postgres_changes` on `rounds`, keep working.
+- `profiles`: `profiles_own_read` (your own row). Clients only read their own `display_name`/`handle`; everyone else
+  is `people()`. The column-level update grant (handle, display_name) stays; no direct insert or delete.
+- Signed out (`anon`), tables answer **permission denied (42501)** except the card catalog (`cards`, `card_oracles`,
+  `card_names`, `card_prices`, `mtg_sets`). Signed-out screens use `event_preview`, `event_public`, share links.
+- No client role keeps a write privilege (or `truncate`, which skips RLS) on a table without a write policy; signed in,
+  only `devices`, `notification_prefs`, `user_settings` and `profiles` can be written, each to your own row.

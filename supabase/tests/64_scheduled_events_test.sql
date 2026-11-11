@@ -2,6 +2,13 @@
 -- (20261027120000_scheduled_events, contract/scheduled-events-2026-10-27.md).
 \ir _helpers.sql
 
+-- Event ids for steps that act as non-members (who can no longer read the events table).
+create function pg_temp.shop() returns uuid language sql security definer as $$
+  select id from public.events where venue_name = 'The Shop' $$;
+create function pg_temp.private_event() returns uuid language sql security definer as $$
+  select id from public.events where visibility = 'private' limit 1 $$;
+grant execute on function pg_temp.shop(), pg_temp.private_event() to anon, authenticated;
+
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a1', 'ana@example.com'),
   ('00000000-0000-0000-0000-0000000000b1', 'bea@example.com'),
@@ -75,12 +82,12 @@ select pg_temp.eq('the organizer sees the waitlist in order', (select string_agg
   from jsonb_array_elements(public.event_bundle(:'ev')->'waitlist') w), 'cal#1,dee#2');
 select pg_temp.as_user(:B);
 select pg_temp.eq('a player sees no waitlist', jsonb_array_length(public.event_bundle(:'ev')->'waitlist')::text, '0');
-select pg_temp.throws('only organizers let people in', $$select public.waitlist_admit((select id from public.events where venue_name = 'The Shop'), '00000000-0000-0000-0000-0000000000d1')$$, '42501');
+select pg_temp.throws('only organizers let people in', $$select public.waitlist_admit(pg_temp.shop(), '00000000-0000-0000-0000-0000000000d1')$$, '42501');
 
 -- Bea leaves: Cal moves up and is told; Dee is first now.
 select pg_temp.eq('Bea leaves', public.event_leave(:'ev')->>'status', 'left');
-select pg_temp.eq('Cal moved up', (select count(*) from public.participants where event_id = :'ev' and user_id = :C)::text, '1');
 reset role;
+select pg_temp.eq('Cal moved up', (select count(*) from public.participants where event_id = :'ev' and user_id = :C)::text, '1');
 select pg_temp.eq('Cal got a push', (select count(*) from pgmq.messages where msg->>'kind' = 'event.waitlist_in'
   and msg->'user_ids' ? '00000000-0000-0000-0000-0000000000c1')::text, '1');
 set role authenticated;
@@ -94,13 +101,18 @@ select pg_temp.eq('auto rounds follow (3 → 2)', (select number_of_rounds::text
 select pg_temp.eq('lowering the cap keeps everyone', (select x->>'players' from public.set_event_schedule(:'ev', now() + interval '12 days', 'The Shop', 2) x), '3');
 
 -- A code join on a full event: signed in → the waitlist; signed out → full.
+reset role;
+select short_code as ev_code from public.events where id = :'ev' \gset
+set role authenticated;
 select pg_temp.as_user(:E);
 select pg_temp.eq('Eli joins by code and waits', (select (x->>'error') || '|' || (x->>'waitlisted') || '|' || (x->>'position')
-  from public.join_event((select short_code from public.events where id = :'ev'), 'Eli') x), 'full|true|1');
+  from public.join_event(:'ev_code', 'Eli') x), 'full|true|1');
+reset role;
+select short_code as shop_code, id as shop_id from public.events where venue_name = 'The Shop' \gset
 select pg_temp.as_user(null);
 set role anon;
-select pg_temp.eq('a guest is told it''s full', (select x->>'message' from public.join_event((select short_code from public.events where venue_name = 'The Shop'), 'Walk-in') x), 'This event is full');
-select pg_temp.throws('signing up needs an account', $$select public.event_sign_up((select id from public.events where venue_name = 'The Shop'))$$, '42501');
+select pg_temp.eq('a guest is told it''s full', (select x->>'message' from public.join_event(:'shop_code', 'Walk-in') x), 'This event is full');
+select pg_temp.throws('signing up needs an account', format($$select public.event_sign_up(%L)$$, :'shop_id'), '42501');
 set role authenticated;
 
 select pg_temp.as_user(:A);
@@ -123,7 +135,7 @@ reset role;
 update public.events set visibility = 'private' where id = :'priv';
 set role authenticated;
 select pg_temp.as_user(:C);
-select pg_temp.throws('a private event can''t be signed up for', $$select public.event_sign_up((select e.id from public.events e where e.visibility = 'private'))$$, '42501');
+select pg_temp.throws('a private event can''t be signed up for', $$select public.event_sign_up(pg_temp.private_event())$$, '42501');
 
 -- Round 1 closes sign-ups and leaving; auto rounds stop following.
 reset role;
@@ -131,13 +143,13 @@ insert into public.rounds (event_id, number, status) values (:'ev', 1, 'active')
 update public.events set status = 'in_progress', current_round = 1 where id = :'ev';
 set role authenticated;
 select pg_temp.as_user(:B);
-select pg_temp.throws('sign-ups close at round 1', $$select public.event_sign_up((select id from public.events where venue_name = 'The Shop'))$$, '55000');
+select pg_temp.throws('sign-ups close at round 1', $$select public.event_sign_up(pg_temp.shop())$$, '55000');
 select pg_temp.eq('the page says closed', (select x->>'sign_up' from public.event_public(:'ev') x), 'closed');
 select pg_temp.as_user(:C);
-select pg_temp.throws('players can''t leave once it''s started', $$select public.event_leave((select id from public.events where venue_name = 'The Shop'))$$, '55000');
-select pg_temp.throws('details lock', $$select public.set_event_schedule((select id from public.events where venue_name = 'The Shop'), null, null, null)$$, '42501');
+select pg_temp.throws('players can''t leave once it''s started', $$select public.event_leave(pg_temp.shop())$$, '55000');
+select pg_temp.throws('details lock', $$select public.set_event_schedule(pg_temp.shop(), null, null, null)$$, '42501');
 select pg_temp.as_user(:A);
-select pg_temp.throws('details lock for the organizer too', $$select public.set_event_schedule((select id from public.events where venue_name = 'The Shop'), null, null, null)$$, '55000');
+select pg_temp.throws('details lock for the organizer too', $$select public.set_event_schedule(pg_temp.shop(), null, null, null)$$, '55000');
 reset role;
 insert into public.participants (event_id, display_name) values (:'ev', 'Late');
 select pg_temp.eq('number_of_rounds stays once paired', (select number_of_rounds::text from public.events where id = :'ev'), '2');

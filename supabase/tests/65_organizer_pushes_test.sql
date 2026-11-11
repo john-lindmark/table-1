@@ -42,12 +42,16 @@ select pg_temp.eq('still one push', pg_temp.pushes(:'ev'), 'signed_up:Bea>0a');
 
 select pg_temp.as_user(:C);
 select pg_temp.eq('Cal goes on the waitlist', public.event_sign_up(:'ev')->>'status', 'waitlisted');
+reset role;
+select short_code as ev_code from public.events where id = :'ev' \gset
+set role authenticated;
 select pg_temp.as_user(:D);
-select pg_temp.eq('Dee too, by join code', (select x->>'waitlisted' from public.join_event((select short_code from public.events where id = :'ev'), 'Dee') x), 'true');
+select pg_temp.eq('Dee too, by join code', (select x->>'waitlisted' from public.join_event(:'ev_code', 'Dee') x), 'true');
 select pg_temp.as_user(:C);
 select pg_temp.eq('Cal leaves the waitlist', public.event_leave(:'ev')->>'status', 'left_waitlist');
 select pg_temp.as_user(:B);
 select pg_temp.eq('Bea drops', public.event_leave(:'ev')->>'status', 'left');
+select pg_temp.as_user(:D);
 select pg_temp.eq('Dee moved up', (select count(*) from public.participants where event_id = :'ev' and user_id = :D)::text, '1');
 select pg_temp.eq('waitlist and drops reach Ana; moving up behind Bea is not Dee''s own sign-up', pg_temp.pushes(:'ev'),
   'signed_up:Bea>0a signed_up:Cal:w>0a signed_up:Dee:w>0a dropped:Cal:w>0a dropped:Bea>0a');
@@ -70,10 +74,11 @@ select pg_temp.as_user(:A);
 select (public.create_event_v2(p_format_name => 'pioneer', p_rounds => 3)->>'event_id') as open_ev \gset
 reset role;
 insert into public.event_members (event_id, user_id, role) values (:'open_ev', :E, 'organizer');
+select short_code as open_code from public.events where id = :'open_ev' \gset
 set role anon;
 select pg_temp.as_user(null);
 select pg_temp.eq('a guest joins by code', (select (x->>'participant_id' is not null)::text
-  from public.join_event((select short_code from public.events where id = :'open_ev'), ' Sam ') x), 'true');
+  from public.join_event(:'open_code', ' Sam ') x), 'true');
 select pg_temp.eq('both organizers hear it', pg_temp.pushes(:'open_ev'), 'signed_up:Sam>0a,0e');
 
 -- Demo events stay quiet.
@@ -81,7 +86,7 @@ reset role;
 update public.events set is_demo = true where id = :'open_ev';
 set role authenticated;
 select pg_temp.as_user(:C);
-select public.join_event((select short_code from public.events where id = :'open_ev'), 'Cal');
+select public.join_event(:'open_code', 'Cal');
 select pg_temp.as_user(null);
 reset role;
 select pg_temp.eq('demo events tell nobody', pg_temp.pushes(:'open_ev'), 'signed_up:Sam>0a,0e');
