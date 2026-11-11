@@ -37,6 +37,14 @@ private struct Cases: Decodable {
 final class OfflineTests: XCTestCase {
     private func cases() throws -> Cases { try JSONDecoder().decode(Cases.self, from: Data(contentsOf: casesURL)) }
 
+    /// Bug #39 (seen on Android): an offline call (no DNS) went to Sentry as an error.
+    func testOfflineIsNotReported() throws {
+        XCTAssertFalse(Telemetry.reports(URLError(.cannotFindHost)))
+        XCTAssertFalse(Telemetry.reports(URLError(.notConnectedToInternet)))
+        XCTAssertFalse(Telemetry.reports(CancellationError()))
+        XCTAssertTrue(Telemetry.reports(NSError(domain: "T1", code: 1)))
+    }
+
     func testAgo() throws {
         for c in try cases().ago { XCTAssertEqual(Offline.ago(c.seconds), c.label, "\(c.seconds) s") }
     }

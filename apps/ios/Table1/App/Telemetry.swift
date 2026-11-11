@@ -148,8 +148,14 @@ enum Telemetry {
 
     /// A failure the app recovered from but that shouldn't happen.
     static func error(_ error: Error, _ area: String) {
-        guard sentryOn else { return }
+        guard sentryOn, reports(error) else { return }
         SentrySDK.capture(error: error) { $0.setTag(value: area, key: "area") }
+    }
+
+    /// Cancellations and failures to reach the server (offline, no DNS, timeouts) are expected, never reported
+    /// (bug #39, seen on Android: an offline call's error got through to Sentry).
+    nonisolated static func reports(_ error: Error) -> Bool {
+        !error.isCancellation && !Offline.isNetwork(error)
     }
 
     // MARK: Live Activities and widgets

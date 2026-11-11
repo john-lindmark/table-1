@@ -180,9 +180,13 @@ object Telemetry {
 
     /** A failure the app recovered from but that shouldn't happen. */
     fun error(error: Throwable, area: String) {
-        if (!sentryOn || error is CancellationException) return
+        if (!sentryOn || !reports(error)) return
         Sentry.captureException(error) { it.setTag("area", area) }
     }
+
+    /** Cancellations and failures to reach the server (offline, no DNS, timeouts) are expected, never reported
+     *  (bug #39: supabase-kt wraps an offline call's IOException in HttpRequestException, which got through). */
+    fun reports(error: Throwable): Boolean = error !is CancellationException && !Offline.isNetwork(error)
 
     // live notifications and widgets
 

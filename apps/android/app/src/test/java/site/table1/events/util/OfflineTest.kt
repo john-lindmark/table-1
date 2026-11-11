@@ -93,3 +93,17 @@ class OfflineTest {
         assertNull(out.firstOrNull { it.cardId == "c" })
     }
 }
+
+/** Bug #39: an offline catalog_info call (supabase-kt's HttpRequestException around an UnknownHostException) went to Sentry. */
+class TelemetryReportsTest {
+    @Test fun offlineIsNotReported() {
+        val offline = io.github.jan.supabase.exceptions.HttpRequestException(
+            "Unable to resolve host \"aaozhfcbvqrgkkrihkrd.supabase.co\": No address associated with hostname",
+            io.ktor.client.request.HttpRequestBuilder(),
+        )
+        assertFalse(Telemetry.reports(offline))
+        assertFalse(Telemetry.reports(java.net.UnknownHostException("x")))
+        assertFalse(Telemetry.reports(CancellationException("left")))
+        assertTrue(Telemetry.reports(IllegalStateException("a real bug")))
+    }
+}
