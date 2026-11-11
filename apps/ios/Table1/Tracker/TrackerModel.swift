@@ -219,6 +219,8 @@ struct TrackerState: Decodable {
     let mySide: Int?
     /// The organizer keeping score for a match with no accounts (guests only); they report as organizer.
     let keeper: Bool?
+    /// The match's result is in (reported, confirmed or disputed): no more games can be recorded.
+    let resultIn: Bool?
     let names: [String]?
     let eventName: String?
     let round: Int?
@@ -282,6 +284,8 @@ final class TrackerModel {
     let matchId: String?
     var phase: Phase = .loading
     var sessionId: String?
+    /// The match's result is in, so Record is off (contract/life-tracker-options-2026-10-20.md § After the result is in).
+    var resultIn = false
     var eventName: String?
     var round: Int?
     var table: Int?
@@ -315,6 +319,8 @@ final class TrackerModel {
 
     var isSynced: Bool { matchId != nil }
     var readOnly: Bool { isSynced && mySide == nil }
+    /// Record is offered while the match is still open: never once its result has been submitted.
+    var canRecord: Bool { !readOnly && !(isSynced && resultIn) }
     /// My half sits at the bottom; the organizer watching sees side 0 at the bottom.
     var bottomSide: Int { mySide ?? 0 }
     var topSide: Int { 1 - bottomSide }
@@ -587,12 +593,20 @@ final class TrackerModel {
 
     /// Called only after the player confirmed. Synced: pushes pending taps first, then the server records.
     func record(winner: Int?, draw: Bool) async throws {
-        guard !readOnly else { return }
+        guard canRecord else { return }
         let game = currentGame
         let before = games.count
         if let sid = sessionId, isSynced {
             await flushNow()
-            let state = try await Repo.trackerRecordGame(sid, gameNo: game, winnerSide: draw ? nil : winner, draw: draw)
+            let state: TrackerState
+            do {
+                state = try await Repo.trackerRecordGame(sid, gameNo: game, winnerSide: draw ? nil : winner, draw: draw)
+            } catch {
+                // Refused because the result came in meanwhile (from the other phone or the event screen):
+                // read the state so Record turns off, then say why.
+                await refetch()
+                throw error
+            }
             apply(state)
         } else {
             games.append(TrackerGame(gameNo: game, winnerSide: draw ? nil : winner, isDraw: draw,
@@ -607,10 +621,12 @@ final class TrackerModel {
         guard let matchId, let side = mySide else { return }
         if keeper {
             try await Repo.setMatchResult(matchId, side0: wins(0), side1: wins(1), draws: draws, reason: "Life tracker")
+            resultIn = true
             return
         }
         try await LiveAPI.report(matchId: matchId, mySide: side, my: wins(side), their: wins(1 - side),
                                  draws: draws, version: nil)
+        resultIn = true
     }
 
     private func gamesChanged(from before: Int) {
@@ -672,6 +688,7 @@ final class TrackerModel {
         startingLife = state.startingLife ?? 20
         mySide = state.mySide
         keeper = state.keeper ?? false
+        resultIn = state.resultIn ?? false
         if let n = state.names, n.count == 2 { names = n }
         eventName = state.eventName
         round = state.round

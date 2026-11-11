@@ -1,6 +1,6 @@
 # Life tracker: Reset, Options, chooser, dice (2026-10-20)
 
-Client-only. No server change. Figma: tracker `73:5420` (strip), Options panel `231:9191`.
+Client-only except § After the result is in. Figma: tracker `73:5420` (strip), Options panel `231:9191`.
 
 ## Strip
 
@@ -16,6 +16,28 @@ Reset always asks first (native alert, the one platform-native piece).
 - Local session with recorded games: the alert offers **Reset game** (as above, games stay) and
   **Reset match** (games cleared too, 0–0; names, starting life and counter columns stay).
 - Synced match: recorded games are the event's record and stay; the alert says so.
+
+## After the result is in (2026-11-11)
+
+John: "restrict the ability to record additional wins in the tracker if the match results have already been
+submitted". A synced match's games are settled once the match has a result: reported by either player (the
+tracker's Report or the event screen), confirmed, disputed, or entered by the organizer.
+
+- Server: `tracker_record_game` refuses a new game with PT409 (HTTP 409) "The result for this match is already
+  in" once `matches.status` leaves `pending` (helper `public.tracker_result_in`, closed to clients). A resend of a game already recorded with the same answer still returns the state. Clearing the result
+  (Re-pair round with results cleared) puts the match back to `pending` and the tracker records again.
+  `tracker_state` (and `tracker_open`, which returns it) gains `result_in` (boolean; older servers leave it out,
+  read as false). Migration `20261111150000_tracker_result_lock.sql`, test `62b_tracker_result_lock_test.sql`.
+- Clients: Record reads **Result in** in the disabled color and does nothing (strip and fold controls). It turns
+  off when the state says so (open, every refetch: back to the app, a realtime rejoin), right after this phone
+  reports, and when a Record is refused (the error shows, then the state is read again). Life, counters, Undo,
+  Reset game and History keep working; Report now stays (reporting the same score confirms the opponent's).
+  No `event:<id>` subscription in the tracker: the client libraries hand back the event screen's own channel for
+  that topic, and closing the tracker would unsubscribe it.
+- Local tables are never locked.
+- Rule `canRecord` (iOS `TrackerModel.canRecord`, web `canRecord` in `tracker.ts`, Android `TrackerDoc.canRecord`);
+  tests `TrackerResultTests` / `tracker.test.ts` / `TrackerResultTest`.
+- Telemetry `tracker_record_refused {reason: result_in}`.
 
 ## Options (231:9191)
 

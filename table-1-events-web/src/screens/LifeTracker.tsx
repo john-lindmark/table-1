@@ -21,6 +21,7 @@ import {
   historyGroups,
   makeOp,
   matchDecided,
+  canRecord,
   matchScore,
   pickerCounters,
   resetOps,
@@ -66,6 +67,8 @@ interface Model {
   /** The side at the bottom of the screen that this person plays; null = watching. */
   mySide: Side | null;
   readOnly: boolean;
+  /** Synced: the match's result is in, so Record is off. */
+  resultIn?: boolean;
   ops: TrackerOp[];
   games: TrackerGame[];
   synced: boolean;
@@ -84,6 +87,8 @@ interface Controller {
   add: (ops: TrackerOp[]) => void;
   record: (gameNo: number, winner: Side | null, draw: boolean) => Promise<void>;
   resetGame: () => void;
+  /** Synced: this device reported the match. */
+  markReported?: () => void;
   newMatch?: () => void;
   /** Local only: a new table from Setup (clears games and history, names the players). */
   configure?: (players: number, life: number) => void;
@@ -209,6 +214,7 @@ function useSyncedTracker(matchId: string): Controller {
       startingLife: m.starting_life ?? 20,
       mySide: m.my_side,
       readOnly: m.my_side == null,
+      resultIn: !!m.result_in,
       ops: snap.ops,
       games: snap.games,
       synced: true,
@@ -228,6 +234,7 @@ function useSyncedTracker(matchId: string): Controller {
       if (!syncRef.current) throw new Error("The tracker isn't open yet");
       await syncRef.current.recordGame(gameNo, winner, draw);
     },
+    markReported: () => syncRef.current?.markResultIn(),
     resetGame: () => {
       if (!model) return;
       add(resetOps(model.ops, currentGameNo(model.games), model.startingLife));
@@ -417,6 +424,12 @@ function Board({
   const theirWins = score.wins[top];
   const winner = settledWinner(t, commander, top, bottom);
   const canEdit = !m.readOnly;
+  const recordOn = canRecord(m);
+  const recordLabel = recordOn ? "Record" : "Result in";
+  const startRecord = () => {
+    if (!recordOn) return;
+    setFlow(winner != null ? { step: "confirm", winner, draw: false } : { step: "pick" });
+  };
   const meLabel = m.synced || m.names[bottom] === "You" ? "Me" : m.names[bottom];
   const currentHistory = historyGroups(m.ops, gameNo, m.startingLife);
 
@@ -460,6 +473,9 @@ function Board({
       if (matchDecided(gamesAfter(winner, draw), players)) setDecided(true);
     } catch (e) {
       setFlowError(errorText(e));
+      if (typeof e === "object" && e && "code" in e && (e as { code: unknown }).code === "PT409") {
+        capture("tracker_record_refused", { reason: "result_in" });
+      }
     } finally {
       setRecording(false);
     }
@@ -530,11 +546,8 @@ function Board({
         <div className="h-12 flex items-stretch">
           <div className="flex-1 flex">
             {canEdit && (
-              <StripButton
-                accent={winner != null}
-                onClick={() => setFlow(winner != null ? { step: "confirm", winner, draw: false } : { step: "pick" })}
-              >
-                Record
+              <StripButton accent={recordOn && winner != null} disabled={!recordOn} onClick={startRecord}>
+                {recordLabel}
               </StripButton>
             )}
           </div>
@@ -583,11 +596,8 @@ function Board({
             </div>
             <div className={`flex gap-px ${fold.mode === "book" ? "flex-col" : "h-[72px]"}`}>
               {canEdit && (
-                <FoldAction
-                  accent={winner != null}
-                  onClick={() => setFlow(winner != null ? { step: "confirm", winner, draw: false } : { step: "pick" })}
-                >
-                  Record
+                <FoldAction accent={recordOn && winner != null} disabled={!recordOn} onClick={startRecord}>
+                  {recordLabel}
                 </FoldAction>
               )}
               <FoldAction onClick={() => setPanel("options")}>Options</FoldAction>
@@ -782,6 +792,7 @@ function Board({
           bottom={bottom}
           onClose={() => setDecided(false)}
           onDone={onClose}
+          onReported={() => ctl.markReported?.()}
           onNewMatch={
             ctl.newMatch
               ? () => {
@@ -846,6 +857,7 @@ function DecidedDialog({
   bottom,
   onClose,
   onDone,
+  onReported,
   onNewMatch,
 }: {
   model: Model;
@@ -855,6 +867,7 @@ function DecidedDialog({
   bottom: Side;
   onClose: () => void;
   onDone: () => void;
+  onReported?: () => void;
   onNewMatch?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -890,6 +903,7 @@ function DecidedDialog({
     try {
       await reportFromHome(model.matchId!, model.mySide!, myWins, theirWins, undefined, draws);
       setSent(true);
+      onReported?.();
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -934,12 +948,13 @@ function DecidedDialog({
 /* ── pieces ────────────────────────────────────────────────────────────── */
 
 /** One of the folded tracker's controls: a full-size target on the flat half. */
-function FoldAction({ children, onClick, accent }: { children: ReactNode; onClick: () => void; accent?: boolean }) {
+function FoldAction({ children, onClick, accent, disabled }: { children: ReactNode; onClick: () => void; accent?: boolean; disabled?: boolean }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={`${LABEL} flex-1 min-h-[72px] bg-t1-bg active:bg-t1-surface transition-colors duration-150 ${
-        accent ? "text-t1-accent" : "text-t1-text"
+        disabled ? "text-t1-disabled" : accent ? "text-t1-accent" : "text-t1-text"
       }`}
     >
       {children}
@@ -948,12 +963,13 @@ function FoldAction({ children, onClick, accent }: { children: ReactNode; onClic
 }
 
 /** Strip Button (Figma 73:5656): label, pressed = surface. Accent means "the result" (a game was lost). */
-function StripButton({ children, onClick, accent }: { children: ReactNode; onClick: () => void; accent?: boolean }) {
+function StripButton({ children, onClick, accent, disabled }: { children: ReactNode; onClick: () => void; accent?: boolean; disabled?: boolean }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={`${LABEL} h-12 px-4 shrink-0 bg-t1-bg active:bg-t1-surface transition-colors duration-150 ${
-        accent ? "text-t1-accent" : "text-t1-text"
+        disabled ? "text-t1-disabled" : accent ? "text-t1-accent" : "text-t1-text"
       }`}
     >
       {children}

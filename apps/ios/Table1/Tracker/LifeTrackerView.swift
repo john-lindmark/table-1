@@ -224,7 +224,8 @@ struct LifeTrackerView: View {
             let actions = book ? AnyLayout(VStackLayout(spacing: 1)) : AnyLayout(HStackLayout(spacing: 1))
             actions {
                 if !model.readOnly {
-                    FoldAction(text: busy ? "Saving…" : "Record", accent: model.settledWinner != nil) { if !busy { recordTapped() } }
+                    FoldAction(text: recordText, accent: model.canRecord && model.settledWinner != nil,
+                               disabled: !model.canRecord) { if !busy { recordTapped() } }
                 }
                 FoldAction(text: "Options") { showOptions() }
                 if !model.readOnly { FoldAction(text: "Reset") { resetPrompt = true } }
@@ -270,7 +271,8 @@ struct LifeTrackerView: View {
                 ZStack(alignment: .leading) {
                     Color.clear
                     if !model.readOnly {
-                        StripButton(busy ? "Saving…" : "Record", accent: model.settledWinner != nil) { if !busy { recordTapped() } }
+                        StripButton(recordText, accent: model.canRecord && model.settledWinner != nil,
+                                    disabled: !model.canRecord) { if !busy { recordTapped() } }
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -358,7 +360,11 @@ struct LifeTrackerView: View {
         showChooser()
     }
 
+    /// "Result in" once the match's result has been submitted: games can't be added after it.
+    private var recordText: String { busy ? "Saving…" : model.canRecord ? "Record" : "Result in" }
+
     private func recordTapped() {
+        guard model.canRecord else { return }
         if let winner = model.settledWinner {
             pendingRecord = WinnerChoice(winner: winner)
         } else {
@@ -465,6 +471,7 @@ struct LifeTrackerView: View {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } catch {
                 actionError = error.localizedDescription
+                if !model.canRecord { Telemetry.capture("tracker_record_refused", ["reason": "result_in"]) }
             }
         }
     }
@@ -728,14 +735,16 @@ private struct CounterPicker: View {
 private struct FoldAction: View {
     let text: String
     var accent = false
+    var disabled = false
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            LabelText(text, color: accent ? T1.accent : T1.text)
+            LabelText(text, color: disabled ? T1.disabled : accent ? T1.accent : T1.text)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
         }
         .buttonStyle(PressFill())
+        .disabled(disabled)
     }
 }
 
@@ -743,23 +752,26 @@ struct StripButton: View {
     let title: String
     var accent = false
     var rotated = false
+    var disabled = false
     let action: () -> Void
-    init(_ title: String, accent: Bool = false, rotated: Bool = false, action: @escaping () -> Void) {
+    init(_ title: String, accent: Bool = false, rotated: Bool = false, disabled: Bool = false, action: @escaping () -> Void) {
         self.title = title
         self.accent = accent
         self.rotated = rotated
+        self.disabled = disabled
         self.action = action
     }
 
     var body: some View {
         Button(action: action) {
-            LabelText(title, color: accent ? T1.accent : T1.text)
+            LabelText(title, color: disabled ? T1.disabled : accent ? T1.accent : T1.text)
                 .rotationEffect(.degrees(rotated ? 180 : 0))
                 .padding(.horizontal, 16)
                 .frame(height: 48)
                 .contentShape(Rectangle())
         }
         .buttonStyle(PressFill())
+        .disabled(disabled)
     }
 }
 

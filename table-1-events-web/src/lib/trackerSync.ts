@@ -106,8 +106,23 @@ export class TrackerSync {
     if (this.queue.some((o) => o.game_no === gameNo)) {
       throw new Error("Life changes are still waiting to send. Check your connection and try again.");
     }
-    const state = await trackerRecordGame(this.meta.session_id, gameNo, winnerSide, draw);
+    let state: TrackerState;
+    try {
+      state = await trackerRecordGame(this.meta.session_id, gameNo, winnerSide, draw);
+    } catch (e) {
+      // Refused because the result came in meanwhile (the other phone or the event screen): read the state so
+      // Record turns off, then say why.
+      await this.resync();
+      throw e;
+    }
     if (!this.closed) this.apply(state);
+  }
+
+  /** This device just reported the match: Record turns off without waiting for a read. */
+  markResultIn() {
+    if (!this.meta || this.meta.result_in) return;
+    this.meta = { ...this.meta, result_in: true };
+    this.emit();
   }
 
   close() {

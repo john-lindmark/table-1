@@ -349,6 +349,8 @@ data class TrackerState(
     @SerialName("event_id") val eventId: String? = null,
     @SerialName("starting_life") val startingLife: Int = 20,
     @SerialName("my_side") val mySide: Int? = null,
+    /** The match's result is in (reported, confirmed or disputed): no more games can be recorded. */
+    @SerialName("result_in") val resultIn: Boolean = false,
     val names: List<String>? = null,
     @SerialName("event_name") val eventName: String? = null,
     val round: Int? = null,

@@ -177,6 +177,7 @@
 		A43951DDFAAE7E22529D7F82 /* MetaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E654F885A4E8BB2E28E1A13 /* MetaWidget.swift */; };
 		A5BA9E32D7FCDCCCB544FF7D /* WidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 738481C3E4D90E192835CD87 /* WidgetViews.swift */; };
 		A6252395C95F3625EF7D3610 /* insights-demo-widget-modern.json in Resources */ = {isa = PBXBuildFile; fileRef = 37BA0A42AB2B4358C6B025E4 /* insights-demo-widget-modern.json */; };
+		A628E9D15062599703FD9B4A /* TrackerResultTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F739ACD36A39454F4F0000EA /* TrackerResultTests.swift */; };
 		A91695BA51EE13AB55A1B435 /* Prices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DEBB4B6FB502FD419464DB /* Prices.swift */; };
 		A9B29FB6F1E5049356EC5530 /* BugsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2916A9FCCD30997AFCFBF26F /* BugsTests.swift */; };
 		AA18C4873606A59EE0F5D0CA /* TrackerToolsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27D70D37E0D41352AEB48679 /* TrackerToolsTests.swift */; };
@@ -559,6 +560,7 @@
 		EDF5B5BF738823A00AF4BE22 /* InsightChartViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightChartViews.swift; sourceTree = "<group>"; };
 		F4767165483EE84E3E9EC265 /* DeckFinderJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckFinderJobs.swift; sourceTree = "<group>"; };
 		F5BD0795A13AC897EDBDD0DA /* Table1WidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Table1WidgetsBundle.swift; sourceTree = "<group>"; };
+		F739ACD36A39454F4F0000EA /* TrackerResultTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerResultTests.swift; sourceTree = "<group>"; };
 		F75DE22C045863227DB630BF /* DeckPhotoPromptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckPhotoPromptTests.swift; sourceTree = "<group>"; };
 		FA62ADA52B58392618A6A222 /* DiscordSignInTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscordSignInTests.swift; sourceTree = "<group>"; };
 		FC1DA5EA10F583F3622B1F29 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -707,6 +709,7 @@
 				2A58D77D68C5D44D9BC95D78 /* SpotsTests.swift */,
 				560FAECA3D862382F5616015 /* SupportTests.swift */,
 				B315C86A391E28E160556A28 /* TelemetryTests.swift */,
+				F739ACD36A39454F4F0000EA /* TrackerResultTests.swift */,
 				333F2D78A13779DEA5EF8525 /* TrackerTableTests.swift */,
 				27D70D37E0D41352AEB48679 /* TrackerToolsTests.swift */,
 				C43C53CE7466CCA393B65C8C /* TradesStoreTests.swift */,
@@ -1254,6 +1257,7 @@
 				2B829B4A57CFC7151F8A404C /* SpotsTests.swift in Sources */,
 				BC1F33BA988F6B3DD5D78083 /* SupportTests.swift in Sources */,
 				2CFD4D7040430A9A75487FD5 /* TelemetryTests.swift in Sources */,
+				A628E9D15062599703FD9B4A /* TrackerResultTests.swift in Sources */,
 				B52F9A11047D6E1F237AAB78 /* TrackerTableTests.swift in Sources */,
 				AA18C4873606A59EE0F5D0CA /* TrackerToolsTests.swift in Sources */,
 				976660A2A840C1DEF55C74D9 /* TradesStoreTests.swift in Sources */,

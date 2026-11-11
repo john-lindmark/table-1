@@ -250,6 +250,12 @@ export function matchScore(games: TrackerGame[], players = 2): MatchScore {
   return { wins, draws, played: games.length };
 }
 
+/** Record is offered while a synced match is still open: never once its result has been submitted
+ *  (contract/life-tracker-options-2026-10-20.md § After the result is in). Local tables always record. */
+export function canRecord(m: { readOnly: boolean; synced: boolean; resultIn?: boolean }): boolean {
+  return !m.readOnly && !(m.synced && m.resultIn);
+}
+
 /** Best of three: someone has two wins, or three games have been played. A bigger table plays game after game. */
 export function matchDecided(games: TrackerGame[], players = 2): boolean {
   if (players > 2) return false;

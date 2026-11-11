@@ -1740,6 +1740,10 @@
             ],
             "description": "0/1 for a player; 0 for the organizer when keeper; null = watching (read-only)."
           },
+          "result_in": {
+            "type": "boolean",
+            "description": "The match's result is in (reported, confirmed, disputed or organizer-entered): tracker_record_game refuses new games (PT409). Missing on older servers = false."
+          },
           "names": {
             "type": "array",
             "items": {

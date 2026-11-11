@@ -220,9 +220,11 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
         controller.error != null -> T1.danger
         else -> T1.disabled
     }
-    val onRecord = {
+    val onRecord: () -> Unit = {
         val winner = d.settledWinner()
-        if (winner != null) confirming = Winner(winner, false) else picking = true
+        if (d.canRecord) {
+            if (winner != null) confirming = Winner(winner, false) else picking = true
+        }
     }
 
     // Foldables (contract/foldables-2026-11-10.md § The screens): tabletop stands every seat upright on the top half
@@ -252,7 +254,7 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
             d,
             context = stripContext,
             contextColor = stripColor,
-            recordAccent = !d.readOnly && d.settledWinner() != null,
+            recordAccent = d.canRecord && d.settledWinner() != null,
             busy = controller.busy,
             onOptions = { panel = "options" },
             onReset = { resetting = true },
@@ -289,7 +291,7 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
     }, second = { layout ->
         FoldControls(
             d, book = layout.mode == FoldMode.Book, context = stripContext, contextColor = stripColor,
-            recordAccent = !d.readOnly && d.settledWinner() != null, busy = controller.busy,
+            recordAccent = d.canRecord && d.settledWinner() != null, busy = controller.busy,
             onRecord = onRecord, onOptions = { panel = "options" }, onReset = { resetting = true },
         )
     })
@@ -494,7 +496,7 @@ private fun InfoStrip(
         }
         Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
-                if (!d.readOnly) StripButton(if (busy) "Saving…" else "Record", accent = recordAccent, onClick = { if (!busy) onRecord() })
+                if (!d.readOnly) StripButton(recordText(d, busy), accent = recordAccent, disabled = !d.canRecord, onClick = { if (!busy) onRecord() })
             }
             StripButton("Options", onClick = onOptions)
             Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
@@ -543,24 +545,24 @@ private fun FoldControls(
             Label("Game ${d.currentGame} · ${d.scoreText}", color = T1.muted)
         }
         @Composable
-        fun Action(text: String, accent: Boolean, modifier: Modifier, onClick: () -> Unit) {
+        fun Action(text: String, accent: Boolean, modifier: Modifier, onClick: () -> Unit, disabled: Boolean = false) {
             val interaction = remember { MutableInteractionSource() }
             val pressed by interaction.collectIsPressedAsState()
             Box(
                 modifier.background(if (pressed) T1.surface else T1.bg)
-                    .clickable(interactionSource = interaction, indication = null, onClick = onClick),
+                    .clickable(enabled = !disabled, interactionSource = interaction, indication = null, onClick = onClick),
                 contentAlignment = Alignment.Center,
-            ) { Label(text, color = if (accent) T1.accent else T1.text) }
+            ) { Label(text, color = if (disabled) T1.disabled else if (accent) T1.accent else T1.text) }
         }
         if (book) {
             Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                if (!d.readOnly) Action(if (busy) "Saving…" else "Record", recordAccent, Modifier.fillMaxWidth().height(72.dp)) { if (!busy) onRecord() }
+                if (!d.readOnly) Action(recordText(d, busy), recordAccent, Modifier.fillMaxWidth().height(72.dp), { if (!busy) onRecord() }, disabled = !d.canRecord)
                 Action("Options", false, Modifier.fillMaxWidth().height(72.dp), onOptions)
                 if (!d.readOnly) Action("Reset", false, Modifier.fillMaxWidth().height(72.dp), onReset)
             }
         } else {
             Row(Modifier.fillMaxWidth().height(72.dp), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                if (!d.readOnly) Action(if (busy) "Saving…" else "Record", recordAccent, Modifier.weight(1f).fillMaxHeight()) { if (!busy) onRecord() }
+                if (!d.readOnly) Action(recordText(d, busy), recordAccent, Modifier.weight(1f).fillMaxHeight(), { if (!busy) onRecord() }, disabled = !d.canRecord)
                 Action("Options", false, Modifier.weight(1f).fillMaxHeight(), onOptions)
                 if (!d.readOnly) Action("Reset", false, Modifier.weight(1f).fillMaxHeight(), onReset)
             }
@@ -568,19 +570,26 @@ private fun FoldControls(
     }
 }
 
+/** "Result in" once the match's result has been submitted: games can't be added after it. */
+private fun recordText(d: TrackerDoc, busy: Boolean): String = when {
+    busy -> "Saving…"
+    d.canRecord -> "Record"
+    else -> "Result in"
+}
+
 /** Strip Button: a label with a surface fill while pressed. Accent means "the result" (a game was lost). */
 @Composable
-internal fun StripButton(text: String, accent: Boolean = false, onClick: () -> Unit) {
+internal fun StripButton(text: String, accent: Boolean = false, disabled: Boolean = false, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val fill by animateColorAsState(if (pressed) T1.surface else T1.bg, tween(150), label = "strip")
     Box(
         Modifier.height(48.dp).background(fill)
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .clickable(enabled = !disabled, interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Label(text, color = if (accent) T1.accent else T1.text)
+        Label(text, color = if (disabled) T1.disabled else if (accent) T1.accent else T1.text)
     }
 }
 

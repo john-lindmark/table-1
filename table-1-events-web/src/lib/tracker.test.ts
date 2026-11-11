@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canRecord,
   clampDelta,
   clockProgress,
   clockRemaining,
@@ -221,5 +222,21 @@ describe("counter columns", () => {
     const off = toggleCounter(prefs, shown, "energy");
     expect(shownCounters(values, off)).toEqual(["poison", "rad"]);
     expect(off.off).toEqual(["energy"]);
+  });
+});
+
+describe("canRecord (contract/life-tracker-options-2026-10-20.md § After the result is in)", () => {
+  it("records while a synced match has no result", () => {
+    expect(canRecord({ readOnly: false, synced: true, resultIn: false })).toBe(true);
+    expect(canRecord({ readOnly: false, synced: true })).toBe(true); // older servers leave it out
+  });
+  it("stops once the result is in", () => {
+    expect(canRecord({ readOnly: false, synced: true, resultIn: true })).toBe(false);
+  });
+  it("never records while watching", () => {
+    expect(canRecord({ readOnly: true, synced: true, resultIn: false })).toBe(false);
+  });
+  it("local tables always record", () => {
+    expect(canRecord({ readOnly: false, synced: false, resultIn: true })).toBe(true);
   });
 });

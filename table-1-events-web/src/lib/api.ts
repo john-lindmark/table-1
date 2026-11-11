@@ -1269,6 +1269,8 @@ export interface TrackerState {
   event_id: string;
   starting_life: number;
   my_side: Side | null;
+  /** The match's result is in (reported, confirmed or disputed): no more games can be recorded. Older servers leave it out. */
+  result_in?: boolean;
   names: string[];
   event_name: string;
   round: number;

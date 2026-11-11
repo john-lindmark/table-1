@@ -21,6 +21,7 @@ import site.table1.events.data.Repo
 import site.table1.events.data.TrackerGame
 import site.table1.events.data.TrackerOp
 import site.table1.events.data.TrackerState
+import site.table1.events.util.Telemetry
 import java.time.Instant
 
 /**
@@ -192,7 +193,7 @@ class TrackerController(context: Context, private val matchId: String?) {
     /** Called only after the player confirmed in the dialog. */
     fun recordGame(winnerSide: Int?, draw: Boolean) {
         val d = doc ?: return
-        if (d.readOnly) return
+        if (!d.canRecord) return
         val game = d.currentGame
         if (!synced) {
             update(d.copy(games = d.games + TrackerGame(game, if (draw) null else winnerSide, draw, Instant.now().toString())))
@@ -205,7 +206,12 @@ class TrackerController(context: Context, private val matchId: String?) {
             flush()
             runCatching { Repo.trackerRecordGame(sid, game, if (draw) null else winnerSide, draw) }
                 .onSuccess { applyState(it); error = null }
-                .onFailure { error = it.message }
+                .onFailure {
+                    error = it.message
+                    // Refused because the result came in meanwhile: read the state so Record turns off.
+                    runCatching { Repo.trackerState(sid) }.onSuccess { s -> applyState(s) }
+                    if (doc?.resultIn == true) Telemetry.capture("tracker_record_refused", mapOf("reason" to "result_in"))
+                }
             busy = false
         }
     }
@@ -216,7 +222,7 @@ class TrackerController(context: Context, private val matchId: String?) {
         val mid = d.matchId ?: matchId ?: return false
         val side = d.mySide ?: return false
         return runCatching { Repo.reportFromHome(mid, side, d.wins(side), d.wins(1 - side), null, d.draws) }
-            .onSuccess { doc?.let { cur -> update(cur.copy(promptedAt = cur.games.size)) }; error = null }
+            .onSuccess { doc?.let { cur -> update(cur.copy(promptedAt = cur.games.size, resultIn = true)) }; error = null }
             .onFailure { error = it.message }
             .isSuccess
     }
@@ -299,6 +305,7 @@ class TrackerController(context: Context, private val matchId: String?) {
                 pending = keep.map { it.clientOpId },
                 promptedAt = cur?.promptedAt ?: 0,
                 counterPrefs = cur?.counterPrefs ?: listOf(CounterPrefs(), CounterPrefs()),
+                resultIn = s.resultIn,
             ),
         )
         lastChange = System.currentTimeMillis()

@@ -117,8 +117,12 @@ data class TrackerDoc(
     val promptedAt: Int = 0,
     /** Counter columns per side (index = side). */
     val counterPrefs: List<CounterPrefs> = listOf(CounterPrefs(), CounterPrefs()),
+    /** Synced: the match's result is in, so Record is off (contract/life-tracker-options-2026-10-20.md § After the result is in). */
+    val resultIn: Boolean = false,
 ) {
     val readOnly: Boolean get() = synced && mySide == null
+    /** Record is offered while the match is still open: never once its result has been submitted. */
+    val canRecord: Boolean get() = !readOnly && !(synced && resultIn)
     val bottomSide: Int get() = mySide ?: 0
     val topSide: Int get() = 1 - bottomSide
     val currentGame: Int get() = games.size + 1
