@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Photos
 
 /// What a long press on a made picture offers, in the system's own menu (contract/deck-image-2026-10-20.md § Long press):
 /// Copy, Save to Photos, Share. Copy and Save return what to say; Share opens the system share sheet.
@@ -12,6 +13,20 @@ struct MadeImageActions {
     static func copy(_ image: UIImage) -> String {
         UIPasteboard.general.image = image
         return "Copied the image."
+    }
+
+    /// Added to Photos (add-only access), or what stopped it.
+    static func save(_ image: UIImage) async -> String {
+        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        guard status == .authorized || status == .limited else {
+            return "Allow Photos in Settings → Table 1, or use Share → Save Image."
+        }
+        do {
+            try await PHPhotoLibrary.shared().performChanges { PHAssetChangeRequest.creationRequestForAsset(from: image) }
+            return "Saved to Photos."
+        } catch {
+            return error.localizedDescription
+        }
     }
 }
 

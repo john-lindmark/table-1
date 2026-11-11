@@ -452,36 +452,38 @@ struct DeckPhotoCard: View {
     let url: URL?
     let turns: Int
     let onTap: () -> Void
+    @State private var loaded: UIImage?
+    /// The photo upright as its player turned it: what Copy, Save to Photos and Share hand over.
+    @State private var turned: UIImage?
+    @State private var share: ShareFile?
+    @State private var said: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Rectangle().fill(T1.bg)
                 .aspectRatio(4 / 3, contentMode: .fit)
                 .overlay {
-                    if let url {
-                        GeometryReader { g in
-                            AsyncImage(url: url) { phase in
-                                if let image = phase.image {
-                                    // Whole photo, never cropped, turned as its player set it: fitted into the box's
-                                    // swapped sides for a quarter turn, then rotated into place.
-                                    let odd = turns % 2 == 1
-                                    image.resizable().scaledToFit()
-                                        .frame(width: odd ? g.size.height : g.size.width, height: odd ? g.size.width : g.size.height)
-                                        .rotationEffect(.degrees(Double(turns) * 90))
-                                        .frame(width: g.size.width, height: g.size.height)
-                                } else {
-                                    LabelText("Loading…").frame(width: g.size.width, height: g.size.height)
-                                }
-                            }
+                    GeometryReader { g in
+                        if let loaded {
+                            // Whole photo, never cropped, turned as its player set it: fitted into the box's
+                            // swapped sides for a quarter turn, then rotated into place.
+                            let odd = turns % 2 == 1
+                            Image(uiImage: loaded).resizable().scaledToFit()
+                                .frame(width: odd ? g.size.height : g.size.width, height: odd ? g.size.width : g.size.height)
+                                .rotationEffect(.degrees(Double(turns) * 90))
+                                .frame(width: g.size.width, height: g.size.height)
+                        } else if url != nil {
+                            LabelText("Loading…").frame(width: g.size.width, height: g.size.height)
                         }
                     }
                 }
                 .clipped()
+                .modifier(PhotoMenu(image: turned, actions: actions))
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     LabelText(photo.mine ? "\(photo.player) · you" : photo.player, color: T1.text)
                     Spacer()
-                    if photo.editable { LabelText("Edit") }
+                    if let said { LabelText(said, color: T1.accent) } else if photo.editable { LabelText("Edit") }
                 }
                 if !photo.note.isEmpty { Text(photo.note).font(T1.mono(13)).foregroundStyle(T1.text) }
             }
@@ -490,6 +492,68 @@ struct DeckPhotoCard: View {
         .background(T1.surface)
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
+        .accessibilityActions {
+            if turned != nil {
+                Button("Copy") { said = actions.copy() }
+                Button("Save to Photos") { Task { said = await actions.save() } }
+                Button("Share") { actions.share() }
+            }
+        }
+        .sheet(item: $share) { ShareSheet(share: $0).ignoresSafeArea() }
+        .task(id: url) { await load() }
+        .task(id: turns) { turn() }
+        .task(id: said) {
+            guard said != nil else { return }
+            try? await Task.sleep(for: .seconds(3))
+            said = nil
+        }
+    }
+
+    /// Long press: Copy, Save to Photos, Share (contract/event-night-2026-10-16.md § 7 "Long press").
+    private var actions: MadeImageActions {
+        MadeImageActions(
+            copy: { turned.map(MadeImageActions.copy) ?? "" },
+            save: {
+                guard let turned else { return "" }
+                return await MadeImageActions.save(turned)
+            },
+            share: {
+                guard let data = turned?.jpegData(compressionQuality: 0.9) else { return }
+                let url = FileManager.default.temporaryDirectory.appending(path: "deck-photo")
+                    .appending(path: DeckPhotoTurns.fileName(photo.player))
+                do {
+                    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                    try data.write(to: url, options: .atomic)
+                    share = ShareFile(url: url)
+                } catch {
+                    said = "Couldn't share the photo."
+                }
+            })
+    }
+
+    private func load() async {
+        guard let url else { loaded = nil; turned = nil; return }
+        guard let (data, _) = try? await URLSession.shared.data(from: url), let image = UIImage(data: data) else { return }
+        loaded = image
+        turn()
+    }
+
+    private func turn() {
+        turned = loaded?.deckRendered(turns: turns, longest: 2048)
+    }
+}
+
+/// The system context menu on a deck photo once it has loaded; nothing before.
+private struct PhotoMenu: ViewModifier {
+    let image: UIImage?
+    let actions: MadeImageActions
+
+    func body(content: Content) -> some View {
+        if let image {
+            content.madeImageMenu(image, actions, screen: "deck_photo")
+        } else {
+            content
+        }
     }
 }
 
@@ -543,6 +607,13 @@ private struct DeckNotePanel: View {
 /// Quarter turns clockwise for a deck photo, 0–3 (same rule as web `turnDeckPhoto` and Android `deckPhotoTurn`).
 enum DeckPhotoTurns {
     static func turn(_ turns: Int, by: Int) -> Int { ((turns + by) % 4 + 4) % 4 }
+
+    /// The shared file's name: "Deck photo - Ann Ito.jpg" (letters, digits, spaces and dashes kept).
+    static func fileName(_ player: String) -> String {
+        let kept = String(player.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) || $0 == " " || $0 == "-" })
+            .trimmingCharacters(in: .whitespaces)
+        return kept.isEmpty ? "Deck photo.jpg" : "Deck photo - \(kept).jpg"
+    }
 
     /// Longest side at most `longest`, never upscaled, then the sides swapped for an odd number of turns.
     static func size(width: Double, height: Double, turns: Int, longest: Double = 2048) -> (width: Double, height: Double) {

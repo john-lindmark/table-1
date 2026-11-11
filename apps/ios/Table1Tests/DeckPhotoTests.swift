@@ -17,6 +17,13 @@ private struct Cases: Decodable {
 final class DeckPhotoTests: XCTestCase {
     private func cases() throws -> Cases { try JSONDecoder().decode(Cases.self, from: Data(contentsOf: casesURL)) }
 
+    /// Long press → Share names the file after the player (Android deckPhotoFileName says the same).
+    func testShareFileName() {
+        XCTAssertEqual(DeckPhotoTurns.fileName("Ann Ito"), "Deck photo - Ann Ito.jpg")
+        XCTAssertEqual(DeckPhotoTurns.fileName("Zoë O'Brien / 2"), "Deck photo - Zoë OBrien  2.jpg")
+        XCTAssertEqual(DeckPhotoTurns.fileName(" ?! "), "Deck photo.jpg")
+    }
+
     func testTurns() throws {
         for c in try cases().turn {
             XCTAssertEqual(DeckPhotoTurns.turn(c.turns, by: c.by), c.out, "\(c.turns) by \(c.by)")

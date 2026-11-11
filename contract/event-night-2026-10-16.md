@@ -108,6 +108,18 @@ still to do. Wire names are in `rpc.schema.json`.
   event). Telemetry: screen `my_deck_photos`, `my_deck_photo_opened` {to: event | event_photos}; `deck_photo_turned`,
   `deck_photo_note_saved` and `deck_photo_removed` gain `from` (event | account). Demo: iOS `-T1EventsDemo account
   [-T1Open deckphotos]`, web `/me/deck-photos?demo`.
+- **Long press** (2026-11-11; John: "if I access photos from the organizer view in events, long press doesn't do
+  anything"): every deck photo, on the event's Deck photos screen (organizer and players) and on Account → Deck photos,
+  answers a long press with **Copy**, **Save to Photos** and **Share**, like the Deck image (contract/deck-image-2026-10-20.md
+  § Long press). What's handed over is the photo upright as shown (its saved turns drawn in, at most 2048 px on the long
+  side); the stored file is never rewritten. A tap still opens the photo's own menu (Rotate, note, Remove) for whoever
+  may edit it. iOS: the system context menu once the photo has loaded (`DeckPhotoCard` loads it itself now, not with
+  AsyncImage), Copy/Save answered in place of Edit for 3 s, VoiceOver actions; Save uses `MadeImageActions.save`
+  (add-only Photos access). Android: the photo is read again on the long press, then the `MadeImageMenu` (Copy as a
+  FileProvider image, Save to Pictures/Table 1, Share). Web: the browser's own image menu; the picture is no longer
+  inside a button, and a turned photo is drawn upright into a blob URL so Copy and Save get what's on screen. Shared
+  files are named "Deck photo - <player>.jpg" (`DeckPhotoTurns.fileName` / `deckPhotoFileName`). Telemetry
+  `image_menu` {screen: deck_photo, how}.
 
 ## Web (2026-10-30)
 

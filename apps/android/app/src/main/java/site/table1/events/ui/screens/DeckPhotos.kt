@@ -10,9 +10,11 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -49,6 +51,7 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.storage
 import io.ktor.http.ContentType
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -59,6 +62,11 @@ import site.table1.events.T1App
 import site.table1.events.data.EventBundle
 import site.table1.events.data.ParticipantRow
 import site.table1.events.data.Repo
+import site.table1.events.library.MadeImageActions
+import site.table1.events.library.MadeImageMenu
+import site.table1.events.library.copyImage
+import site.table1.events.library.saveToPhotos
+import site.table1.events.library.shareImage
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BigAction
 import site.table1.events.ui.components.Ghost
@@ -74,6 +82,7 @@ import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.net.URL
 import java.util.UUID
 import kotlin.time.Duration.Companion.hours
 
@@ -403,10 +412,31 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit) {
     }
 }
 
-/** One uploaded photo, whole and turned as its player set it, with its player and note. */
+/** One uploaded photo, whole and turned as its player set it, with its player and note. A long press offers Copy,
+    Save to Photos and Share of the photo upright as shown (contract/event-night-2026-10-16.md § 7 "Long press"). */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DeckPhotoCard(photo: DeckPhoto, url: String?, turns: Int, onClick: (() -> Unit)?) {
-    Column(Modifier.fillMaxWidth().background(T1.surface).let { if (onClick != null) it.clickable { onClick() } else it }) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var menu by remember { mutableStateOf<Bitmap?>(null) }
+    var said by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(said) { if (said != null) { delay(3000); said = null } }
+    val fileName = deckPhotoFileName(photo.player)
+    fun open() {
+        val from = url ?: return
+        scope.launch {
+            val bytes = runCatching { withContext(Dispatchers.IO) { URL(from).readBytes() } }.getOrNull()
+            val upright = bytes?.let { withContext(Dispatchers.Default) { deckPhotoBitmap(it, turns) } }
+            if (upright == null) said = "Couldn't load the photo." else menu = upright
+        }
+    }
+    Column(Modifier.fillMaxWidth().background(T1.surface).combinedClickable(
+        enabled = onClick != null || url != null,
+        onLongClickLabel = "Copy, save or share",
+        onLongClick = { open() },
+        onClick = { onClick?.invoke() },
+    )) {
         BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(T1.bg).clipToBounds(), contentAlignment = Alignment.Center) {
             if (url != null) {
                 // Whole photo, never cropped, turned as its player set it: fitted into the box's swapped
@@ -422,9 +452,24 @@ fun DeckPhotoCard(photo: DeckPhoto, url: String?, turns: Int, onClick: (() -> Un
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Label(if (photo.mine) "${photo.player} · you" else photo.player, Modifier.weight(1f), color = T1.text)
-                if (onClick != null) Label("Edit")
+                val shown = said
+                if (shown != null) Label(shown, color = T1.accent) else if (onClick != null) Label("Edit")
             }
             if (photo.note.isNotEmpty()) Text(photo.note, color = T1.text, fontFamily = T1.mono, fontSize = 13.sp)
         }
     }
+    menu?.let { image ->
+        MadeImageMenu(MadeImageActions(
+            copy = { runCatching { copyImage(context, image, fileName) }.fold({ "Copied the image." }, { "Couldn't copy: ${it.message}" }) },
+            save = { runCatching { saveToPhotos(context, image, fileName) }.fold({ "Saved to Photos." }, { "Couldn't save. Use Share instead." }) },
+            share = { runCatching { shareImage(context, image, fileName) }.onFailure { said = "Couldn't share the photo." } },
+        ), "deck_photo", said = { said = it }) { menu = null }
+    }
+}
+
+/** The shared file's name: "Deck photo - Ann Ito.jpg" (letters, digits, spaces and dashes kept; iOS
+    DeckPhotoTurns.fileName says the same). */
+fun deckPhotoFileName(player: String): String {
+    val kept = player.filter { it.isLetterOrDigit() || it == ' ' || it == '-' }.trim()
+    return if (kept.isEmpty()) "Deck photo.jpg" else "Deck photo - $kept.jpg"
 }

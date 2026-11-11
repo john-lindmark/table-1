@@ -90,7 +90,7 @@ class MadeImageActions(val copy: suspend () -> String, val save: suspend () -> S
 
 /** The long-press menu; `said` gets Copy's and Save's answer. */
 @Composable
-private fun MadeImageMenu(actions: MadeImageActions, screen: String, said: (String) -> Unit, onDismiss: () -> Unit) {
+internal fun MadeImageMenu(actions: MadeImageActions, screen: String, said: (String) -> Unit, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     fun pick(how: String, run: suspend () -> Unit) {
         Telemetry.capture("image_menu", mapOf("screen" to screen, "how" to how))

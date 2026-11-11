@@ -234,28 +234,15 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
         <Notice tone="info">No deck photos yet.</Notice>
       ) : null}
       {photos.photos.map((photo) => (
-        <button
+        <PhotoCard
           key={photo.id}
-          type="button"
-          onClick={() => edit(photo)}
-          disabled={!photo.editable}
-          className="bg-t1-surface flex flex-col text-left"
-        >
-          <div className="w-full aspect-[4/3] bg-t1-bg overflow-hidden flex items-center justify-center relative">
-            {urls[photo.path] ? (
-              <TurnedPhoto src={urls[photo.path]} alt={`${photo.player}'s deck`} turns={turning[photo.id] ?? photo.turns} />
-            ) : (
-              <span className="t1-label">Loading…</span>
-            )}
-          </div>
-          <div className="px-4 py-3 flex flex-col gap-1.5 w-full">
-            <div className="flex items-center gap-3">
-              <span className="t1-label !text-t1-text flex-1 truncate">{photo.mine ? `${photo.player} · you` : photo.player}</span>
-              {photo.editable && <span className="t1-label">Edit</span>}
-            </div>
-            {photo.note && <p className="text-[13px] whitespace-pre-wrap">{photo.note}</p>}
-          </div>
-        </button>
+          src={urls[photo.path]}
+          player={photo.mine ? `${photo.player} · you` : photo.player}
+          alt={`${photo.player}'s deck`}
+          note={photo.note}
+          turns={turning[photo.id] ?? photo.turns}
+          onEdit={photo.editable ? () => edit(photo) : undefined}
+        />
       ))}
 
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden
@@ -417,22 +404,15 @@ export function MyDeckPhotosScreen({ onBack, onOpenEvent, onOpenEventPhotos }: {
           <div key={group.eventId} className="flex flex-col gap-px">
             <div className="bg-t1-surface px-4 py-2 t1-label">{detail ? `${group.title} · ${detail}` : group.title}</div>
             {group.photos.map((photo) => (
-              <button key={photo.id} type="button" onClick={() => edit(photo)} className="bg-t1-surface flex flex-col text-left">
-                <div className="w-full aspect-[4/3] bg-t1-bg overflow-hidden flex items-center justify-center relative">
-                  {urls[photo.path] ? (
-                    <TurnedPhoto src={urls[photo.path]} alt={`${photo.player}'s deck`} turns={turning[photo.id] ?? photo.turns} />
-                  ) : (
-                    <span className="t1-label">Loading…</span>
-                  )}
-                </div>
-                <div className="px-4 py-3 flex flex-col gap-1.5 w-full">
-                  <div className="flex items-center gap-3">
-                    <span className="t1-label !text-t1-text flex-1 truncate">{`${photo.player} · you`}</span>
-                    <span className="t1-label">Edit</span>
-                  </div>
-                  {photo.note && <p className="text-[13px] whitespace-pre-wrap">{photo.note}</p>}
-                </div>
-              </button>
+              <PhotoCard
+                key={photo.id}
+                src={urls[photo.path]}
+                player={`${photo.player} · you`}
+                alt={`${photo.player}'s deck`}
+                note={photo.note}
+                turns={turning[photo.id] ?? photo.turns}
+                onEdit={() => edit(photo)}
+              />
             ))}
           </div>
         );
@@ -484,19 +464,78 @@ const DEMO_MINE: MyDeckPhotos = {
   ],
 };
 
+/** A deck photo with its player and note. The picture is a plain image, not inside a button, so a long press on a
+    phone or a right-click gets the browser's own image menu (copy, save, share; contract/event-night-2026-10-16.md § 7
+    "Long press"); a tap on it or on Edit opens the photo's menu when you may edit it. */
+function PhotoCard({ src, player, alt, note, turns, onEdit }: {
+  src?: string; player: string; alt: string; note: string; turns: number; onEdit?: () => void;
+}) {
+  const upright = useUprightPhoto(src, turns);
+  return (
+    <div className="bg-t1-surface flex flex-col">
+      <div className="w-full aspect-[4/3] bg-t1-bg overflow-hidden flex items-center justify-center relative">
+        {upright ? (
+          <TurnedPhoto src={upright} alt={alt} turns={0} onClick={onEdit} />
+        ) : src ? (
+          <TurnedPhoto src={src} alt={alt} turns={turns} onClick={onEdit} />
+        ) : (
+          <span className="t1-label">Loading…</span>
+        )}
+      </div>
+      <button type="button" onClick={onEdit} disabled={!onEdit} className="px-4 py-3 flex flex-col gap-1.5 w-full text-left">
+        <div className="flex items-center gap-3 w-full">
+          <span className="t1-label !text-t1-text flex-1 truncate">{player}</span>
+          {onEdit && <span className="t1-label">Edit</span>}
+        </div>
+        {note && <p className="text-[13px] whitespace-pre-wrap">{note}</p>}
+      </button>
+    </div>
+  );
+}
+
+/** The photo drawn upright as its player turned it (a blob URL), so the browser's Copy and Save hand over what's on
+    screen; the stored file is never turned. Undefined while drawing, with no turns, or if the file can't be read. */
+function useUprightPhoto(src: string | undefined, turns: number): string | undefined {
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    setUrl(undefined);
+    if (!src || turns % 4 === 0) return;
+    let made: string | undefined;
+    let live = true;
+    void (async () => {
+      try {
+        const bitmap = await createImageBitmap(await (await fetch(src)).blob());
+        const canvas = document.createElement("canvas");
+        if (!drawDeckPhoto(canvas, bitmap, turns)) return;
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+        if (!blob || !live) return;
+        made = URL.createObjectURL(blob);
+        setUrl(made);
+      } catch {
+        // The CSS-turned file stays on screen.
+      }
+    })();
+    return () => { live = false; if (made) URL.revokeObjectURL(made); };
+  }, [src, turns]);
+  return url;
+}
+
 /** An uploaded photo, whole and turned as its player set it: for a quarter turn it's fitted into the 4:3 box's swapped
     sides (75% of the width, 133% of the height), then rotated into place. */
-function TurnedPhoto({ src, alt, turns }: { src: string; alt: string; turns: number }) {
+function TurnedPhoto({ src, alt, turns, onClick }: { src: string; alt: string; turns: number; onClick?: () => void }) {
   const odd = turns % 2 === 1;
   return (
     <img
       src={src}
       alt={alt}
-      className="absolute top-1/2 left-1/2 object-contain"
+      onClick={onClick}
+      onContextMenu={() => capture("image_menu", { screen: "deck_photo" })}
+      className={`absolute top-1/2 left-1/2 object-contain ${onClick ? "cursor-pointer" : ""}`}
       style={{
         width: odd ? "75%" : "100%",
         height: odd ? "133.3333%" : "100%",
         transform: `translate(-50%, -50%) rotate(${turns * 90}deg)`,
+        WebkitTouchCallout: "default",
       }}
     />
   );

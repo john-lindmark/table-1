@@ -11,6 +11,7 @@ import kotlinx.serialization.json.jsonPrimitive as prim
 import site.table1.events.ui.screens.DeckPhoto
 import site.table1.events.ui.screens.MyDeckPhotoRules
 import site.table1.events.ui.screens.MyDeckPhotos
+import site.table1.events.ui.screens.deckPhotoFileName
 import site.table1.events.ui.screens.deckPhotoSize
 import site.table1.events.ui.screens.deckPhotoTurn
 import site.table1.events.ui.screens.turnedSize
@@ -23,6 +24,13 @@ class DeckPhotosTest {
     private val c = Json.parseToJsonElement(
         File(generateSequence(File("").absoluteFile) { it.parentFile }.map { File(it, "testdata/deck-photos") }.first { it.isDirectory }, "cases.json").readText(),
     ).jsonObject
+
+    /** Long press → Share names the file after the player (iOS DeckPhotoTurns.fileName says the same). */
+    @Test fun shareFileNameIsThePlayers() {
+        assertEquals("Deck photo - Ann Ito.jpg", deckPhotoFileName("Ann Ito"))
+        assertEquals("Deck photo - Zoë OBrien  2.jpg", deckPhotoFileName("Zoë O'Brien / 2"))
+        assertEquals("Deck photo.jpg", deckPhotoFileName(" ?! "))
+    }
 
     @Test fun bringsTheLongestSideDownTo2048() {
         assertEquals(2048 to 1536, deckPhotoSize(4032, 3024))
