@@ -521,7 +521,7 @@
       "id": "tracker-counters",
       "topic": "tracker",
       "q": "How do I track poison, energy or commander damage?",
-      "a": "Swipe toward yourself on your half to open the counter picker and turn on up to three counters: poison, energy, experience, rad and speed. At 30 or 40 starting life, commander damage from each opponent is listed first; it comes off your life too, and 21 from one opponent loses. Done closes the picker.",
+      "a": "Pull down from the strip along the top of your half (by the small line) toward yourself to open the counter picker, and turn on up to three counters: poison, energy, experience, rad and speed. At 30 or 40 starting life, commander damage from each opponent is listed first; it comes off your life too, and 21 from one opponent loses. Done closes the picker. A tap anywhere else on your half always counts as +1 or −1, even if your finger slides.",
       "keywords": [
         "poison",
         "energy",
@@ -585,6 +585,20 @@
         "extra game",
         "locked",
         "can't record"
+      ],
+      "guide": "tracker"
+    },
+    {
+      "id": "tracker-next-round",
+      "topic": "tracker",
+      "q": "My tracker still shows last round's match. What do I do?",
+      "a": "Nothing: once your next round is paired, the tracker moves to your new match by itself, within about 15 seconds while it's open, or as soon as you open it or come back to the app. With a bye it says so and stays on the old match.",
+      "keywords": [
+        "next round",
+        "old match",
+        "wrong match",
+        "new round",
+        "tracker stuck"
       ],
       "guide": "tracker"
     },

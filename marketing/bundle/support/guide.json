@@ -1159,13 +1159,15 @@
    "id": "tracker-12",
    "s": "tracker",
    "h": "Everywhere",
-   "x": "A tap counts the moment your finger touches down; if it turns into a swipe, the change is taken back."
+   "t": "Every tap counts",
+   "x": "a tap on +1 or −1 counts however far your finger slides (on iPhone the moment it touches down, on Android and the website when it lifts). A finger that rolls a long way before the hold delay doesn't start the repeat. On Android and the website a second finger on the same zone is its own tap."
   },
   {
    "id": "tracker-13",
    "s": "tracker",
    "h": "Everywhere",
-   "x": "Swipe down on a half to turn on up to 3 counters: poison (you lose at 10), energy, experience, rad and speed (and commander damage at 30+ life). Done closes the picker: no swipe does, so swiping up scrolls its list instead of closing it."
+   "t": "Counters from the top strip",
+   "x": "pull down from the strip along the top of your box (by the small line, the edge nearest the middle bar) to turn on up to 3 counters: poison (you lose at 10), energy, experience, rad and speed (and commander damage at 30+ life). Done closes the picker: no swipe does, so swiping up scrolls its list instead of closing it."
   },
   {
    "id": "tracker-14",
@@ -1225,6 +1227,13 @@
    "s": "tracker",
    "h": "Everywhere",
    "x": "In an event, both players' phones stay in sync and the organizer can watch read-only (or keep score for a guest match)."
+  },
+  {
+   "id": "tracker-23",
+   "s": "tracker",
+   "h": "Everywhere",
+   "t": "Into the next round",
+   "x": "once your next round is paired, the tracker opens your new match in place of the old one (Back still returns where you came from); with a bye the strip says \"Round 3 paired · you have a bye\". It checks on opening, every 15 seconds while on screen and when you come back to the app. Organizers watching or keeping score stay on their match."
   },
   {
    "id": "insights-1",
