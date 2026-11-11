@@ -52,6 +52,7 @@ import site.table1.events.ui.components.T1FullScreenDialog
 import site.table1.events.ui.components.Ghost
 import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.T1Overlay
+import site.table1.events.ui.components.sheetInsets
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1Stepper
@@ -77,7 +78,7 @@ internal fun TrackerOptionsPanel(
     T1Overlay(onDismiss) {
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().absorbTaps().background(T1.bg)
-                .navigationBarsPadding().padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 30.dp),
+                .sheetInsets().padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 30.dp),
         ) {
             listOfNotNull("Chooser" to onChooser, "Roll dice" to onDice, "History" to onHistory,
                 onNewMatch?.let { "New match" to it }, "Leave tracker" to onLeave)
@@ -120,7 +121,7 @@ internal fun TrackerDicePanel(onDismiss: () -> Unit) {
 
     T1Overlay(onDismiss) {
         Column(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().absorbTaps().background(T1.surface).navigationBarsPadding(),
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().absorbTaps().background(T1.surface).sheetInsets(),
             verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
             Row(Modifier.fillMaxWidth().background(T1.bg), verticalAlignment = Alignment.CenterVertically) {

@@ -53,6 +53,9 @@ class MainActivity : ComponentActivity() {
         // Debug builds: `--es t1Fold tabletop|book` simulates a fold across the middle (contract/foldables-2026-11-10.md).
         if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
             site.table1.events.ui.components.FoldDebug.mode = intent?.getStringExtra("t1Fold")
+            // `--es t1Overlays menu|panel|sheet|dice|dialog`: every kind of bottom surface, signed out
+            // (contract/android-bottom-bars-2026-11-11.md).
+            site.table1.events.ui.components.OverlayDebug.open = intent?.getStringExtra("t1Overlays")
         }
         setContent {
             Table1Theme {
@@ -62,7 +65,8 @@ class MainActivity : ComponentActivity() {
                     androidx.compose.foundation.layout.Box(
                         androidx.compose.ui.Modifier.fillMaxSize().keyboardAwayOnTap(),
                     ) {
-                        AppRoot(
+                        val overlays = site.table1.events.ui.components.OverlayDebug.open
+                        if (overlays != null) site.table1.events.ui.components.OverlayGallery(overlays) else AppRoot(
                             pendingJoin = pendingJoin, onJoinConsumed = { pendingJoin = null },
                             pendingLink = pendingLink, onLinkConsumed = { pendingLink = null },
                         )

@@ -76,6 +76,7 @@ import site.table1.events.ui.components.T1AlertDialog
 import site.table1.events.ui.components.T1Menu
 import site.table1.events.ui.components.T1MenuItem
 import site.table1.events.ui.components.T1Overlay
+import site.table1.events.ui.components.sheetInsets
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1TextAction
 import site.table1.events.ui.theme.T1
@@ -695,7 +696,7 @@ internal fun Sheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() ->
     T1Overlay(onDismiss) {
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(T1.bg)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-            .navigationBarsPadding(), content = content)
+            .sheetInsets(), content = content)
     }
 }
 

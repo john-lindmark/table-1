@@ -18,6 +18,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.RowScope
@@ -42,6 +46,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
@@ -74,9 +79,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
 import kotlinx.coroutines.delay
 import site.table1.events.library.IconGlyph
 import site.table1.events.library.T1Icon
@@ -101,12 +103,25 @@ val FullScreenDialog = DialogProperties(usePlatformDefaultWidth = false, decorFi
  * bars. Where the Configuration leaves the bars out (Android 14 and older) the floating window already matches it.
  */
 @Composable
-fun T1FullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> Unit) {
+fun T1FullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> Unit) =
+    T1Window(onDismissRequest, overlay = false, content)
+
+/**
+ * The window under T1FullScreenDialog and T1Overlay (contract/android-bottom-bars-2026-11-11.md). T1Overlay was a
+ * Compose Popup, which measures its content against the same Configuration.screenHeightDp but is laid out between
+ * the bars, so on Android 15+ every bottom menu and panel lost its bottom by the bars' height: the deck photo menu
+ * showed Take a photo without Choose from photos or Cancel, with three-button and gesture navigation alike (John,
+ * 2026-11-11). Overlays now use a dialog window filled the same way, without the platform's dim or animation (the
+ * scrim is ours).
+ */
+@Composable
+private fun T1Window(onDismissRequest: () -> Unit, overlay: Boolean, content: @Composable () -> Unit) {
     val host = LocalView.current
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismissRequest, properties = FullScreenDialog) {
         val window = (LocalView.current.parent as? DialogWindowProvider)?.window
         val config = LocalConfiguration.current
         val density = LocalDensity.current.density
+        SideEffect { if (overlay) window?.let(FullScreenWindow::plain) }
         LaunchedEffect(window, config.screenHeightDp, config.screenWidthDp) {
             val w = window ?: return@LaunchedEffect
             val root = host.rootView
@@ -126,6 +141,13 @@ internal object FullScreenWindow {
         if (hostHeightPx <= 0 || hostWidthPx <= 0) return false
         val slop = 8 * density
         return screenHeightDp * density >= hostHeightPx - slop && screenWidthDp * density >= hostWidthPx - slop
+    }
+
+    /** An overlay's window: no platform dim behind it and no open/close animation, as the popup it replaced. */
+    fun plain(window: android.view.Window) {
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        window.setDimAmount(0f)
+        window.setWindowAnimations(0)
     }
 
     /** The whole display, behind the bars and the cutout, light bar icons on our dark background. */
@@ -637,15 +659,13 @@ fun T1TextAction(text: String, enabled: Boolean = true, color: Color = T1.text, 
 
 /* ── overlays ───────────────────────────────────────────────────────────────── */
 
-private object FullWindow : PopupPositionProvider {
-    override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) =
-        IntOffset.Zero
-}
-
-/** Full-window scrim; tapping outside the content (or Back) dismisses. Content is aligned by the caller. */
+/**
+ * Full-window scrim; tapping outside the content (or Back) dismisses. Content is aligned by the caller. Every bottom
+ * menu, panel and sheet goes through this (OverlayWindowTest), and its bottom edge pads with sheetInsets().
+ */
 @Composable
 fun T1Overlay(onDismiss: () -> Unit, content: @Composable BoxScope.() -> Unit) {
-    Popup(popupPositionProvider = FullWindow, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
+    T1Window(onDismiss, overlay = true) {
         Box(Modifier.fillMaxSize().keyboardAwayOnTap()) {
             Box(
                 Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f))
@@ -655,6 +675,16 @@ fun T1Overlay(onDismiss: () -> Unit, content: @Composable BoxScope.() -> Unit) {
         }
     }
 }
+
+/**
+ * The bottom of a menu, panel or sheet over the scrim: clear of the navigation bar (three buttons or the gesture
+ * strip), the keyboard when it is up, and a side navigation bar or cutout in landscape. One rule for every overlay.
+ */
+@Composable
+fun Modifier.sheetInsets(): Modifier = windowInsetsPadding(
+    WindowInsets.navigationBars.union(WindowInsets.ime).union(WindowInsets.displayCutout)
+        .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
+)
 
 /** Swallows taps so they don't fall through to the scrim; one still puts the keyboard away, like any tap outside a box. */
 @Composable
@@ -678,7 +708,7 @@ fun T1Menu(title: String? = null, items: List<T1MenuItem>, onDismiss: () -> Unit
     T1Overlay(onDismiss) {
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().absorbTaps().background(T1.bg)
-                .navigationBarsPadding(),
+                .sheetInsets(),
             verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
             title?.let { Section(it) }
@@ -727,7 +757,7 @@ fun T1Panel(
     T1Overlay(onDismiss) {
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.8f).absorbTaps().background(T1.bg)
-                .navigationBarsPadding(),
+                .sheetInsets(),
             verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
             Bar(title) {

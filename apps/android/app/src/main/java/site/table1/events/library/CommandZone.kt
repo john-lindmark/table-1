@@ -37,6 +37,7 @@ import site.table1.events.ui.components.T1Menu
 import site.table1.events.ui.components.T1MenuItem
 import site.table1.events.ui.components.Section
 import site.table1.events.ui.components.T1Overlay
+import androidx.compose.foundation.layout.safeDrawingPadding
 import site.table1.events.ui.theme.T1
 
 /* The command zone of a Commander or Oathbreaker deck (contract/command-zone-2026-10-27.md): its cards live in the
@@ -198,7 +199,7 @@ fun CommandZonePicker(role: CommandZone.Role, onDismiss: () -> Unit, deck: List<
         onPick(o, p)
     }
     T1Overlay(onDismiss) {
-        Column(Modifier.fillMaxSize().background(T1.bg).statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Column(Modifier.fillMaxSize().background(T1.bg).safeDrawingPadding(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Bar(role.title, subtitle = hint) { BarAction("Cancel", onDismiss) }
             CatalogStatus(cat)
             CardSearchBar(query, { query = it }, placeholder = role.hint, label = "Card", onSubmit = { hits.firstOrNull()?.let(::pick) })
