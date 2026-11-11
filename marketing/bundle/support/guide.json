@@ -465,128 +465,135 @@
    "id": "run-13",
    "s": "run",
    "h": "2 · Live",
+   "t": "Pods",
+   "x": "(drafts with two or more pods): the Round tab shows each pod as its own block instead, its tables in order with disputes in place, under \"Pod 1 · 2 of 4 in · 1 disputed\" (\"All in\" once every result is in); matches between pods sit under Across pods at the end, and a bye under its player's pod. Playoff rounds stay one list."
+  },
+  {
+   "id": "run-14",
+   "s": "run",
+   "h": "2 · Live",
    "t": "Your match · Table N",
    "x": "when you're playing too: your opponent, Open life tracker and Set result, right under the clock."
   },
   {
-   "id": "run-14",
+   "id": "run-15",
    "s": "run",
    "h": "2 · Live",
    "t": "Guest matches",
    "x": "when neither player has an account, your phone keeps score with the life tracker and reports the result."
   },
   {
-   "id": "run-15",
+   "id": "run-16",
    "s": "run",
    "h": "2 · Live",
    "t": "Standings",
    "x": "updating as results arrive (teams first for team events). With two or more pods, each player shows their pod (P1, P2) and a filter (All · Pod 1 · Pod 2) shows one pod in overall order."
   },
   {
-   "id": "run-16",
+   "id": "run-17",
    "s": "run",
    "h": "2 · Live",
    "t": "Players",
-   "x": "drop a player (they're not paired again but their results still count) or reinstate them."
+   "x": "drop a player (they're not paired again but their results still count) or reinstate them. With two or more pods, players are listed pod by pod by seat (\"Pod 1 · 8 players\", \"Seat 3\" on each row), then Not seated; the same in Setup's Players once the draft is seated."
   },
   {
-   "id": "run-17",
+   "id": "run-18",
    "s": "run",
    "h": "2 · Live",
    "t": "Deck photos",
    "x": "(More on phones, the top bar on the website) to photograph any player's deck."
   },
   {
-   "id": "run-18",
+   "id": "run-19",
    "s": "run",
    "h": "2 · Live",
    "x": "The big button moves from \"Waiting on 2 results\" to Pair round 3 to Finish event."
   },
   {
-   "id": "run-19",
+   "id": "run-20",
    "s": "run",
    "h": "2 · Live",
    "t": "Earlier",
-   "x": "a tab after Round with every earlier round, newest first; tap a match to correct its result."
+   "x": "a tab after Round with every earlier round, newest first; tap a match to correct its result. With pods, each round is split by pod: \"Round 1 · Pod 1 · 4 matches\", \"Round 2 · Across pods\"."
   },
   {
-   "id": "run-20",
+   "id": "run-21",
    "s": "run",
    "h": "2 · Live",
    "t": "Re-pair round N",
    "x": "(More; the bar on the website): pairs the running round again from the standings as they are now, with a fresh clock. It asks first and says when results already in will be cleared. A notice on the Round tab offers it when an earlier result was corrected after the round was paired (\"A round 2 result changed after round 3 was paired.\"). Only the latest round, while it runs, with no open dispute in earlier rounds; the old pairings stay in the event's log, and players are told \"Round 3 re-paired\"."
   },
   {
-   "id": "run-21",
+   "id": "run-22",
    "s": "run",
    "h": "2 · Live",
    "t": "Top 8",
    "x": "after the last Swiss round the button is Cut to top 8 (it asks first), which pairs the quarterfinals by Swiss standings: 1 v 8, 4 v 5, 2 v 7, 3 v 6, the higher seed choosing to play or draw. Then Pair semifinals, Pair the final and Finish event. Playoff matches need a winner: draws can't be entered. Rounds are named Quarterfinals, Semifinals and Final, and the standings gain a Top 8 bracket with each seed and score."
   },
   {
-   "id": "run-22",
+   "id": "run-23",
    "s": "run",
    "h": "2 · Live",
    "t": "Team clinched",
    "x": "in a team event with two teams, once one team has more match wins than the other could reach with every match still to play (5 of 9 in a 3-on-3 over three rounds, 7 of 12 in a 4-on-4), the round shows \"Team Alpha has clinched it: 5–1 in match wins with 3 matches left to play\" and the big button is Finish event straight away. Matches not yet played don't count for anyone. If the round is in, Play on · pair round N keeps going instead. A dispute still has to be settled first."
   },
   {
-   "id": "run-23",
+   "id": "run-24",
    "s": "run",
    "h": "3 · Results",
    "x": "A winner card (or winning team) above the final standings. With a top 8 the order is the winner, the finalist, the semifinalists, the quarterfinalists (each by seed), then everyone else by their Swiss standing."
   },
   {
-   "id": "run-24",
+   "id": "run-25",
    "s": "run",
    "h": "3 · Results",
-   "x": "Every round's matches, newest first. Results can still be corrected; standings and records update."
+   "x": "Every round's matches, newest first, split by pod in a draft with pods. Results can still be corrected; standings and records update. The Players tab goes pod by pod too, in final order inside each."
   },
   {
-   "id": "run-25",
+   "id": "run-26",
    "s": "run",
    "h": "3 · Results",
    "x": "Cancelled events show standings after the last completed round and the reason."
   },
   {
-   "id": "run-26",
+   "id": "run-27",
    "s": "run",
    "h": "How results work",
    "x": "One player's report counts. If the opponent reports the same score it's confirmed; a different score is a dispute."
   },
   {
-   "id": "run-27",
+   "id": "run-28",
    "s": "run",
    "h": "How results work",
    "x": "Results auto-confirm at round end. Disputes must be settled before the next round can be paired."
   },
   {
-   "id": "run-28",
+   "id": "run-29",
    "s": "run",
    "h": "How results work",
    "x": "The organizer can set any result; every change is recorded. A correction made after the next round was paired can be followed by Re-pair on that round."
   },
   {
-   "id": "run-29",
+   "id": "run-30",
    "s": "run",
    "h": "How results work",
    "x": "Scoring follows the Magic Tournament Rules: 3 points for a win, 1 for a draw, a bye counts as a win; tiebreakers are opponents' match-win %, game-win % and opponents' game-win %, each with a 33% floor."
   },
   {
-   "id": "run-30",
+   "id": "run-31",
    "s": "run",
    "h": "How results work",
    "t": "Drafts with pods",
    "x": "round 1 is across each table; odd pods' last seats play each other, pod 1's against pod 2's, and only an odd event has a bye. Inside pods, later rounds pair each pod by its own standings; an odd pod's lowest-ranked player (one who can cross without a rematch) plays another pod's, and the bye, if any, goes to one of them who hasn't had one. Across pods, later rounds are ordinary Swiss. Standings are one list either way, and the top 8 cuts from it."
   },
   {
-   "id": "run-31",
+   "id": "run-32",
    "s": "run",
    "h": "How results work",
    "x": "Team events: a team wins a round by winning more of its matches; teams are ordered by those round results, then total match wins. Inside each team, players are listed best first by record, then game-win %, then opponents' match-win %, each with their record (\"2-0\")."
   },
   {
-   "id": "run-32",
+   "id": "run-33",
    "s": "run",
    "h": "How results work",
    "x": "Older app versions still run these events, but show Finish where newer ones show Cut to top 8. The organizer's match and guest scorekeeping are on iOS; Seat the ends on iOS, Android and the website."
@@ -623,7 +630,7 @@
    "id": "play-6",
    "s": "play",
    "t": "The link after round 1",
-   "x": "the same link shows Standings (with the top 8 bracket once there is one) and Matchups: every round's tables and scores, newest first. Anyone with the link can follow along, signed in or not."
+   "x": "the same link shows Standings (with the top 8 bracket once there is one) and Matchups: every round's tables and scores, newest first. Anyone with the link can follow along, signed in or not. In a draft with pods, each round's matchups come pod by pod (\"Round 2 · now · Pod 1\", then Across pods); the apps' event page does the same."
   },
   {
    "id": "play-7",

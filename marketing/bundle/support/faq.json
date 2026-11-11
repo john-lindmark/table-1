@@ -440,13 +440,14 @@
       "id": "organize-pods",
       "topic": "organize",
       "q": "How do drafts with several pods work?",
-      "a": "On Create (Draft) or in Setup → Seating, Pods is Auto (pods of up to 8) or a number you choose. Pairings is Inside pods (after round 1 you play your own pod) or Across pods (Swiss over everyone). Round 1 is across each table either way.\n\nIn Seating, Randomize draws every pod and seat again, and tapping a seat lets you move that player to another pod or swap them with someone.",
+      "a": "On Create (Draft) or in Setup → Seating, Pods is Auto (pods of up to 8) or a number you choose. Pairings is Inside pods (after round 1 you play your own pod) or Across pods (Swiss over everyone). Round 1 is across each table either way.\n\nIn Seating, Randomize draws every pod and seat again, and tapping a seat lets you move that player to another pod or swap them with someone.\n\nOnce the draft is seated, the Round, Earlier and Players tabs and the event's Matchups list each pod as its own block, with matches between two pods under Across pods.",
       "keywords": [
         "pods",
         "draft",
         "seating",
         "seats",
         "cross pod",
+        "across pods",
         "multiple pods"
       ],
       "guide": "run"
