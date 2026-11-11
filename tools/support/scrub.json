@@ -135,6 +135,11 @@
       "section": "support",
       "from": "each time this guide is",
       "to": "each time the Feature Guide is"
+    },
+    {
+      "section": "push",
+      "from": " Once per event, never for a drop (you get it when the event is finished), a guest or a demo event; checked again just before it goes, so a result undone or a round paired again sends nothing. A tap opens the event's Deck photos on Take a photo / Choose from photos (in builds before that, the event).",
+      "to": " Once per event, never for a drop (you get it when the event is finished) or a guest; checked again just before it goes, so a result undone or a round paired again sends nothing. A tap opens the event's Deck photos on Take a photo / Choose from photos."
     }
   ],
   "forbidden": [

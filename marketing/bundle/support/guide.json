@@ -690,7 +690,7 @@
    "id": "play-17",
    "s": "play",
    "t": "Once your last match is in",
-   "x": "the event screen opens on Add a deck photo, under a line saying why (Last match in, Event over or Dropped), and goes straight to Take a photo or Choose from photos for your deck. Done means the event is over, you dropped, or your last match's result is in (either player's report counts): the last Swiss round with no top 8, a lost playoff match or the final; with a top 8, once the playoffs start without you. With a photo added it's a Deck photo · Added row that opens them."
+   "x": "the event screen opens on Add a deck photo, under a line saying why (Last match in, Event over or Dropped), and goes straight to Take a photo or Choose from photos for your deck. Done means the event is over, you dropped, or your last match's result is in (either player's report counts): the last Swiss round with no top 8, a lost playoff match or the final; with a top 8, once the playoffs start without you. With a photo added it's a Deck photo · Added row that opens them. Ten minutes after you're done, with no photo up yet, a notification says so once (see Notifications)."
   },
   {
    "id": "play-18",
@@ -3587,51 +3587,57 @@
   {
    "id": "push-3",
    "s": "push",
-   "t": "You're in",
-   "x": "when a place opens in an event you're waiting for. A top 8 round's alert says \"Quarterfinals is up\", \"Semifinals is up\" or \"The final is up\"."
+   "t": "Add your deck photo",
+   "x": "ten minutes after your last match is in, or after the event is finished, if no photo of your deck is up yet: \"That was your last match in Friday Modern. Tap to add a photo of your deck.\" Once per event, never for a drop (you get it when the event is finished) or a guest; checked again just before it goes, so a result undone or a round paired again sends nothing. A tap opens the event's Deck photos on Take a photo / Choose from photos."
   },
   {
    "id": "push-4",
    "s": "push",
-   "x": "Alerts arrive within seconds: invitations, a new round's pairing, results reported, disputed or changed, a cancelled event, a new event from an organizer you've played with in the last 90 days (never for private events), friend requests and accepts, and notices from Table 1."
+   "t": "You're in",
+   "x": "when a place opens in an event you're waiting for. A top 8 round's alert says \"Quarterfinals is up\", \"Semifinals is up\" or \"The final is up\"."
   },
   {
    "id": "push-5",
+   "s": "push",
+   "x": "Alerts arrive within seconds: invitations, a new round's pairing, results reported, disputed or changed, a cancelled event, a new event from an organizer you've played with in the last 90 days (never for private events), friend requests and accepts, and notices from Table 1."
+  },
+  {
+   "id": "push-6",
    "s": "push",
    "t": "New in Insights",
    "x": "a new format, set data, Arena cube run or set to rank, once each, for people who've opened Insights in the last 60 days. A tap opens Insights on it (or the set's Rankings). Off with the switch at the bottom of Insights → Limited; on Android it has its own group, New in Insights."
   },
   {
-   "id": "push-6",
+   "id": "push-7",
    "s": "push",
    "t": "Price alerts",
    "x": "one a day at most, when wants got meaningfully cheaper or reached your max (see Binders and wants). Off with the Price alerts switch on Wants."
   },
   {
-   "id": "push-7",
+   "id": "push-8",
    "s": "push",
    "t": "Deck found",
    "x": "a deck finder search you started has finished (\"Boros Energy · 1st · Modern Challenge 32 · 2026-10-30. Tap to create it.\", \"Which deck?\", \"No list found\"). A tap opens Find a deck on that search; on Android it's in the Collection group."
   },
   {
-   "id": "push-8",
+   "id": "push-9",
    "s": "push",
    "t": "Grouped alerts",
    "x": "a round of changes to a deck, cube or binder you follow, and a friend putting up cards you want, come as one alert each, not one per card. Tapping opens the Changes or the trade match."
   },
   {
-   "id": "push-9",
+   "id": "push-10",
    "s": "push",
    "x": "Tapping an alert opens the event, Friends or Notices. Alerts older than 30 minutes are dropped rather than arriving late."
   },
   {
-   "id": "push-10",
+   "id": "push-11",
    "s": "push",
    "t": "On Android",
    "x": "the same notifications with the same wording, in four groups you can turn off one by one in Android's settings: Events (pairings, results, invitations, sign-ups; shown at the top of the screen), Collection (follows, trade wants, price alerts, cube rankings), Friends and From Table 1. A newer one about the same thing replaces the older, and a tap opens the same screen as on iPhone; notices from Table 1 open From Table 1 and a moderator's review alert opens Review. The phone is signed up for notifications while you're signed in and taken off at sign-out."
   },
   {
-   "id": "push-11",
+   "id": "push-12",
    "s": "push",
    "x": "The web has no notifications."
   },
