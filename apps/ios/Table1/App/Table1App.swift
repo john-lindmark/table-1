@@ -474,7 +474,8 @@ struct SignedInView: View {
         // The life tracker covers the tabs (no tab bar) until it's closed.
         .overlay {
             if let launch = session.tracker {
-                LifeTrackerView(matchId: launch.matchId) {
+                LifeTrackerView(matchId: launch.matchId,
+                                onNext: { session.openTracker(matchId: $0, source: "next_round") }) {
                     T1Overlays.shared.dismissAll()
                     session.tracker = nil
                 }

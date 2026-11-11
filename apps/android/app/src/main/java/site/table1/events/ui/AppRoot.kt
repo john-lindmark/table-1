@@ -673,7 +673,12 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     LifeTrackerScreen(matchId = null, onClose = { nav.popBackStack() })
                 }
                 composable("tracker/{matchId}") { e ->
-                    LifeTrackerScreen(matchId = e.arguments?.getString("matchId"), onClose = { nav.popBackStack() })
+                    LifeTrackerScreen(matchId = e.arguments?.getString("matchId"), onClose = { nav.popBackStack() },
+                        // The next round is paired: this tracker gives way to the new match (Back still returns
+                        // where it came from).
+                        onNext = { next ->
+                            nav.navigate("tracker/$next") { popUpTo("tracker/{matchId}") { inclusive = true } }
+                        })
                 }
                 composable("nearby") {
                     NearbyScreen(onJoined = { id -> nav.navigate("event/$id") { popUpTo("events") } }, onOpen = { id -> nav.navigate("event/$id") },

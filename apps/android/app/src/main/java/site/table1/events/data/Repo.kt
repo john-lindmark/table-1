@@ -645,6 +645,19 @@ object Repo {
             put("p_starting_life", startingLife)
         }).decodeAs()
 
+    /**
+     * The player's match in the event's newest later round, or null (contract/life-tracker-options-2026-10-20.md
+     * § Next round). [eventId] finds it when this match is gone (its round was re-paired).
+     */
+    suspend fun trackerNext(matchId: String, eventId: String?): site.table1.events.tracker.TrackerNextAnswer? {
+        val text = supabase.postgrest.rpc("tracker_next", buildJsonObject {
+            put("p_match_id", matchId)
+            if (eventId == null) put("p_event_id", JsonNull) else put("p_event_id", eventId)
+        }).data
+        return if (text.isBlank() || text.trim() == "null") null
+        else json.decodeFromString<site.table1.events.tracker.TrackerNextAnswer>(text)
+    }
+
     suspend fun trackerState(sessionId: String): TrackerState =
         supabase.postgrest.rpc("tracker_state", buildJsonObject { put("p_session_id", sessionId) }).decodeAs()
 

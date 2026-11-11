@@ -12,6 +12,8 @@ import UIKit
 /// (contract/life-tracker-commander-2026-11-03.md).
 struct LifeTrackerView: View {
     let onClose: () -> Void
+    /// The next round is paired: open this match instead (contract/life-tracker-options-2026-10-20.md § Next round).
+    let onNext: (String) -> Void
     @Environment(\.scenePhase) private var scenePhase
     @State private var model: TrackerModel
     @State private var pendingRecord: WinnerChoice?
@@ -33,8 +35,9 @@ struct LifeTrackerView: View {
     }
 
     @MainActor
-    init(matchId: String?, onClose: @escaping () -> Void) {
+    init(matchId: String?, onNext: @escaping (String) -> Void = { _ in }, onClose: @escaping () -> Void) {
         self.onClose = onClose
+        self.onNext = onNext
         _model = State(initialValue: TrackerModel(matchId: matchId))
         _setup = State(initialValue: matchId == nil)
     }
@@ -111,9 +114,24 @@ struct LifeTrackerView: View {
             debugPreset()
             #endif
         }
+        // While it's up, ask every 15 s whether the next round is paired.
+        .task(id: scenePhase == .active) {
+            guard scenePhase == .active, model.isSynced else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: TrackerNext.every)
+                if Task.isCancelled { return }
+                await model.checkNext("poll")
+            }
+        }
+        .onChange(of: model.nextMatchId) { _, next in
+            if let next { onNext(next) }
+        }
         .onChange(of: scenePhase) { _, now in
             if now == .active {
-                Task { await model.refetch() }
+                Task {
+                    await model.refetch()
+                    await model.checkNext("foreground")
+                }
             } else {
                 Task { await model.flushNow() }
             }
@@ -298,6 +316,7 @@ struct LifeTrackerView: View {
     private var contextLine: String {
         if let notice { return notice }
         if model.offline { return "Offline | changes will sync" }
+        if let next = model.nextNotice { return next }
         guard model.isSynced else { return model.players > 2 ? "Local game | \(model.players) players" : "Local game" }
         var parts: [String] = []
         if model.readOnly { parts.append("Watching") }
@@ -308,7 +327,7 @@ struct LifeTrackerView: View {
     }
 
     private var contextColor: Color {
-        notice != nil ? T1.accent : model.offline ? T1.danger : T1.disabled
+        notice != nil || (!model.offline && model.nextNotice != nil) ? T1.accent : model.offline ? T1.danger : T1.disabled
     }
 
     // MARK: menus (app-drawn)

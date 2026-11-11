@@ -1,0 +1,11 @@
+{
+  "about": "What a synced life tracker does with tracker_next's answer (contract/life-tracker-options-2026-10-20.md § Next round). stay: keep this match; soon: the round is paired but its matches are still being written, ask again in 2 s; move: open the newer match; notice: show the text and keep this match.",
+  "cases": [
+    { "name": "nothing newer", "current": "m1", "answer": null, "want": { "do": "stay" } },
+    { "name": "the next round's match", "current": "m1", "answer": { "round": 2, "match_id": "m2", "bye": false }, "want": { "do": "move", "match_id": "m2" } },
+    { "name": "already on it", "current": "m2", "answer": { "round": 2, "match_id": "m2", "bye": false }, "want": { "do": "stay" } },
+    { "name": "a bye next", "current": "m1", "answer": { "round": 3, "match_id": null, "bye": true }, "want": { "do": "notice", "text": "Round 3 paired | you have a bye" } },
+    { "name": "matches still being written", "current": "m1", "answer": { "round": 2, "match_id": null, "bye": false }, "want": { "do": "soon" } },
+    { "name": "a local tracker never moves", "current": null, "answer": { "round": 2, "match_id": "m2", "bye": false }, "want": { "do": "stay" } }
+  ]
+}
