@@ -1760,6 +1760,7 @@ struct ListAddCardsView: View {
     @State private var removePick: ListLine?
     @State private var note: String?
     @FocusState private var addFocused: Bool
+    @State private var opened = false
     @FocusState private var removeFocused: Bool
     #if DEBUG
     /// Design QA (`-T1LibraryDemo deckadd|cubeadd`): each box's demo pick happens once.
@@ -1805,6 +1806,9 @@ struct ListAddCardsView: View {
             // No keyboard over the rows when a demo query is typed.
             if UserDefaults.standard.string(forKey: "T1AddQuery") != nil || UserDefaults.standard.string(forKey: "T1RemoveQuery") != nil { return }
             #endif
+            // Only as the screen opens, not on every return to it.
+            guard !opened else { return }
+            opened = true
             addFocused = true
         }
         .task(id: "\(addQuery)-\(catalog.generation)") {

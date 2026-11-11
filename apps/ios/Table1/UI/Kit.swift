@@ -240,7 +240,7 @@ struct Field: View {
 
 /// A text field's whole box takes the tap: a tap anywhere in it (label, padding, empty space) focuses the field,
 /// not only the line the text or placeholder sits on. Put it after the box's padding and background. A caller's own
-/// `.focused(...)` on the box keeps working beside it.
+/// `.focused(...)` on the box keeps working beside it. A tap in the box (its Clear button too) keeps the keyboard up.
 struct FocusArea: ViewModifier {
     @FocusState private var focused: Bool
     func body(content: Content) -> some View {
@@ -248,11 +248,25 @@ struct FocusArea: ViewModifier {
             .focused($focused)
             .contentShape(Rectangle())
             .onTapGesture { focused = true }
+            .keepsKeyboard()
     }
 }
 
 extension View {
     func focusArea() -> some View { modifier(FocusArea()) }
+
+    /// A tap here leaves the keyboard up (an Add button used while typing names, Paste beside a code box). Everywhere
+    /// else a tap outside the text box puts it away (`KeyboardAway`).
+    func keepsKeyboard() -> some View {
+        simultaneousGesture(TapGesture().onEnded { Keyboard.keep() })
+    }
+
+    /// Going back (Back, the edge swipe, a pop in code) puts the keyboard away: the screen underneath kept its field
+    /// focused while the pushed one was on top. Pushes are taps, which `KeyboardAway` already handles, and a pushed
+    /// screen may focus its own box as it appears.
+    func keyboardAwayOnBack(_ depth: Int) -> some View {
+        onChange(of: depth) { old, new in if new < old { Keyboard.dismiss() } }
+    }
 }
 
 /// Scrollable column that keeps the 1px hairline grid.
@@ -271,6 +285,94 @@ struct HairlineList<Content: View>: View {
 enum Keyboard {
     static func dismiss() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    /// When a `keepsKeyboard` view last took a tap (media time).
+    private(set) static var keptAt: CFTimeInterval = 0
+    static func keep() { keptAt = CACurrentMediaTime() }
+
+    /// The view that has the keyboard now, if any.
+    static func current() -> UIResponder? {
+        Finder.found = nil
+        UIApplication.shared.sendAction(#selector(UIResponder.t1FindFirstResponder), to: nil, from: nil, for: nil)
+        defer { Finder.found = nil }
+        return Finder.found
+    }
+
+    fileprivate enum Finder { static weak var found: UIResponder? }
+}
+
+extension UIResponder {
+    @objc fileprivate func t1FindFirstResponder() { Keyboard.Finder.found = self }
+}
+
+/// Taps outside a text box put the keyboard away, on every screen, panel and sheet in the window (SwiftUI has no
+/// "tap outside" of its own, and the boxes sit on rows and panels that take no taps). One tap recognizer on the window
+/// that never cancels or delays anyone's touches: taps on a text box itself, or on a `keepsKeyboard` view, leave it up.
+/// The keyboard goes a moment after the tap, and only if the same box still has it, so a tap that moves the cursor
+/// to another box, or opens a screen that focuses its own, isn't undone. Drags are left to `scrollDismissesKeyboard`.
+@MainActor
+final class KeyboardAway: NSObject, UIGestureRecognizerDelegate {
+    static let shared = KeyboardAway()
+    private var installed: Set<ObjectIdentifier> = []
+    private var downAt: CFTimeInterval = 0
+
+    func install(on window: UIWindow) {
+        guard installed.insert(ObjectIdentifier(window)).inserted else { return }
+        let tap = UITapGestureRecognizer(target: self, action: #selector(tapped(_:)))
+        tap.cancelsTouchesInView = false
+        tap.delaysTouchesBegan = false
+        tap.delaysTouchesEnded = false
+        tap.delegate = self
+        window.addGestureRecognizer(tap)
+    }
+
+    func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        guard Self.putsAway(touch.view) else { return false }
+        downAt = CACurrentMediaTime()
+        return true
+    }
+
+    /// False for a tap in a text box (the box itself, or a web page's), which keeps the keyboard.
+    static func putsAway(_ tapped: UIView?) -> Bool {
+        var view = tapped
+        while let v = view {
+            if v is UITextInput { return false }
+            view = v.superview
+        }
+        return true
+    }
+
+    func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+
+    @objc private func tapped(_ g: UITapGestureRecognizer) {
+        guard g.state == .ended, let field = Keyboard.current() else { return }
+        putAway(field, tappedAt: downAt)
+    }
+
+    /// SwiftUI's own tap (a kept view's) lands in the same moment, before or after this one, so wait a beat; then
+    /// only the box that had the keyboard at the tap gives it up.
+    func putAway(_ field: UIResponder, tappedAt down: CFTimeInterval, after delay: TimeInterval = 0.06, done: (() -> Void)? = nil) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            defer { done?() }
+            guard Keyboard.keptAt < down, field.isFirstResponder else { return }
+            Telemetry.capture("keyboard_dismissed", ["how": "tap"])
+            field.resignFirstResponder()
+        }
+    }
+}
+
+/// Finds the window it's drawn in and puts `KeyboardAway` on it. Put once at a root (`.background(KeyboardAwayHost())`).
+struct KeyboardAwayHost: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView { Probe() }
+    func updateUIView(_ view: UIView, context: Context) {}
+
+    private final class Probe: UIView {
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            isUserInteractionEnabled = false
+            if let window { KeyboardAway.shared.install(on: window) }
+        }
     }
 }
 

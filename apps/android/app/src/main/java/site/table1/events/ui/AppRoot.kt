@@ -203,6 +203,8 @@ fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: Web
 @Composable
 private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: WebLink?, onLinkConsumed: () -> Unit) {
     val nav = rememberNavController()
+    // Every move to another screen (a push, Back, a tab) puts the keyboard away (ui/components/KeyboardAway.kt).
+    site.table1.events.ui.components.KeyboardAwayOnNavigate(nav)
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
     var joinError by remember { mutableStateOf<String?>(null) }

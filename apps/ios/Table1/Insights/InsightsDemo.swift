@@ -13,6 +13,7 @@ struct InsightsDemoRoot: View {
             Group { if ready { InsightsHomeView(path: $path, isFront: false) } else { T1.bg } }
                 .navigationDestination(for: InsightsRoute.self) { InsightsDestination(route: $0, path: $path) }
         }
+        .keyboardAwayOnBack(path.count)
         .background(T1.bg.ignoresSafeArea())
         .task {
             let store = InsightsStore.shared

@@ -591,9 +591,11 @@ fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, search: Boolean
     val listHits = rememberListHits(query, search && go != null)
     val covers = result?.covers ?: emptyMap()
     val focus = remember { FocusRequester() }
+    // The box takes the keyboard as the screen opens, not again on coming back from a card's page.
+    var opened by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         CatalogStore.load(userInitiated = true)
-        runCatching { focus.requestFocus() }
+        if (!opened) { opened = true; runCatching { focus.requestFocus() } }
     }
     T1Screen {
         Bar(if (search) "Search" else "Add cards", onBack = onBack)

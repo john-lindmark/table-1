@@ -8,6 +8,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -17,6 +18,7 @@ import io.github.jan.supabase.auth.handleDeeplinks
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.launch
 import site.table1.events.auth.SignIn
+import site.table1.events.ui.components.keyboardAwayOnTap
 import site.table1.events.data.InstallReferrer
 import site.table1.events.data.JoinLink
 import site.table1.events.data.WebLink
@@ -56,10 +58,15 @@ class MainActivity : ComponentActivity() {
             Table1Theme {
                 // Foldables: the window's folds (Jetpack WindowManager) for the rail and every FoldSplit.
                 site.table1.events.ui.components.ProvideWindowFold(this) {
-                    AppRoot(
-                        pendingJoin = pendingJoin, onJoinConsumed = { pendingJoin = null },
-                        pendingLink = pendingLink, onLinkConsumed = { pendingLink = null },
-                    )
+                    // A tap outside a text box puts the keyboard away, on every screen (ui/components/KeyboardAway.kt).
+                    androidx.compose.foundation.layout.Box(
+                        androidx.compose.ui.Modifier.fillMaxSize().keyboardAwayOnTap(),
+                    ) {
+                        AppRoot(
+                            pendingJoin = pendingJoin, onJoinConsumed = { pendingJoin = null },
+                            pendingLink = pendingLink, onLinkConsumed = { pendingLink = null },
+                        )
+                    }
                 }
             }
         }

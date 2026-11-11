@@ -314,6 +314,7 @@ export function AddByName({
         type="button"
         onClick={onAdd}
         disabled={disabled}
+        data-keeps-keyboard // the next name goes straight in
         className="w-20 shrink-0 bg-t1-accent text-t1-ink t1-label text-t1-ink! disabled:bg-t1-disabled disabled:text-t1-muted!"
       >
         Add

@@ -113,7 +113,8 @@ fun T1FullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> 
                 FullScreenWindow.fill(w)
             }
         }
-        content()
+        // A dialog is its own window: the app root's tap rule doesn't reach it.
+        Box(Modifier.fillMaxSize().keyboardAwayOnTap()) { content() }
     }
 }
 
@@ -631,7 +632,7 @@ private object FullWindow : PopupPositionProvider {
 @Composable
 fun T1Overlay(onDismiss: () -> Unit, content: @Composable BoxScope.() -> Unit) {
     Popup(popupPositionProvider = FullWindow, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().keyboardAwayOnTap()) {
             Box(
                 Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f))
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
@@ -641,10 +642,13 @@ fun T1Overlay(onDismiss: () -> Unit, content: @Composable BoxScope.() -> Unit) {
     }
 }
 
-/** Swallows taps so they don't fall through to the scrim. */
+/** Swallows taps so they don't fall through to the scrim; one still puts the keyboard away, like any tap outside a box. */
 @Composable
-private fun Modifier.absorbTaps(): Modifier =
-    clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+private fun Modifier.absorbTaps(): Modifier {
+    val focus = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    return clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { KeyboardAway.put(focus, keyboard, null) }
+}
 
 data class T1MenuItem(
     val label: String,

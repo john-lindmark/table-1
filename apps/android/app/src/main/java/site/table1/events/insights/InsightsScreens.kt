@@ -1017,5 +1017,6 @@ fun NavGraphBuilder.insightsGraph(nav: NavHostController, moderator: Boolean) {
 @Composable
 fun InsightsDemoRoot() {
     val nav = rememberNavController()
+    site.table1.events.ui.components.KeyboardAwayOnNavigate(nav)
     NavHost(navController = nav, startDestination = "insights") { insightsGraph(nav, moderator = false) }
 }

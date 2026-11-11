@@ -837,6 +837,7 @@ struct AddCardsView: View {
     @State private var error: String?
     @State private var busy = false
     @State private var autoScanned = false
+    @State private var opened = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -879,6 +880,9 @@ struct AddCardsView: View {
             // Design QA: `-T1LibraryDemo search -T1SearchQuery tr` opens Search with a query typed.
             if search, query.isEmpty, let q = UserDefaults.standard.string(forKey: "T1SearchQuery") { query = q }
             #endif
+            // Only as the screen opens: coming back from a card's page leaves the keyboard down.
+            guard !opened else { return }
+            opened = true
             if scanOnOpen && !autoScanned {
                 autoScanned = true
                 scan()

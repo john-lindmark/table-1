@@ -289,6 +289,7 @@ struct AddByNameRow: View {
             }
             .buttonStyle(.plain)
             .disabled(!enabled)
+            .keepsKeyboard() // the next name goes straight in
         }
         .fixedSize(horizontal: false, vertical: true)
     }

@@ -60,6 +60,9 @@ struct Table1App: App {
                 #endif
                 // App-drawn menus and panels sit above everything (tabs, life tracker); only alerts are native.
                 .overlay { T1OverlayHost() }
+                // Keyboards go away on a tap outside the text box and on a drag of any list (contract/keyboard-2026-11-11.md).
+                .scrollDismissesKeyboard(.interactively)
+                .background(KeyboardAwayHost())
                 // Foldables (contract/foldables-2026-11-10.md): the window's posture, rail and rotation.
                 .windowFold()
                 .sheet(item: $session.webPage) { WebPageView(url: $0.url).ignoresSafeArea() }
@@ -489,6 +492,8 @@ struct SignedInView: View {
         .animation(.snappy(duration: 0.25), value: session.tracker?.id)
         // A field focused on a hidden tab mustn't keep the keyboard up over the next one (a tapped push switches tabs).
         .onChange(of: tab) { Keyboard.dismiss() }
+        // Going back on any tab puts it away too (a box under the pushed screen kept it).
+        .keyboardAwayOnBack(path.count + libraryPath.count + insightsPath.count + accountPath.count)
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in keyboardUp = true }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in keyboardUp = false }
         .task(id: session.pendingEvent) {
