@@ -28,6 +28,61 @@ enum class TrackerSeat(val degrees: Float) {
         val (down, across) = toward(dx, dy)
         return down >= minPx && down > kotlin.math.abs(across) * 1.5f
     }
+
+    /** How far a point in a box (screen pixels, origin top-left) is from this player's far edge, their "top". */
+    fun far(x: Float, y: Float, w: Float, h: Float): Float = when (this) {
+        Bottom -> y
+        Top -> h - y
+        Left -> w - x
+        Right -> x
+    }
+}
+
+/**
+ * The touch rule (contract/life-tracker-options-2026-10-20.md § Taps and the pull band, cases
+ * testdata/tracker-touch/cases.json): a tap on a +1 / −1 zone always counts, however far it drifts; only a touch
+ * that starts in the pull band along the player's far edge and travels toward them opens the counter picker.
+ * Distances are dp; pass pixels with the same density to every call.
+ */
+object TrackerTouch {
+    /** The pull band's depth from the player's far edge. */
+    const val BAND_DP = 44f
+    /** Travel toward the player that opens the picker. */
+    const val SWIPE_DP = 24f
+    /** Travel before the hold delay that makes a touch a rolled tap, not a hold (no repeat). */
+    const val HOLD_SLOP_DP = 24f
+    /** The old cancel distance: telemetry counts the taps that travelled past it (they used to be lost). */
+    const val MOVED_DP = 10f
+
+    fun inBand(seat: TrackerSeat, x: Float, y: Float, w: Float, h: Float, bandPx: Float): Boolean = seat.far(x, y, w, h) <= bandPx
+
+    fun pulls(seat: TrackerSeat, x: Float, y: Float, w: Float, h: Float, dx: Float, dy: Float, bandPx: Float, swipePx: Float): Boolean =
+        inBand(seat, x, y, w, h, bandPx) && seat.opensPicker(dx, dy, swipePx)
+
+    fun holds(dx: Float, dy: Float, slopPx: Float): Boolean = kotlin.math.hypot(dx, dy) <= slopPx
+}
+
+/**
+ * What the tracker's touches did while it was open, sent as `tracker_touches` when it closes or goes to the
+ * background: taps, taps that travelled past the old 10 dp cancel (`moved`), pulls that opened the picker, holds.
+ * Main thread only.
+ */
+object TrackerTouchStats {
+    var taps = 0
+    var moved = 0
+    var pulls = 0
+    var holds = 0
+    var bandTaps = 0
+
+    /** The event's properties, or null when nothing was touched; resets the counts. */
+    fun take(players: Int, mode: String): Map<String, Any>? {
+        val out = if (taps + pulls > 0) {
+            mapOf("taps" to taps, "moved" to moved, "pulls" to pulls, "holds" to holds, "band_taps" to bandTaps,
+                "players" to players, "mode" to mode)
+        } else null
+        taps = 0; moved = 0; pulls = 0; holds = 0; bandTaps = 0
+        return out
+    }
 }
 
 data class TrackerPlace(val side: Int, val seat: TrackerSeat)

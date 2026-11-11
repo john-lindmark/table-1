@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { reportFromHome } from "../lib/api";
 import { useSession } from "../lib/useSession";
 import { capture } from "../lib/telemetry";
@@ -41,7 +41,10 @@ import {
 import { GhostAction, Modal, Notice, useNow } from "../components/kit";
 import {
   SEAT_DEGREES,
+  holds,
+  inPullBand,
   opensPicker,
+  TOUCH_MOVED,
   saveSetup,
   sideways,
   tableLayout,
@@ -275,6 +278,15 @@ export function LifeTracker({ matchId, onClose }: { matchId?: string; onClose: (
     if (opened.current) return;
     opened.current = true;
     capture("life_tracker_opened", { mode: matchId ? "match" : "local" });
+  }, [matchId]);
+  useEffect(() => {
+    const mode = matchId ? "match" : "local";
+    const hidden = () => document.visibilityState === "hidden" && flushTouches(mode);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      document.removeEventListener("visibilitychange", hidden);
+      flushTouches(mode);
+    };
   }, [matchId]);
   return matchId ? <SyncedBoard matchId={matchId} onClose={onClose} /> : <LocalBoard onClose={onClose} />;
 }
@@ -1000,12 +1012,20 @@ function SeatBox({ seat, children }: { seat: Seat; children: ReactNode }) {
   );
 }
 
-const SWIPE_PX = 24;
-const TAP_SLOP_PX = 10;
+/**
+ * What the tracker's touches did while it was open, sent as `tracker_touches` when it closes or the tab hides:
+ * taps, taps that travelled past the old 10 px cancel (`moved`), pulls that opened the picker, holds.
+ */
+const touchStats = { taps: 0, moved: 0, pulls: 0, holds: 0, band_taps: 0 };
+function flushTouches(mode: string) {
+  if (touchStats.taps + touchStats.pulls > 0) capture("tracker_touches", { ...touchStats, mode });
+  Object.assign(touchStats, { taps: 0, moved: 0, pulls: 0, holds: 0, band_taps: 0 });
+}
 
 /**
- * One player's half (Figma "Me", Counters=0…3), drawn inside its SeatBox. Swipe down — in this player's
- * orientation — opens the counter picker inside the half; only Done closes it (swiping up scrolls its rows).
+ * One player's half (Figma "Me", Counters=0…3), drawn inside its SeatBox. A pull toward the player from the
+ * band along their far edge (the top of the +1 zones) opens the counter picker inside the half; only Done closes
+ * it (swiping up scrolls its rows). Anywhere else a drifting finger is still a tap.
  */
 function TrackerHalf({
   name,
@@ -1035,16 +1055,9 @@ function TrackerHalf({
   onPicker: (open: boolean) => void;
   onToggle: (counter: Counter) => void;
 }) {
-  const start = useRef<{ id: number; x: number; y: number } | null>(null);
-
-  function onMove(e: PointerEvent) {
-    const s = start.current;
-    if (!s || s.id !== e.pointerId) return;
-    // Pointer moves are in screen pixels; a turned seat's "down" points elsewhere on screen.
-    if (!opensPicker(seat, e.clientX - s.x, e.clientY - s.y, SWIPE_PX)) return;
-    start.current = null;
+  const pull = () => {
     if (!pickerOpen) onPicker(true);
-  }
+  };
 
   const size: ColumnSize = counters.length === 0 ? "alone" : "life";
   const counterSize: ColumnSize = counters.length === 1 ? "L" : counters.length === 2 ? "M" : "S";
@@ -1053,10 +1066,6 @@ function TrackerHalf({
     <section
       className="relative flex-1 min-h-0 overflow-hidden flex gap-px bg-t1-surface"
       aria-label={`${name}: ${values.life} life${counters.map((c) => `, ${counterLabel(c, names)} ${values[c] ?? 0}`).join("")}`}
-      onPointerDown={(e) => (start.current = { id: e.pointerId, x: e.clientX, y: e.clientY })}
-      onPointerMove={onMove}
-      onPointerUp={() => (start.current = null)}
-      onPointerCancel={() => (start.current = null)}
     >
       <Column
         name={`${name} life`}
@@ -1065,6 +1074,8 @@ function TrackerHalf({
         small={small}
         lost={values.life <= 0}
         readOnly={readOnly}
+        seat={seat}
+        onPull={pull}
         onDelta={(d) => onDelta("life", d)}
       />
       {counters.length > 0 && (
@@ -1079,6 +1090,8 @@ function TrackerHalf({
               small={small}
               lost={c === "poison" ? values[c] >= POISON_LOSS : commanderFrom(c) != null && (values[c] ?? 0) >= COMMANDER_LOSS}
               readOnly={readOnly}
+              seat={seat}
+              onPull={pull}
               onDelta={(d) => onDelta(c, d)}
             />
           ))}
@@ -1109,6 +1122,8 @@ function Column({
   small,
   lost,
   readOnly,
+  seat,
+  onPull,
   onDelta,
 }: {
   name: string;
@@ -1118,14 +1133,17 @@ function Column({
   small: boolean;
   lost: boolean;
   readOnly: boolean;
+  seat: Seat;
+  onPull: () => void;
   onDelta: (delta: number) => void;
 }) {
   return (
     <div className="relative flex-1 min-w-0 bg-t1-bg">
       {!readOnly && (
         <div className="absolute inset-0 flex flex-col gap-px">
-          <TapZone onTap={() => onDelta(1)} label={`${name} +1`} />
-          <TapZone onTap={() => onDelta(-1)} label={`${name} −1`} />
+          {/* The seat is turned as a whole, so +1 always sits along the player's far edge, by the pull band. */}
+          <TapZone onTap={() => onDelta(1)} label={`${name} +1`} seat={seat} onPull={onPull} />
+          <TapZone onTap={() => onDelta(-1)} label={`${name} −1`} seat={seat} />
         </div>
       )}
       <div className="absolute inset-0 pb-8 px-1 flex flex-col items-center justify-center gap-2 pointer-events-none">
@@ -1195,14 +1213,29 @@ function CounterPicker({
 }
 
 /**
- * Increment Button (Figma 73:5558). A tap fires on release so a swipe never changes a total; moving more
- * than 10px cancels it. Holding fires after 0.5 s, then every 0.15 s.
+ * Increment Button (Figma 73:5558). A tap fires on release and always counts, however far the finger drifts (a
+ * drift past 10 px used to cancel it, which lost real taps). Only a touch that starts in the pull band along the
+ * player's far edge (the +1 zone, `onPull`) and travels toward them opens the counter picker instead. Holding
+ * fires after 0.5 s, then every 0.15 s, unless the finger rolled more than 24 px first. A second finger landing
+ * counts the first finger's tap rather than dropping it.
  */
-function TapZone({ onTap, label }: { onTap: () => void; label: string }) {
+function TapZone({ onTap, label, seat, onPull }: { onTap: () => void; label: string; seat: Seat; onPull?: () => void }) {
   const fire = useRef(onTap);
   fire.current = onTap;
+  const pullRef = useRef(onPull);
+  pullRef.current = onPull;
   const [pressed, setPressed] = useState(false);
-  const press = useRef<{ x: number; y: number; held: boolean; wait?: number; every?: number } | null>(null);
+  const press = useRef<{
+    id: number;
+    x: number;
+    y: number;
+    band: boolean;
+    held: boolean;
+    moved: boolean;
+    rolled: boolean;
+    wait?: number;
+    every?: number;
+  } | null>(null);
   const stop = useCallback(() => {
     if (press.current) {
       window.clearTimeout(press.current.wait);
@@ -1221,15 +1254,32 @@ function TapZone({ onTap, label }: { onTap: () => void; label: string }) {
       onPointerDown={(e) => {
         if (e.pointerType === "mouse" && e.button !== 0) return;
         e.preventDefault();
+        // Another finger is still down here: its tap counts before this one starts.
+        if (press.current && !press.current.held) {
+          touchStats.taps += 1;
+          fire.current();
+        }
         stop();
         try {
           e.currentTarget.setPointerCapture(e.pointerId);
         } catch {
           /* not capturable; pointercancel still ends the press */
         }
-        const p: NonNullable<typeof press.current> = { x: e.clientX, y: e.clientY, held: false };
+        // Screen px inside the zone; the seat's turn is in the rect and in farFrom.
+        const r = e.currentTarget.getBoundingClientRect();
+        const band = !!pullRef.current && inPullBand(seat, e.clientX - r.left, e.clientY - r.top, r.width, r.height);
+        const p: NonNullable<typeof press.current> = {
+          id: e.pointerId,
+          x: e.clientX,
+          y: e.clientY,
+          band,
+          held: false,
+          moved: false,
+          rolled: false,
+        };
         p.wait = window.setTimeout(() => {
           p.held = true;
+          touchStats.holds += 1;
           fire.current();
           p.every = window.setInterval(() => fire.current(), 150);
         }, 500);
@@ -1238,14 +1288,36 @@ function TapZone({ onTap, label }: { onTap: () => void; label: string }) {
       }}
       onPointerMove={(e) => {
         const p = press.current;
-        if (p && !p.held && Math.hypot(e.clientX - p.x, e.clientY - p.y) > TAP_SLOP_PX) stop();
+        if (!p || p.id !== e.pointerId || p.held) return;
+        const dx = e.clientX - p.x;
+        const dy = e.clientY - p.y;
+        if (!p.moved && Math.hypot(dx, dy) > TOUCH_MOVED) p.moved = true;
+        if (!p.rolled && !holds(dx, dy)) {
+          p.rolled = true;
+          window.clearTimeout(p.wait);
+        }
+        if (p.band && opensPicker(seat, dx, dy)) {
+          stop();
+          touchStats.pulls += 1;
+          pullRef.current?.();
+        }
       }}
-      onPointerUp={() => {
-        if (press.current && !press.current.held) fire.current();
-        stop();
+      onPointerUp={(e) => {
+        const p = press.current;
+        if (p && p.id === e.pointerId && !p.held) {
+          touchStats.taps += 1;
+          if (p.moved) touchStats.moved += 1;
+          if (p.band) touchStats.band_taps += 1;
+          fire.current();
+        }
+        if (!p || p.id === e.pointerId) stop();
       }}
-      onPointerCancel={stop}
-      onLostPointerCapture={stop}
+      onPointerCancel={(e) => {
+        if (!press.current || press.current.id === e.pointerId) stop();
+      }}
+      onLostPointerCapture={(e) => {
+        if (press.current?.id === e.pointerId) stop();
+      }}
       onContextMenu={(e) => e.preventDefault()}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {

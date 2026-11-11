@@ -1,0 +1,408 @@
+{
+  "_doc": "Reference for the life tracker's touch rule (contract/life-tracker-options-2026-10-20.md \u00a7 Taps and the pull band).",
+  "band": 44,
+  "swipe": 24,
+  "holdSlop": 24,
+  "moved": 10,
+  "touches": [
+    {
+      "note": "tap in the middle, still",
+      "seat": "bottom",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        120
+      ],
+      "move": [
+        0,
+        0
+      ],
+      "far": 120,
+      "band": false,
+      "pull": false,
+      "counts": true,
+      "holds": true
+    },
+    {
+      "note": "tap that drifts 12 down (was cancelled)",
+      "seat": "bottom",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        120
+      ],
+      "move": [
+        2,
+        12
+      ],
+      "far": 120,
+      "band": false,
+      "pull": false,
+      "counts": true,
+      "holds": true
+    },
+    {
+      "note": "tap that drifts 30 down mid-zone (opened the picker)",
+      "seat": "bottom",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        120
+      ],
+      "move": [
+        3,
+        30
+      ],
+      "far": 120,
+      "band": false,
+      "pull": false,
+      "counts": true,
+      "holds": false
+    },
+    {
+      "note": "tap on -1 drifting 40 down",
+      "seat": "bottom",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        300
+      ],
+      "move": [
+        0,
+        40
+      ],
+      "far": 300,
+      "band": false,
+      "pull": false,
+      "counts": true,
+      "holds": false
+    },
+    {
+      "note": "tap drifting sideways 20",
+      "seat": "bottom",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        300
+      ],
+      "move": [
+        20,
+        2
+      ],
+      "far": 300,
+      "band": false,
+      "pull": false,
+      "counts": true,
+      "holds": true
+    },
+    {
+      "note": "pull from the top strip",
+      "seat": "bottom",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        20
+      ],
+      "move": [
+        0,
+        40
+      ],
+      "far": 20,
+      "band": true,
+      "pull": true,
+      "counts": false,
+      "holds": false
+    },
+    {
+      "note": "pull from the band's edge",
+      "seat": "bottom",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        44
+      ],
+      "move": [
+        4,
+        30
+      ],
+      "far": 44,
+      "band": true,
+      "pull": true,
+      "counts": false,
+      "holds": false
+    },
+    {
+      "note": "just below the band",
+      "seat": "bottom",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        45
+      ],
+      "move": [
+        0,
+        60
+      ],
+      "far": 45,
+      "band": false,
+      "pull": false,
+      "counts": true,
+      "holds": false
+    },
+    {
+      "note": "in the band, sideways",
+      "seat": "bottom",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        10
+      ],
+      "move": [
+        40,
+        10
+      ],
+      "far": 10,
+      "band": true,
+      "pull": false,
+      "counts": true,
+      "holds": false
+    },
+    {
+      "note": "in the band, away from the player",
+      "seat": "bottom",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        10
+      ],
+      "move": [
+        0,
+        -40
+      ],
+      "far": 10,
+      "band": true,
+      "pull": false,
+      "counts": true,
+      "holds": false
+    },
+    {
+      "note": "in the band, short drift",
+      "seat": "bottom",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        10
+      ],
+      "move": [
+        0,
+        20
+      ],
+      "far": 10,
+      "band": true,
+      "pull": false,
+      "counts": true,
+      "holds": true
+    },
+    {
+      "note": "top seat pulls up the screen from its far edge",
+      "seat": "top",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        360
+      ],
+      "move": [
+        0,
+        -40
+      ],
+      "far": 20,
+      "band": true,
+      "pull": true,
+      "counts": false,
+      "holds": false
+    },
+    {
+      "note": "top seat, mid-zone drift up",
+      "seat": "top",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        200
+      ],
+      "move": [
+        0,
+        -40
+      ],
+      "far": 180,
+      "band": false,
+      "pull": false,
+      "counts": true,
+      "holds": false
+    },
+    {
+      "note": "top seat, screen top is the player's near edge",
+      "seat": "top",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        20
+      ],
+      "move": [
+        0,
+        -40
+      ],
+      "far": 360,
+      "band": false,
+      "pull": false,
+      "counts": true,
+      "holds": false
+    },
+    {
+      "note": "left seat pulls left from the right edge",
+      "seat": "left",
+      "box": [
+        180,
+        300
+      ],
+      "start": [
+        160,
+        150
+      ],
+      "move": [
+        -40,
+        0
+      ],
+      "far": 20,
+      "band": true,
+      "pull": true,
+      "counts": false,
+      "holds": false
+    },
+    {
+      "note": "left seat, its left edge is near the player",
+      "seat": "left",
+      "box": [
+        180,
+        300
+      ],
+      "start": [
+        20,
+        150
+      ],
+      "move": [
+        -40,
+        0
+      ],
+      "far": 160,
+      "band": false,
+      "pull": false,
+      "counts": true,
+      "holds": false
+    },
+    {
+      "note": "right seat pulls right from the left edge",
+      "seat": "right",
+      "box": [
+        180,
+        300
+      ],
+      "start": [
+        20,
+        150
+      ],
+      "move": [
+        40,
+        0
+      ],
+      "far": 20,
+      "band": true,
+      "pull": true,
+      "counts": false,
+      "holds": false
+    },
+    {
+      "note": "right seat, mid-zone drift right",
+      "seat": "right",
+      "box": [
+        180,
+        300
+      ],
+      "start": [
+        100,
+        150
+      ],
+      "move": [
+        40,
+        0
+      ],
+      "far": 100,
+      "band": false,
+      "pull": false,
+      "counts": true,
+      "holds": false
+    },
+    {
+      "note": "rolled thumb, no repeat",
+      "seat": "bottom",
+      "box": [
+        390,
+        380
+      ],
+      "start": [
+        195,
+        300
+      ],
+      "move": [
+        18,
+        18
+      ],
+      "far": 300,
+      "band": false,
+      "pull": false,
+      "counts": true,
+      "holds": false
+    }
+  ]
+}

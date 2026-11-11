@@ -78,6 +78,8 @@ import site.table1.events.tracker.TrackerPlace
 import site.table1.events.tracker.TrackerRow
 import site.table1.events.tracker.TrackerSeat
 import site.table1.events.tracker.TrackerTable
+import site.table1.events.tracker.TrackerTouch
+import site.table1.events.tracker.TrackerTouchStats
 import site.table1.events.tracker.clockTone
 import site.table1.events.tracker.commanderFrom
 import site.table1.events.tracker.formatTrackerClock
@@ -116,6 +118,13 @@ private data class Winner(val side: Int?, val draw: Boolean)
  * around the phone ([TrackerTable.layout]), and 30+ life tracks commander damage
  * (contract/life-tracker-commander-2026-11-03.md).
  */
+/** Sends what the touches did since the last flush (`tracker_touches`). */
+private fun flushTouches(controller: TrackerController) {
+    val d = controller.doc ?: return
+    TrackerTouchStats.take(d.players, if (d.synced) "match" else "local")
+        ?.let { Telemetry.capture("tracker_touches", it) }
+}
+
 @Composable
 fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
     val context = LocalContext.current
@@ -123,7 +132,10 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
     val controller = remember(matchId) { TrackerController(context.applicationContext, matchId) }
     DisposableEffect(controller) {
         controller.start()
-        onDispose { controller.close() }
+        onDispose {
+            flushTouches(controller)
+            controller.close()
+        }
     }
 
     // Keep the screen on while the tracker is visible.
@@ -138,7 +150,10 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
     DisposableEffect(lifecycle, controller) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_STOP -> controller.flushSoon()
+                Lifecycle.Event.ON_STOP -> {
+                    flushTouches(controller)
+                    controller.flushSoon()
+                }
                 Lifecycle.Event.ON_START -> controller.refetch()
                 else -> {}
             }
@@ -620,33 +635,16 @@ private fun TrackerHalf(
     val life = d.total(game, side, "life")
     // Seats at a bigger table are a third to a half the size of a two-player half.
     val scale = if (d.players > 2) 0.6f else 1f
-    val swipePx = with(LocalDensity.current) { 24.dp.toPx() }
     val open by rememberUpdatedState(pickerOpen)
     val setOpen by rememberUpdatedState(onPicker)
+    // A pull from the band along the player's far edge (the +1 zones' top strip) opens the picker.
+    val pull = { if (!open) setOpen(true) }
 
-    Box(
-        modifier.fillMaxWidth().background(T1.surface).pointerInput(Unit) {
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
-                while (true) {
-                    val event = awaitPointerEvent()
-                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                    if (!change.pressed) break
-                    // The seat is already turned, so these are in its player's own frame.
-                    val dx = change.position.x - down.position.x
-                    val dy = change.position.y - down.position.y
-                    if (TrackerSeat.Bottom.opensPicker(dx, dy, swipePx)) {
-                        if (!open) setOpen(true)
-                        break
-                    }
-                }
-            }
-        },
-    ) {
+    Box(modifier.fillMaxWidth().background(T1.surface)) {
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
             CounterColumn(
                 value = life, label = null, target = (if (counters.isEmpty()) 162f else 120f) * scale, lost = life <= 0,
-                enabled = enabled, name = "${d.name(side)} life", modifier = Modifier.weight(1f),
+                enabled = enabled, name = "${d.name(side)} life", modifier = Modifier.weight(1f), onPull = pull,
             ) { onTap(side, "life", it) }
             if (counters.isNotEmpty()) {
                 Row(Modifier.weight(1f).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -657,7 +655,7 @@ private fun TrackerHalf(
                             target = when (counters.size) { 1 -> 80f; 2 -> 64f; else -> 44f } * scale,
                             lost = if (c.id == "poison") value >= 10 else commanderFrom(c.id) != null && value >= TrackerTable.COMMANDER_LOSS,
                             enabled = enabled,
-                            name = "${d.name(side)} ${c.label}", modifier = Modifier.weight(1f),
+                            name = "${d.name(side)} ${c.label}", modifier = Modifier.weight(1f), onPull = pull,
                         ) { onTap(side, c.id, it) }
                     }
                 }
@@ -687,11 +685,13 @@ private fun CounterColumn(
     enabled: Boolean,
     name: String,
     modifier: Modifier,
+    onPull: () -> Unit,
     onDelta: (Int) -> Unit,
 ) {
     BoxWithConstraints(modifier.fillMaxHeight().background(T1.bg)) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            TapZone(enabled, "$name +1", Modifier.weight(1f)) { onDelta(1) }
+            // The seat is turned as a whole, so +1 always runs along the player's far edge, by the pull band.
+            TapZone(enabled, "$name +1", Modifier.weight(1f), onPull = onPull) { onDelta(1) }
             TapZone(enabled, "$name −1", Modifier.weight(1f)) { onDelta(-1) }
         }
         // Shrink to fit narrow columns and short halves (a monospace digit is about 0.6 em wide).
@@ -714,15 +714,23 @@ private fun CounterColumn(
 }
 
 /**
- * Increment Button. A tap fires on release so a swipe never changes a total; moving more than 10 dp cancels
- * it. Holding fires after 0.5 s, then every 0.15 s. Pressed = surface.
+ * Increment Button. A tap fires on release and always counts, however far the finger drifts (a drift past 10 dp
+ * used to cancel it, which lost real taps). Only a touch that starts in the pull band along the player's far edge
+ * (the +1 zone, `onPull`) and travels toward them opens the counter picker instead. Holding fires after 0.5 s,
+ * then every 0.15 s, unless the finger rolled more than 24 dp first. A second finger on the zone is its own tap.
+ * The seat is already turned, so positions are in its player's own frame (TrackerSeat.Bottom).
  */
 @Composable
-private fun TapZone(enabled: Boolean, label: String, modifier: Modifier, onStep: () -> Unit) {
+private fun TapZone(enabled: Boolean, label: String, modifier: Modifier, onPull: (() -> Unit)? = null, onStep: () -> Unit) {
     val step by rememberUpdatedState(onStep)
+    val pull by rememberUpdatedState(onPull)
     var pressed by remember { mutableStateOf(false) }
     val fill by animateColorAsState(if (pressed) T1.surface else T1.bg, tween(150), label = "zone")
-    val slop = with(LocalDensity.current) { 10.dp.toPx() }
+    val density = LocalDensity.current
+    val bandPx = with(density) { TrackerTouch.BAND_DP.dp.toPx() }
+    val swipePx = with(density) { TrackerTouch.SWIPE_DP.dp.toPx() }
+    val holdSlopPx = with(density) { TrackerTouch.HOLD_SLOP_DP.dp.toPx() }
+    val movedPx = with(density) { TrackerTouch.MOVED_DP.dp.toPx() }
     Box(
         modifier.fillMaxWidth().background(fill)
             .semantics {
@@ -736,11 +744,18 @@ private fun TapZone(enabled: Boolean, label: String, modifier: Modifier, onStep:
                         awaitEachGesture {
                             val down = awaitFirstDown()
                             pressed = true
+                            val seat = TrackerSeat.Bottom
+                            val band = pull != null && TrackerTouch.inBand(seat, down.position.x, down.position.y,
+                                size.width.toFloat(), size.height.toFloat(), bandPx)
                             var held = false
-                            var cancelled = false
+                            var rolled = false
+                            var moved = false
+                            var pulled = false
+                            var lifted = false
                             val repeat = launch {
                                 delay(500)
                                 held = true
+                                TrackerTouchStats.holds++
                                 while (isActive) {
                                     step()
                                     delay(150)
@@ -748,17 +763,46 @@ private fun TapZone(enabled: Boolean, label: String, modifier: Modifier, onStep:
                             }
                             while (true) {
                                 val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull { it.id == down.id }
-                                if (change == null || !change.pressed) break
-                                if (!held && !cancelled && (change.position - down.position).getDistance() > slop) {
-                                    cancelled = true
-                                    repeat.cancel()
-                                    pressed = false
+                                // Another finger that landed here and lifts is a tap of its own.
+                                event.changes.forEach { c ->
+                                    if (c.id != down.id && c.previousPressed && !c.pressed) {
+                                        TrackerTouchStats.taps++
+                                        step()
+                                    }
                                 }
+                                if (!lifted) {
+                                    val change = event.changes.firstOrNull { it.id == down.id }
+                                    if (change == null || !change.pressed) {
+                                        lifted = true
+                                        repeat.cancel()
+                                        pressed = false
+                                        if (change != null && !held && !pulled) {
+                                            TrackerTouchStats.taps++
+                                            if (moved) TrackerTouchStats.moved++
+                                            if (band) TrackerTouchStats.bandTaps++
+                                            step()
+                                        }
+                                    } else if (!held && !pulled) {
+                                        val dx = change.position.x - down.position.x
+                                        val dy = change.position.y - down.position.y
+                                        if (!moved && kotlin.math.hypot(dx, dy) > movedPx) moved = true
+                                        if (!rolled && !TrackerTouch.holds(dx, dy, holdSlopPx)) {
+                                            rolled = true
+                                            repeat.cancel()
+                                        }
+                                        if (band && seat.opensPicker(dx, dy, swipePx)) {
+                                            pulled = true
+                                            repeat.cancel()
+                                            pressed = false
+                                            TrackerTouchStats.pulls++
+                                            pull?.invoke()
+                                        }
+                                    }
+                                }
+                                if (event.changes.none { it.pressed }) break
                             }
                             repeat.cancel()
                             pressed = false
-                            if (!held && !cancelled) step()
                         }
                     }
                 }
