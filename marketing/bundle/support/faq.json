@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-10",
+  "updated": "2026-11-11",
   "contact": {
     "discord": "https://discord.gg/SEYnjHTGVr",
     "email": "privacy@table-1.site"
@@ -165,6 +165,20 @@
         "flip"
       ],
       "guide": "foldables"
+    },
+    {
+      "id": "start-keyboard",
+      "topic": "start",
+      "q": "How do I put the keyboard away?",
+      "a": "Tap anywhere outside the text box you're typing in: a row, a heading, a chart or empty space, on any screen, panel or menu. A tap in the box itself keeps the keyboard up, and so does Add beside a name you're typing.\n\nOn iPhone, dragging a list or going back also puts it away. On Android it goes whenever you move to another screen. On the website on a phone, tap the page outside the box.",
+      "keywords": [
+        "keyboard",
+        "dismiss",
+        "hide",
+        "close",
+        "typing"
+      ],
+      "guide": "overview"
     },
     {
       "id": "play-join",

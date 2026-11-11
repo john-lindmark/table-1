@@ -188,7 +188,7 @@
     "guide:run-30:6",
     "guide:run-3:2",
     "guide:run-15:2",
-    "guide:play-18:2",
+    "guide:play-19:2",
     "guide:discord-6:2"
    ]
   },
@@ -218,7 +218,7 @@
     "8"
    ],
    "partial": false,
-   "count": 20,
+   "count": 21,
    "top": [
     "faq:organize-top8:23",
     "guide:run-21:18",
@@ -533,13 +533,13 @@
    "count": 50,
    "top": [
     "faq:start-sign-in:9",
+    "faq:start-keyboard:9",
     "faq:play-join:9",
     "faq:play-report:9",
     "faq:play-leave:9",
     "faq:play-decklist:9",
     "faq:play-tiebreakers:9",
-    "faq:play-deck-photo:9",
-    "faq:organize-create:9"
+    "faq:play-deck-photo:9"
    ]
   },
   {

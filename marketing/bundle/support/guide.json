@@ -192,6 +192,13 @@
    "x": "The tab bar runs along the bottom (on the website on a phone too): an icon over each tab's name, the tab you're on in white under a thin teal line, the others with icon and name in the same light grey. It shows only on those four screens. Every screen you open from them has a back arrow on the left, and on iPhone a swipe from the left edge goes back too (the camera is the exception)."
   },
   {
+   "id": "overview-7",
+   "s": "overview",
+   "h": "Account",
+   "t": "The keyboard",
+   "x": "goes away with a tap anywhere outside the text box you're typing in, on any screen, panel or menu; a tap in the box, or on an Add used while typing names, keeps it up. On iPhone dragging a list or going back puts it away too; on Android, moving to another screen does. A screen that opens on a search puts the cursor in it once, not again when you come back to it."
+  },
+  {
    "id": "foldables-1",
    "s": "foldables",
    "x": "Table 1 lays itself out from the space it actually has and where the fold is, never from which phone it's on, as Apple and Google ask. Fold, unfold, turn or half-close the phone and the screen you're on adapts in place."
@@ -675,23 +682,29 @@
   {
    "id": "play-17",
    "s": "play",
+   "t": "Once your last match is in",
+   "x": "the event screen opens on Add a deck photo, under a line saying why (Last match in, Event over or Dropped), and goes straight to Take a photo or Choose from photos for your deck. Done means the event is over, you dropped, or your last match's result is in (either player's report counts): the last Swiss round with no top 8, a lost playoff match or the final; with a top 8, once the playoffs start without you. With a photo added it's a Deck photo · Added row that opens them."
+  },
+  {
+   "id": "play-18",
+   "s": "play",
    "t": "Deck photo",
    "x": "photograph your own deck (or pick a photo) with a note. Before saving, Rotate left or Rotate right turns it upright. Only you and the organizer see it until the event is over. On iPhone, Android and the website, when you're signed in; a guest's deck can be added by the organizer."
   },
   {
-   "id": "play-18",
+   "id": "play-19",
    "s": "play",
    "t": "An event you're not in",
    "x": "(signed in, in the apps): its link opens the event page in the app, never the website: the sign-up page before round 1, then Standings | Matchups (top 8, teams and pods included; every round's tables and scores), refreshing every 20 seconds. Its notifications open the same page."
   },
   {
-   "id": "play-19",
+   "id": "play-20",
    "s": "play",
    "t": "Follow",
    "x": "on that page, for anyone signed in who isn't its organizer or a player (and can see it by its link). It's listed on the Events tab under Following (running first, then upcoming, then finished in the last week), with a notification when each round is paired, when it finishes and if it's cancelled. Following → turn notifications off, or Unfollow. Up to 200; nobody sees who follows."
   },
   {
-   "id": "play-20",
+   "id": "play-21",
    "s": "play",
    "x": "On the website, the event screen has a back arrow to Events (or wherever you came from). So does the event's shared link page (sign-up, standings and matchups, signed in or out): opened straight from a link, the arrow goes to the home page."
   },
@@ -1051,7 +1064,7 @@
    "id": "after-1",
    "s": "after",
    "t": "Deck photos",
-   "x": "(all platforms): once the event is over, everyone in it sees every deck photo and its note, and players can still add theirs: Deck photos · Add under After the event, or More → Add a deck photo on the organizer's Results. The player or whoever took it can edit the note, remove it, or Rotate right / Rotate left to set a sideways photo upright; it turns for everyone and the original file stays as it was. Photos show whole, not cropped. Hold a photo for Copy, Save to Photos and Share, on the event's screen and on your account: the photo upright as shown (iPhone: the phone's own menu; website: the browser's picture menu, or right-click; Android: a Table 1 menu)."
+   "x": "(all platforms): once the event is over, everyone in it sees every deck photo and its note, and players can still add theirs: Add a deck photo at the top of their event screen until they have one, Deck photos · Add under After the event, or More → Add a deck photo on the organizer's Results. The player or whoever took it can edit the note, remove it, or Rotate right / Rotate left to set a sideways photo upright; it turns for everyone and the original file stays as it was. Photos show whole, not cropped. Hold a photo for Copy, Save to Photos and Share, on the event's screen and on your account: the photo upright as shown (iPhone: the phone's own menu; website: the browser's picture menu, or right-click; Android: a Table 1 menu)."
   },
   {
    "id": "after-2",
