@@ -175,8 +175,9 @@ function OrganizerRoute() {
 function DeckPhotosRoute({ organizer }: { organizer: boolean }) {
   const { eventId } = useParams();
   const back = useBack(organizer ? `/e/${eventId}` : `/p/${eventId}`);
+  const startAdding = new URLSearchParams(useLocation().search).get("add") === "1";
   if (!eventId) return <Navigate to="/" replace />;
-  return <DeckPhotosScreen eventId={eventId} organizer={organizer} onBack={back} />;
+  return <DeckPhotosScreen eventId={eventId} organizer={organizer} onBack={back} startAdding={startAdding} />;
 }
 
 /** /e/:eventId/redraft and /p/:eventId/redraft: a finished set draft's redraft pile. */
@@ -200,7 +201,7 @@ function JoinRoute() {
   const navigate = useNavigate();
   const back = useBack("/");
   return <PlayerView code={code} onBack={back} onOpenLife={(matchId) => navigate(`/life/${matchId}`)}
-                     onOpenPhotos={(id) => navigate(`/p/${id}/photos`)}
+                     onOpenPhotos={(id, add) => navigate(`/p/${id}/photos${add ? "?add=1" : ""}`)}
                      onOpenRedraft={(id, setCode) => navigate(`/p/${id}/redraft`, { state: { setCode } })} />;
 }
 
@@ -277,7 +278,7 @@ function PlayerRoute() {
   const navigate = useNavigate();
   const back = useBack("/");
   return <PlayerView eventIdProp={eventId} onBack={back} onOpenLife={(matchId) => navigate(`/life/${matchId}`)}
-                     onOpenPhotos={(id) => navigate(`/p/${id}/photos`)}
+                     onOpenPhotos={(id, add) => navigate(`/p/${id}/photos${add ? "?add=1" : ""}`)}
                      onOpenRedraft={(id, setCode) => navigate(`/p/${id}/redraft`, { state: { setCode } })} />;
 }
 

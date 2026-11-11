@@ -9,6 +9,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import kotlinx.serialization.json.jsonPrimitive as prim
 import site.table1.events.ui.screens.DeckPhoto
+import site.table1.events.ui.screens.DeckPhotoPrompt
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.contentOrNull
 import site.table1.events.ui.screens.MyDeckPhotoRules
 import site.table1.events.ui.screens.MyDeckPhotos
 import site.table1.events.ui.screens.deckPhotoFileName
@@ -83,5 +88,29 @@ class DeckPhotosTest {
         assertEquals("e1/completed/1", "${p.eventId}/${p.eventStatus}/${p.turns}")
         assertEquals("29 Oct 2026 · Draft", MyDeckPhotoRules.detail(p, ZoneId.of("UTC")))
         assertEquals("29 Oct 2026", MyDeckPhotoRules.detail(p.copy(eventName = "Thursday Draft"), ZoneId.of("UTC")))
+    }
+
+    /** Add a deck photo once your last match is in (§ 7), against testdata/deck-photos/prompt.json (make_prompt.py). */
+    @Test fun promptFollowsTheSharedCases() {
+        val dir = generateSequence(File("").absoluteFile) { it.parentFile }.map { File(it, "testdata/deck-photos") }.first { it.isDirectory }
+        val cases = Json.parseToJsonElement(File(dir, "prompt.json").readText()).jsonObject["cases"]!!.jsonArray
+        assert(cases.size > 10)
+        for (el in cases) {
+            val o = el.jsonObject
+            val name = o["name"]!!.prim.content
+            val event = o["event"]!!.jsonObject
+            val me = o["me"]?.takeIf { it != JsonNull }?.jsonObject
+            val played = o["rounds"]!!.jsonArray.map { r ->
+                val ro = r.jsonObject
+                val m = ro["mine"]?.takeIf { it != JsonNull }?.jsonObject
+                DeckPhotoPrompt.Played(ro["number"]!!.prim.int, ro["stage"]?.prim?.contentOrNull,
+                    m?.let { DeckPhotoPrompt.Mine(it["bye"]!!.prim.booleanOrNull == true, it["status"]!!.prim.content, it["my"]!!.prim.int, it["their"]!!.prim.int) })
+            }
+            val why = DeckPhotoPrompt.done(event["status"]!!.prim.content, event["rounds"]!!.prim.int, event["top_cut"]?.prim?.intOrNull ?: 0,
+                me != null, me?.get("status")?.prim?.content, me?.get("dropped_in_round")?.prim?.intOrNull, played)
+            assertEquals(name, o["why"]?.prim?.contentOrNull, why)
+            assertEquals(name, o["show"]?.prim?.contentOrNull, DeckPhotoPrompt.show(why, if (o["photo"]!!.prim.booleanOrNull == true) 1 else 0))
+        }
+        assertEquals("Last match in", DeckPhotoPrompt.label("last"))
     }
 }

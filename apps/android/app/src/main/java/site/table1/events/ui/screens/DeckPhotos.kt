@@ -159,6 +159,47 @@ object DeckPhotosRepo {
     suspend fun url(path: String): String? = runCatching { bucket.createSignedUrl(path, 1.hours) }.getOrNull()
 }
 
+/** Once a player's last match is in (or the event is over, or they dropped), the player screen leads with Add a deck
+ *  photo (contract/event-night-2026-10-16.md § 7 "Once your last match is in"). Same rule as iOS DeckPhotoPrompt and
+ *  web deckPhotoDone, checked against testdata/deck-photos/prompt.json. */
+object DeckPhotoPrompt {
+    data class Mine(val bye: Boolean, val status: String, val my: Int, val their: Int)
+    data class Played(val number: Int, val stage: String?, val mine: Mine?)
+
+    /** Why the player is finished playing ("last", "over", "dropped"), or null. */
+    fun done(status: String, rounds: Int, topCut: Int, isPlayer: Boolean, meStatus: String?, droppedInRound: Int?,
+             played: List<Played>): String? {
+        if (!isPlayer || status == "cancelled") return null
+        if (status == "completed" || status == "archived") return "over"
+        if (meStatus == "dropped" || droppedInRound != null) return "dropped"
+        val last = played.filter { it.mine != null }.maxByOrNull { it.number } ?: return null
+        val m = last.mine ?: return null
+        if (!(m.bye || m.status == "reported" || m.status == "confirmed")) return null
+        val stage = last.stage ?: "swiss"
+        if (stage != "swiss") return if (stage == "final" || m.my < m.their) "last" else null
+        if (last.number < rounds) return null
+        if (topCut == 0) return "last"
+        return if (played.any { (it.stage ?: "swiss") != "swiss" }) "last" else null
+    }
+
+    fun done(b: EventBundle, me: ParticipantRow?): String? {
+        val played = b.rounds.map { r ->
+            val match = me?.let { p -> r.matches.firstOrNull { m -> m.sides.any { it.participantId == p.id } } }
+            Played(r.number, r.stage, match?.let { m ->
+                Mine(m.isBye, m.status, m.sides.firstOrNull { it.participantId == me.id }?.gameWins ?: 0,
+                    m.sides.firstOrNull { it.participantId != me.id }?.gameWins ?: 0)
+            })
+        }
+        return done(b.event.status, b.event.numberOfRounds, b.event.topCut, me != null, me?.status, me?.droppedInRound, played)
+    }
+
+    /** "add" before the player has a photo of their deck in the event, "added" once they do. */
+    fun show(why: String?, photos: Int): String? = if (why == null) null else if (photos > 0) "added" else "add"
+
+    fun label(why: String): String = when (why) { "over" -> "Event over"; "dropped" -> "Dropped"; else -> "Last match in" }
+}
+
+
 /** Longest side 2048 px, never upscaled (same as iOS and web). */
 fun deckPhotoSize(width: Int, height: Int, longest: Int = 2048): Pair<Int, Int> {
     val scale = minOf(1.0, longest.toDouble() / maxOf(width, height, 1))
@@ -208,7 +249,7 @@ fun deckPhotoBitmap(bytes: ByteArray, turns: Int, longest: Int = 2048): Bitmap? 
 
 /** Deck photos for one event, with notes. The server decides who sees and edits what. */
 @Composable
-fun DeckPhotosScreen(eventId: String, onBack: () -> Unit) {
+fun DeckPhotosScreen(eventId: String, onBack: () -> Unit, startAdding: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var bundle by remember { mutableStateOf<EventBundle?>(null) }
@@ -246,6 +287,9 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit) {
             .onSuccess { show(it); error = null }
             .onFailure { error = it.message }
         loaded = true
+        // From the player screen's Add a deck photo: the camera / library choice for your own deck, at once.
+        val mine = bundle?.participants?.firstOrNull { it.userId != null && it.userId == Repo.userId }
+        if (startAdding && mine != null && bundle?.event?.isCancelled == false) sourceFor = mine
     }
 
     fun upload(player: ParticipantRow, uri: Uri, source: String, text: String, turned: Int) {
@@ -261,7 +305,7 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit) {
                 } else {
                     show(DeckPhotosRepo.add(eventId, player.id, jpeg, text))
                     error = null
-                    Telemetry.capture("deck_photo_added", mapOf("source" to source, "own" to (player.id == me?.id),
+                    Telemetry.capture("deck_photo_added", mapOf("source" to source, "own" to (player.id == me?.id), "from" to (if (startAdding) "prompt" else "screen"),
                         "has_note" to text.isNotEmpty(), "turns" to turned, "event_over" to (bundle?.event?.isFinished == true)))
                 }
             } catch (e: Exception) {

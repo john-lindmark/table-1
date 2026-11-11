@@ -652,6 +652,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         onOpenPhotos = { nav.navigate("photos/$id") },
                         onOpenRedraft = { nav.navigate("redraft/$id") },
                         onOpenList = { nav.navigate("collection/list/$it") },
+                        onAddPhoto = { nav.navigate("photos/$id?add=true") },
                     )
                 }
                 composable("redraft/{id}") { e ->
@@ -662,8 +663,9 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     EventPageScreen(id, signUpNow = e.arguments?.getString("signup") == "true", onBack = { nav.popBackStack() },
                         onOpenEvent = { nav.navigate("event/$it") })
                 }
-                composable("photos/{id}") { e ->
-                    DeckPhotosScreen(eventId = e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() })
+                composable("photos/{id}?add={add}", arguments = listOf(navArgument("add") { nullable = true })) { e ->
+                    DeckPhotosScreen(eventId = e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() },
+                        startAdding = e.arguments?.getString("add") == "true")
                 }
                 composable("add/{id}") { e ->
                     AddPlayersScreen(eventId = e.arguments?.getString("id") ?: "", onDone = { nav.popBackStack() })

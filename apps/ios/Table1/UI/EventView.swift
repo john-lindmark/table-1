@@ -189,9 +189,13 @@ struct PlayerView: View {
     @State private var notice: String?
     @State private var error: String?
     @State private var confirmLeave = false
+    /// Photos of your own deck in this event, read once you're done playing (nil until read).
+    @State private var myPhotos: Int?
+    @State private var appeared = 0
 
     var body: some View {
         let me = b.participants.first { $0.userId != nil && $0.userId == Repo.userId }
+        let doneWhy = DeckPhotoPrompt.done(b, me: me)
         let active = b.activeRound
         let match = active?.matches.first { m in m.matchSides.contains { $0.participantId == me?.id } }
         let mine = match?.matchSides.first { $0.participantId == me?.id }
@@ -202,6 +206,7 @@ struct PlayerView: View {
             Bar(title: b.event.name, subtitle: subtitle(me: me, active: active), back: { dismiss() })
             if b.event.isCancelled { CancelledBanner(reason: b.event.cancelReason) }
             HairlineList {
+                if let doneWhy, let photos = myPhotos { deckPhotoPrompt(doneWhy, photos: photos) }
                 if let active, b.event.showClock { RoundClock(endsAt: active.timerEndsAt) }
                 if me == nil {
                     Notice("You're viewing this event. Scan the organizer's QR to take a seat.")
@@ -247,7 +252,7 @@ struct PlayerView: View {
                 }
                 if me != nil && !b.event.isFinished {
                     trackerToggle
-                    Ghost(text: "Deck photo") { open(.deckPhotos(b.event.id)) }
+                    if doneWhy == nil { Ghost(text: "Deck photo") { open(.deckPhotos(b.event.id)) } }
                 }
                 if me != nil && b.event.isBeforeRound1 {
                     if let when = EventRules.when(b.event.startsAt) {
@@ -278,12 +283,45 @@ struct PlayerView: View {
             }
         }
         .onChange(of: match?.version) { optimistic = nil }
+        .onAppear { appeared += 1 }
+        // Read again on coming back from Deck photos, so the prompt turns into "Added".
+        .task(id: "\(doneWhy ?? "-")#\(appeared)") { await readMyPhotos(doneWhy, me: me) }
         .alert("Leave \(b.event.name)?", isPresented: $confirmLeave) {
             Button("Stay", role: .cancel) {}
             Button("Leave", role: .destructive) { leave() }
         } message: {
             Text("Your seat goes to the next person on the waitlist, if there is one.")
         }
+    }
+
+    /// Once your last match is in: the one big action is Add a deck photo; with one added, a row to see it.
+    @ViewBuilder
+    private func deckPhotoPrompt(_ why: String, photos: Int) -> some View {
+        if DeckPhotoPrompt.show(why, photos: photos) == "add" {
+            VStack(spacing: 1) {
+                LabelText(DeckPhotoPrompt.label(why), color: T1.accent)
+                    .frame(maxWidth: .infinity).padding(.vertical, 10).background(T1.surface)
+                BigAction(text: "Add a deck photo", accent: true) {
+                    Telemetry.capture("deck_photo_prompt_tapped", ["why": why])
+                    open(.addDeckPhoto(b.event.id))
+                }
+            }
+        } else {
+            Button { open(.deckPhotos(b.event.id)) } label: {
+                ListRow(title: "Deck photo", detail: photos == 1 ? "Added" : "Added · \(photos) photos") {
+                    LabelText("View", color: T1.text)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func readMyPhotos(_ why: String?, me: ParticipantRow?) async {
+        guard let why, let me else { myPhotos = nil; return }
+        let photos = (try? await Repo.deckPhotos(b.event.id))?.photos.filter { $0.participantId == me.id }.count ?? 0
+        guard !Task.isCancelled else { return }
+        if myPhotos == nil, photos == 0 { Telemetry.capture("deck_photo_prompt_shown", ["why": why]) }
+        myPhotos = photos
     }
 
     private func leave() {

@@ -1,0 +1,894 @@
+{
+  "_doc": "Reference for the deck photo prompt (contract/event-night-2026-10-16.md \u00a7 7 \"Once your last match is in\").\n\nWrites prompt.json, read by iOS DeckPhotoPromptTests, web deckPhotos.test.ts and Android DeckPhotosTest.\n\ndone(event, me, rounds) says why a player is finished playing, or None:\n  - not in the event, or the event was cancelled: None\n  - the event is over (completed / archived): \"over\"\n  - the player dropped: \"dropped\"\n  - their latest match has its result in (a bye, or reported / confirmed) and it was their last:\n      a playoff match they lost, or the final: \"last\"\n      the last Swiss round (number >= the event's rounds) with no top cut, or once the playoffs have\n      started without them: \"last\"\n  - otherwise None (still playing, or waiting on the cut)\nshow is \"add\" when done and the player has no photo of their deck in the event yet, \"added\" when they do,\nelse None.",
+  "cases": [
+    {
+      "name": "round 1 still to play",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "pending",
+            "my": 0,
+            "their": 0
+          }
+        }
+      ],
+      "photo": false,
+      "why": null,
+      "show": null
+    },
+    {
+      "name": "round 2 of 3 in",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        }
+      ],
+      "photo": false,
+      "why": null,
+      "show": null
+    },
+    {
+      "name": "last round still playing",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 3,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "pending",
+            "my": 0,
+            "their": 0
+          }
+        }
+      ],
+      "photo": false,
+      "why": null,
+      "show": null
+    },
+    {
+      "name": "last round reported by either side",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 3,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "reported",
+            "my": 1,
+            "their": 2
+          }
+        }
+      ],
+      "photo": false,
+      "why": "last",
+      "show": "add"
+    },
+    {
+      "name": "last round confirmed, photo already in",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 3,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        }
+      ],
+      "photo": true,
+      "why": "last",
+      "show": "added"
+    },
+    {
+      "name": "bye in the last round",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 3,
+          "stage": "swiss",
+          "mine": {
+            "bye": true,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        }
+      ],
+      "photo": false,
+      "why": "last",
+      "show": "add"
+    },
+    {
+      "name": "not paired in the last round yet",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 3,
+          "stage": "swiss",
+          "mine": null
+        }
+      ],
+      "photo": false,
+      "why": null,
+      "show": null
+    },
+    {
+      "name": "before round 1",
+      "event": {
+        "status": "registration",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [],
+      "photo": false,
+      "why": null,
+      "show": null
+    },
+    {
+      "name": "event over",
+      "event": {
+        "status": "completed",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        }
+      ],
+      "photo": false,
+      "why": "over",
+      "show": "add"
+    },
+    {
+      "name": "event archived, photo in",
+      "event": {
+        "status": "archived",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        }
+      ],
+      "photo": true,
+      "why": "over",
+      "show": "added"
+    },
+    {
+      "name": "cancelled",
+      "event": {
+        "status": "cancelled",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 3,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        }
+      ],
+      "photo": false,
+      "why": null,
+      "show": null
+    },
+    {
+      "name": "spectator",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": null,
+      "rounds": [],
+      "photo": false,
+      "why": null,
+      "show": null
+    },
+    {
+      "name": "dropped",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": {
+        "status": "dropped",
+        "dropped_in_round": 2
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 0,
+            "their": 2
+          }
+        }
+      ],
+      "photo": false,
+      "why": "dropped",
+      "show": "add"
+    },
+    {
+      "name": "dropped by round only",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 0
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": 1
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        }
+      ],
+      "photo": false,
+      "why": "dropped",
+      "show": "add"
+    },
+    {
+      "name": "top 8: last Swiss round in, cut not made yet",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 8
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 3,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        }
+      ],
+      "photo": false,
+      "why": null,
+      "show": null
+    },
+    {
+      "name": "top 8: playoffs started without them",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 8
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 3,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 0,
+            "their": 2
+          }
+        },
+        {
+          "number": 4,
+          "stage": "quarterfinal",
+          "mine": null
+        }
+      ],
+      "photo": false,
+      "why": "last",
+      "show": "add"
+    },
+    {
+      "name": "top 8: quarterfinal still playing",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 8
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 3,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 4,
+          "stage": "quarterfinal",
+          "mine": {
+            "bye": false,
+            "status": "pending",
+            "my": 0,
+            "their": 0
+          }
+        }
+      ],
+      "photo": false,
+      "why": null,
+      "show": null
+    },
+    {
+      "name": "top 8: won the quarterfinal",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 8
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 3,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 4,
+          "stage": "quarterfinal",
+          "mine": {
+            "bye": false,
+            "status": "reported",
+            "my": 2,
+            "their": 1
+          }
+        }
+      ],
+      "photo": false,
+      "why": null,
+      "show": null
+    },
+    {
+      "name": "top 8: lost the semifinal",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 8
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 3,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 4,
+          "stage": "quarterfinal",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 5,
+          "stage": "semifinal",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 1,
+            "their": 2
+          }
+        }
+      ],
+      "photo": false,
+      "why": "last",
+      "show": "add"
+    },
+    {
+      "name": "top 8: won the final",
+      "event": {
+        "status": "running",
+        "rounds": 3,
+        "top_cut": 8
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 3,
+          "stage": "swiss",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 4,
+          "stage": "quarterfinal",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 5,
+          "stage": "semifinal",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 6,
+          "stage": "final",
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        }
+      ],
+      "photo": false,
+      "why": "last",
+      "show": "add"
+    },
+    {
+      "name": "old server without stage",
+      "event": {
+        "status": "running",
+        "rounds": 2
+      },
+      "me": {
+        "status": "active",
+        "dropped_in_round": null
+      },
+      "rounds": [
+        {
+          "number": 1,
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        },
+        {
+          "number": 2,
+          "mine": {
+            "bye": false,
+            "status": "confirmed",
+            "my": 2,
+            "their": 0
+          }
+        }
+      ],
+      "photo": false,
+      "why": "last",
+      "show": "add"
+    }
+  ]
+}

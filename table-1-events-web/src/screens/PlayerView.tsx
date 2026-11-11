@@ -1,4 +1,6 @@
 import { canRedraft } from "../lib/redraft";
+import { deckPhotoDone, deckPhotoPrompt, deckPhotoWhyLabel, loadDeckPhotos, promptRounds } from "../lib/deckPhotos";
+import { capture } from "../lib/telemetry";
 import { JOIN_NOTICE } from "../lib/joinPreview";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useEvent } from "../lib/useEvent";
@@ -55,8 +57,8 @@ export function PlayerView({
   eventIdProp?: string;
   /** Opens the shared life tracker for a match. */
   onOpenLife?: (matchId: string) => void;
-  /** Deck photos for the event (signed-in players). */
-  onOpenPhotos?: (eventId: string) => void;
+  /** Deck photos for the event (signed-in players); `add` opens it with the camera / library choice up. */
+  onOpenPhotos?: (eventId: string, add?: boolean) => void;
   onOpenRedraft?: (eventId: string, setCode: string | null) => void;
   /** Back to where the player came from (Events home when they arrived by link). */
   onBack?: () => void;
@@ -98,6 +100,8 @@ export function PlayerView({
   const [notice, setNotice] = useState<string | null>(null);
   /** Roto after round 1: the read-only Draft or the round-robin Schedule over this screen. */
   const [rotoPanel, setRotoPanel] = useState<"draft" | "schedule" | null>(null);
+  /** Photos of your own deck in this event, read once you're done playing (null until read). */
+  const [myPhotos, setMyPhotos] = useState<number | null>(null);
 
   // A signed-in player is found by their account; a walk-in guest by the token on this device.
   const accountSeat = useMemo(
@@ -119,6 +123,25 @@ export function PlayerView({
     () => new Map((bundle?.participants ?? []).map((p) => [p.id, p])),
     [bundle],
   );
+  // Once your last match is in (contract/event-night-2026-10-16.md § 7): Add a deck photo leads the screen.
+  const signedInSeat = !!userId && !!accountSeat;
+  const doneWhy = useMemo(() => {
+    if (!bundle || !accountSeat) return null;
+    return deckPhotoDone({ status: bundle.event.status, rounds: bundle.event.numberOfRounds, topCut: bundle.event.topCut ?? 0 },
+      { status: accountSeat.status, droppedInRound: accountSeat.droppedInRound }, promptRounds(bundle.rounds, accountSeat.id));
+  }, [bundle, accountSeat]);
+  useEffect(() => {
+    if (!doneWhy || !eventId || !accountSeat || !signedInSeat || !onOpenPhotos) return;
+    let live = true;
+    loadDeckPhotos(eventId)
+      .then((p) => p.photos.filter((x) => x.participantId === accountSeat.id).length, () => 0)
+      .then((n) => {
+        if (!live) return;
+        if (n === 0) capture("deck_photo_prompt_shown", { why: doneWhy });
+        setMyPhotos(n);
+      });
+    return () => { live = false; };
+  }, [doneWhy, eventId, accountSeat, signedInSeat, onOpenPhotos]);
   const openProfile = useOpenProfile("opponent");
   const formatName = bundle?.event.formatName ?? "draft";
   const isTeam = !!bundle?.event.teamSize && isTeamFormat(formatName);
@@ -337,6 +360,18 @@ export function PlayerView({
       />
       {/* Desktop: your match on the left, seating and standings on the right; a phone stacks them. */}
       <Columns at="xl" asideWidth={480} aside={tables}>
+        {doneWhy && myPhotos != null && onOpenPhotos && (deckPhotoPrompt(doneWhy, myPhotos) === "add" ? (
+          <div className="flex flex-col gap-px">
+            <div className="bg-t1-surface px-4 py-2.5 t1-label text-center text-t1-accent">{deckPhotoWhyLabel(doneWhy)}</div>
+            <BigAction label="Add a deck photo" tone="accent" onClick={() => {
+              capture("deck_photo_prompt_tapped", { why: doneWhy });
+              onOpenPhotos(event.id, true);
+            }} />
+          </div>
+        ) : (
+          <Row title="Deck photo" detail={myPhotos === 1 ? "Added" : `Added · ${myPhotos} photos`} value="View"
+               onClick={() => onOpenPhotos(event.id)} />
+        ))}
         {event.status === "cancelled" && (
           <Notice tone="error">
             Cancelled by the organizer{event.cancelReason ? `: ${event.cancelReason}` : ""}. Confirmed results still count.
@@ -468,7 +503,7 @@ export function PlayerView({
         {/* Deck photos need an account (the photo is tied to your seat); during the event your own, after it everyone's. */}
         {signedInPlayer && onOpenPhotos && event.status !== "cancelled" && (
           <div className="flex gap-px">
-            <GhostAction label={finished ? "Deck photos" : "Deck photo"} onClick={() => onOpenPhotos(event.id)} />
+            {(finished || !doneWhy) && <GhostAction label={finished ? "Deck photos" : "Deck photo"} onClick={() => onOpenPhotos(event.id)} />}
             {onOpenRedraft && canRedraft(event) && <GhostAction label="Redraft" onClick={() => onOpenRedraft(event.id, event.setCode)} />}
           </div>
         )}

@@ -330,6 +330,8 @@ enum Route: Hashable {
     case addPlayers(String)
     case redraft(String)
     case deckPhotos(String)
+    /// The player screen's Add a deck photo: Deck photos with the camera / library choice already open.
+    case addDeckPhoto(String)
     /// A Library screen on the Events tab: a player's profile (PersonLink.swift) and whatever it opens.
     case library(LibraryRoute)
 
@@ -390,6 +392,7 @@ struct SignedInView: View {
                             case .addPlayers(let id): AddPlayersView(eventId: id).screen("add_players")
                             case .redraft(let id): RedraftView(eventId: id).screen("redraft")
                             case .deckPhotos(let id): DeckPhotosView(eventId: id).screen("deck_photos")
+                            case .addDeckPhoto(let id): DeckPhotosView(eventId: id, startAdding: true).screen("deck_photos")
                             case .library(let r): LibraryDestination(route: r, path: Route.library($path))
                             }
                         }

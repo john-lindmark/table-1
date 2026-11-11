@@ -78,7 +78,7 @@ import site.table1.events.ui.components.rememberOpenProfile
 /** One event: the organizer's control room, or a player's match card — chosen by role. */
 @Composable
 fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit, onOpenRedraft: () -> Unit = {},
-                onOpenList: (String) -> Unit = {}) {
+                onOpenList: (String) -> Unit = {}, onAddPhoto: () -> Unit = onOpenPhotos) {
     var bundle by remember { mutableStateOf<EventBundle?>(null) }
     var standings by remember { mutableStateOf(StandingsResponse()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -141,7 +141,7 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
             onSeated = { standings = standings.copy(seating = it) }, onOpenPhotos = onOpenPhotos, onOpenRedraft = onOpenRedraft, onOpenList = onOpenList,
         )
     }
-    val player: @Composable () -> Unit = { PlayerView(b, standings, onBack, onOpenTracker, onOpenPhotos, onOpenRedraft, onOpenList, onChanged = { refresh() }) }
+    val player: @Composable () -> Unit = { PlayerView(b, standings, onBack, onOpenTracker, onOpenPhotos, onOpenRedraft, onOpenList, onAddPhoto, onChanged = { refresh() }) }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             // Roto: the Draft phase sits between Setup and round 1 (contract/roto-2026-10-16.md); Pair round 1 from there.
@@ -422,6 +422,7 @@ private val outcomes = listOf("Won 2–0" to (2 to 0), "Won 2–1" to (2 to 1), 
 private fun PlayerView(
     b: EventBundle, standings: StandingsResponse, onBack: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit, onOpenRedraft: () -> Unit,
     onOpenList: (String) -> Unit,
+    onAddPhoto: () -> Unit,
     onChanged: suspend () -> Unit,
 ) {
     var rotoOverlay by remember { mutableStateOf(false) }
@@ -445,6 +446,18 @@ private fun PlayerView(
     var listOpen by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
     val playoff = active?.isPlayoff == true
+    // Once your last match is in (contract/event-night-2026-10-16.md § 7): Add a deck photo leads the screen.
+    val doneWhy = DeckPhotoPrompt.done(b, me)
+    var myPhotos by remember(b.event.id) { mutableStateOf<Int?>(null) }
+    var resumes by remember { mutableStateOf(0) }
+    LifecycleResumeEffect(Unit) { resumes += 1; onPauseOrDispose { } }
+    LaunchedEffect(doneWhy, resumes) {
+        val p = me
+        if (doneWhy == null || p == null) { myPhotos = null; return@LaunchedEffect }
+        val n = runCatching { DeckPhotosRepo.list(b.event.id).photos.count { it.participantId == p.id } }.getOrDefault(0)
+        if (myPhotos == null && n == 0) Telemetry.capture("deck_photo_prompt_shown", mapOf("why" to doneWhy))
+        myPhotos = n
+    }
 
     val opponentReported = match != null && match.status == "reported" && match.reportedByUser != null && match.reportedByUser != Repo.userId
 
@@ -473,6 +486,24 @@ private fun PlayerView(
         ).joinToString(" · "), onBack = onBack)
         if (b.event.isCancelled) CancelledBanner(b.event.cancelReason)
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            val photos = myPhotos
+            if (doneWhy != null && photos != null) item {
+                if (DeckPhotoPrompt.show(doneWhy, photos) == "add") {
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Box(Modifier.fillMaxWidth().background(T1.surface).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                            Label(DeckPhotoPrompt.label(doneWhy), color = T1.accent)
+                        }
+                        BigAction("Add a deck photo", accent = true) {
+                            Telemetry.capture("deck_photo_prompt_tapped", mapOf("why" to doneWhy))
+                            onAddPhoto()
+                        }
+                    }
+                } else {
+                    ListRow("Deck photo", if (photos == 1) "Added" else "Added · $photos photos", onClick = onOpenPhotos) {
+                        Label("View", color = T1.text)
+                    }
+                }
+            }
             if (active != null && b.event.showClock) item { RoundClock(active.timerEndsAt) }
             when {
                 me == null -> item { Notice("You're viewing this event. Scan the organizer's QR to take a seat.") }
@@ -543,7 +574,7 @@ private fun PlayerView(
             // Your deck during the event; everyone's once it's over (contract/event-night-2026-10-16.md § 7).
             if (me != null && !b.event.isCancelled) item {
                 Row {
-                    Ghost(if (b.event.isFinished) "Deck photos" else "Deck photo") { onOpenPhotos() }
+                    if (b.event.isFinished || doneWhy == null) Ghost(if (b.event.isFinished) "Deck photos" else "Deck photo") { onOpenPhotos() }
                     // A finished set draft: the redraft pile (contract/event-night-2026-10-16.md § 6).
                     if (b.event.canRedraft) Ghost("Redraft") { onOpenRedraft() }
                     // Roto: everyone's picks stay readable; round robin has its schedule.

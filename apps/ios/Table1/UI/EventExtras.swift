@@ -268,6 +268,9 @@ struct RedraftView: View {
 /// too). Before the event ends each player sees only their own (the organizer sees all); after, everyone does.
 struct DeckPhotosView: View {
     let eventId: String
+    /// Opened from the player screen's Add a deck photo: go straight to camera or library for your own deck.
+    var startAdding = false
+    @State private var started = false
     @Environment(\.dismiss) private var dismiss
     @State private var bundle: EventBundle?
     @State private var photos = DeckPhotos()
@@ -317,6 +320,10 @@ struct DeckPhotosView: View {
             self.error = error.localizedDescription
         }
         loaded = true
+        if startAdding && !started, let me, bundle?.event.isCancelled == false {
+            started = true
+            pickSource(for: me)
+        }
     }
 
     private func show(_ next: DeckPhotos) async {
@@ -377,6 +384,7 @@ struct DeckPhotosView: View {
                 error = nil
                 Telemetry.capture("deck_photo_added", ["source": camera ? "camera" : "library",
                                                        "own": player.id == me?.id, "has_note": !note.isEmpty, "turns": turns,
+                                                       "from": startAdding ? "prompt" : "screen",
                                                        "event_over": bundle?.event.isFinished ?? false])
             } catch {
                 self.error = error.localizedDescription
@@ -601,6 +609,50 @@ private struct DeckNotePanel: View {
     private func turn(_ by: Int, _ image: UIImage) {
         turns = DeckPhotoTurns.turn(turns, by: by)
         preview = image.deckRendered(turns: turns, longest: 900)
+    }
+}
+
+/// Once a player's last match is in (or the event is over, or they dropped), the player screen leads with
+/// Add a deck photo (contract/event-night-2026-10-16.md § 7 "Once your last match is in"). Same rule as web
+/// `deckPhotoPrompt` and Android `DeckPhotoPrompt`, checked against testdata/deck-photos/prompt.json.
+enum DeckPhotoPrompt {
+    struct Mine: Decodable, Hashable { let bye: Bool; let status: String; let my: Int; let their: Int }
+    struct Played: Decodable, Hashable { let number: Int; var stage: String?; let mine: Mine? }
+
+    /// Why the player is finished playing ("last", "over", "dropped"), or nil.
+    static func done(status: String, rounds: Int, topCut: Int, isPlayer: Bool, meStatus: String?,
+                     droppedInRound: Int?, played: [Played]) -> String? {
+        guard isPlayer, status != "cancelled" else { return nil }
+        if status == "completed" || status == "archived" { return "over" }
+        if meStatus == "dropped" || droppedInRound != nil { return "dropped" }
+        guard let last = played.filter({ $0.mine != nil }).max(by: { $0.number < $1.number }), let m = last.mine,
+              m.bye || m.status == "reported" || m.status == "confirmed" else { return nil }
+        let stage = last.stage ?? "swiss"
+        if stage != "swiss" { return stage == "final" || m.my < m.their ? "last" : nil }
+        if last.number < rounds { return nil }
+        if topCut == 0 { return "last" }
+        return played.contains { ($0.stage ?? "swiss") != "swiss" } ? "last" : nil
+    }
+
+    static func done(_ b: EventBundle, me: ParticipantRow?) -> String? {
+        let played = b.rounds.map { r -> Played in
+            let match = me.flatMap { me in r.matches.first { $0.matchSides.contains { $0.participantId == me.id } } }
+            let mine = match.map { m -> Mine in
+                let my = m.matchSides.first { $0.participantId == me?.id }?.gameWins ?? 0
+                let their = m.matchSides.first { $0.participantId != me?.id }?.gameWins ?? 0
+                return Mine(bye: m.isBye, status: m.status, my: my, their: their)
+            }
+            return Played(number: r.number, stage: r.stage, mine: mine)
+        }
+        return done(status: b.event.status, rounds: b.event.numberOfRounds, topCut: b.event.topCut, isPlayer: me != nil,
+                    meStatus: me?.status, droppedInRound: me?.droppedInRound, played: played)
+    }
+
+    /// "add" before the player has a photo of their deck in the event, "added" once they do.
+    static func show(_ why: String?, photos: Int) -> String? { why == nil ? nil : (photos > 0 ? "added" : "add") }
+
+    static func label(_ why: String) -> String {
+        switch why { case "over": "Event over"; case "dropped": "Dropped"; default: "Last match in" }
     }
 }
 

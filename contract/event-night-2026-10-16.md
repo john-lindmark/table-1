@@ -121,6 +121,25 @@ still to do. Wire names are in `rpc.schema.json`.
   files are named "Deck photo - <player>.jpg" (`DeckPhotoTurns.fileName` / `deckPhotoFileName`). Telemetry
   `image_menu` {screen: deck_photo, how}.
 
+- **Once your last match is in** (2026-11-11; John: "once a user's final match for the event has been recorded, make it
+  easier for users to upload their deck picture, right now I think it's kinda tough for people to find"): until now a
+  player found deck photos as a small **Deck photo** button under the life tracker switch, or a row under After the
+  event. Now, once a signed-in player is done playing, their event screen opens on a block at the very top: a label
+  (**Last match in** / **Event over** / **Dropped**) over the screen's one big action, **Add a deck photo**, which opens
+  Deck photos with Take a photo / Choose from photos already up for your own deck (organizers who play still pick from
+  More). Once you have a photo of your deck in the event the block is a row, **Deck photo · Added** (or "Added · 2
+  photos") → View, and the old button is gone while done (after the event the Deck photos button stays for everyone's).
+  Done means (`DeckPhotoPrompt.done` iOS/Android, `deckPhotoDone` web; reference `testdata/deck-photos/make_prompt.py` →
+  `prompt.json`): not cancelled; the event completed or archived (`over`); or you dropped (`dropped`); or your latest
+  match has its result in (a bye, reported by either side, or confirmed) and it was your last: a playoff match you lost
+  or the final, the last Swiss round (number ≥ the event's rounds) with no top cut, or the last Swiss round once the
+  playoffs have started without you (`last`). With a top cut, players who may make it see nothing until the cut is paired.
+  Your photo count is `deck_photos` filtered to your seat, read once you're done (again on coming back); a failed read
+  shows Add. No server change. Telemetry `deck_photo_prompt_shown` {why} (once, with no photo yet),
+  `deck_photo_prompt_tapped` {why}; `deck_photo_added` gains `from` (prompt | screen). Routes: iOS `Route.addDeckPhoto(id)`,
+  web `/p/<id>/photos?add=1` (the menu opens on arrival; its tap is the gesture the file input needs), Android
+  `photos/<id>?add=true`. Demo: iOS `-T1EventsDemo playerdone`.
+
 ## Web (2026-10-30)
 
 § 3 and § 6 on the web: the long upright table with the organizer's **Seat the ends** switch on Setup → Seating

@@ -195,3 +195,59 @@ export function myDeckPhotoDetail(p: { eventAt: string; formatLabel: string; eve
   if (p.formatLabel && !p.eventName.toLowerCase().includes(p.formatLabel.toLowerCase())) parts.push(p.formatLabel);
   return parts.join(" · ");
 }
+
+/* Once a player's last match is in (or the event is over, or they dropped), the player screen leads with Add a deck
+   photo (contract/event-night-2026-10-16.md § 7 "Once your last match is in"). Same rule as iOS DeckPhotoPrompt and
+   Android DeckPhotoPrompt, checked against testdata/deck-photos/prompt.json. */
+
+export type DeckPhotoWhy = "last" | "over" | "dropped";
+export interface PromptMine { bye: boolean; status: string; my: number; their: number }
+export interface PromptRound { number: number; stage?: string | null; mine: PromptMine | null }
+
+/** Why the player is finished playing, or null. */
+export function deckPhotoDone(
+  event: { status: string; rounds: number; topCut: number },
+  me: { status: string; droppedInRound: number | null } | null,
+  rounds: PromptRound[],
+): DeckPhotoWhy | null {
+  if (!me || event.status === "cancelled") return null;
+  if (event.status === "completed" || event.status === "archived") return "over";
+  if (me.status === "dropped" || me.droppedInRound != null) return "dropped";
+  let last: PromptRound | null = null;
+  for (const r of rounds) if (r.mine && (!last || r.number > last.number)) last = r;
+  const m = last?.mine;
+  if (!last || !m || !(m.bye || m.status === "reported" || m.status === "confirmed")) return null;
+  const stage = last.stage ?? "swiss";
+  if (stage !== "swiss") return stage === "final" || m.my < m.their ? "last" : null;
+  if (last.number < event.rounds) return null;
+  if (event.topCut === 0) return "last";
+  return rounds.some((r) => (r.stage ?? "swiss") !== "swiss") ? "last" : null;
+}
+
+/** The bundle's rounds as the rule reads them: your match in each, your side's game wins as `my`. */
+export function promptRounds(
+  rounds: { number: number; stage?: string | null; matches: { isBye: boolean; status: string; sides: { participantId: string | null; gameWins: number }[] }[] }[],
+  participantId: string,
+): PromptRound[] {
+  return rounds.map((r) => {
+    const m = r.matches.find((x) => x.sides.some((s) => s.participantId === participantId));
+    return {
+      number: r.number,
+      stage: r.stage ?? null,
+      mine: m ? {
+        bye: m.isBye, status: m.status,
+        my: m.sides.find((s) => s.participantId === participantId)?.gameWins ?? 0,
+        their: m.sides.find((s) => s.participantId !== participantId)?.gameWins ?? 0,
+      } : null,
+    };
+  });
+}
+
+/** "add" before you have a photo of your deck in the event, "added" once you do. */
+export function deckPhotoPrompt(why: DeckPhotoWhy | null, photos: number): "add" | "added" | null {
+  return why ? (photos > 0 ? "added" : "add") : null;
+}
+
+export function deckPhotoWhyLabel(why: DeckPhotoWhy): string {
+  return why === "over" ? "Event over" : why === "dropped" ? "Dropped" : "Last match in";
+}

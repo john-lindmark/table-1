@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { deckPhotoSize, myDeckPhotoDetail, myDeckPhotoGroups, myDeckPhotoSummary, toMyPhotos, turnDeckPhoto, turnedSize } from "./deckPhotos";
+import { deckPhotoDone, deckPhotoPrompt, deckPhotoSize, deckPhotoWhyLabel, myDeckPhotoDetail, promptRounds, type DeckPhotoWhy, type PromptRound, myDeckPhotoGroups, myDeckPhotoSummary, toMyPhotos, turnDeckPhoto, turnedSize } from "./deckPhotos";
 
 /* Deck photo size and Rotate left / right (contract/event-night-2026-10-16.md § 7) against
    testdata/deck-photos/cases.json (also iOS DeckPhotoTests and Android DeckPhotosTest). */
@@ -56,5 +56,35 @@ describe("your deck photos on your account (shared cases)", () => {
     expect(mine.photos[0]).toMatchObject({ id: "d1", turns: 1, eventId: "e1", eventStatus: "completed" });
     expect(myDeckPhotoDetail(mine.photos[0])).toMatch(/2026$/);
     expect(myDeckPhotoDetail({ ...mine.photos[0], eventName: "Old" })).toMatch(/2026 · Draft$/);
+  });
+});
+
+interface PromptCase {
+  name: string;
+  event: { status: string; rounds: number; top_cut?: number };
+  me: { status: string; dropped_in_round: number | null } | null;
+  rounds: PromptRound[];
+  photo: boolean;
+  why: DeckPhotoWhy | null;
+  show: "add" | "added" | null;
+}
+const prompt: { cases: PromptCase[] } = JSON.parse(readFileSync(new URL("../../../testdata/deck-photos/prompt.json", import.meta.url), "utf8"));
+
+describe("deck photo prompt (shared cases)", () => {
+  it("has cases", () => expect(prompt.cases.length).toBeGreaterThan(10));
+  for (const pc of prompt.cases) {
+    it(pc.name, () => {
+      const why = deckPhotoDone({ status: pc.event.status, rounds: pc.event.rounds, topCut: pc.event.top_cut ?? 0 },
+        pc.me && { status: pc.me.status, droppedInRound: pc.me.dropped_in_round }, pc.rounds);
+      expect(why).toBe(pc.why);
+      expect(deckPhotoPrompt(why, pc.photo ? 1 : 0)).toBe(pc.show);
+    });
+  }
+  it("reads your own side from the bundle", () => {
+    const rounds = promptRounds([{ number: 1, stage: "swiss", matches: [
+      { isBye: false, status: "confirmed", sides: [{ participantId: "b", gameWins: 2 }, { participantId: "a", gameWins: 1 }] },
+    ] }], "a");
+    expect(rounds[0].mine).toEqual({ bye: false, status: "confirmed", my: 1, their: 2 });
+    expect(deckPhotoWhyLabel("last")).toBe("Last match in");
   });
 });

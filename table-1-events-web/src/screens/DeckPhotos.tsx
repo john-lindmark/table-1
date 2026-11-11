@@ -32,7 +32,11 @@ import { Bar, Dialog, Menu, type MenuItem, Notice, Screen } from "../components/
  * anyone, guests too. Until the event is over each player sees only their own (the organizer sees all); after,
  * everyone in it does. The server decides who sees and edits what; `organizer` only picks whose deck to ask about.
  */
-export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: string; organizer: boolean; onBack: () => void }) {
+export function DeckPhotosScreen({ eventId, organizer, onBack, startAdding = false }: {
+  eventId: string; organizer: boolean; onBack: () => void;
+  /** From the player screen's Add a deck photo: the camera / library choice for your own deck opens at once. */
+  startAdding?: boolean;
+}) {
   const { bundle } = useEvent(eventId);
   const { userId } = useSession();
   const [photos, setPhotos] = useState<DeckPhotos>({ shared: false, photos: [] });
@@ -74,6 +78,15 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
+
+  // The menu opens on arrival; its Take a photo / Choose from photos tap is the gesture the file input needs.
+  const started = useRef(false);
+  useEffect(() => {
+    if (!startAdding || started.current || !canAdd || !me) return;
+    started.current = true;
+    pickSource(me);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startAdding, canAdd, me]);
 
   const addingBitmap = adding?.bitmap;
   useEffect(() => () => addingBitmap?.close(), [addingBitmap]);
@@ -126,6 +139,7 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
       setAdding(null);
       setError(null);
       capture("deck_photo_added", { source, own: player.id === me?.id, has_note: text.length > 0, turns,
+                                    from: startAdding ? "prompt" : "screen",
                                     event_over: event.status === "completed" || event.status === "archived" });
     } catch (e) {
       setError(errorMessage(e));
