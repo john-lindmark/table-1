@@ -93,4 +93,58 @@ object DraftPods {
         val n = name?.trim()?.split(Regex("\\s+"))?.lastOrNull()
         return if (n != null && n.isNotEmpty() && n.all { it.isDigit() }) "P$n" else "P${index + 1}"
     }
+    /* ── Pods in lists (cases `sections`, `player_sections`) ── */
+
+    /** One pod's share of a list: its matches or players, under "Pod 1", "Across pods" or "Not seated". */
+    data class Section<T>(val pod: String?, val title: String, val items: List<T>) { val key: String get() = pod ?: title }
+
+    /** A pod's title: its name, else "Pod N" by its place among all the event's pods. */
+    fun title(name: String?, index: Int): String = if (!name.isNullOrBlank()) name else "Pod ${index + 1}"
+
+    /** "1 match", "4 matches". */
+    fun matchCount(n: Int): String = "$n match${if (n == 1) "" else "es"}"
+
+    /**
+     * A round's matches under their pods (Live round, Earlier, Matchups), or null when the round isn't grouped:
+     * playoffs, or fewer than two pods hold a player. A match sits in the pod all its players share (a bye in its
+     * player's pod), else under Across pods, which comes last. Tables in order inside each, the bye last.
+     */
+    fun <M> sections(
+        matches: List<M>, pods: List<Pair<String, String?>>, podOf: Map<String, String?>, stage: String?,
+        players: (M) -> List<String?>, table: (M) -> Int?, isBye: (M) -> Boolean,
+    ): List<Section<M>>? {
+        val inPlay = podOf.values.filterNotNull().toSet()
+        val shown = pods.withIndex().filter { it.value.first in inPlay }
+        if ((stage != null && stage != "swiss") || shown.size < 2) return null
+        fun podOfMatch(m: M): String? {
+            val ps = players(m).filterNotNull()
+            val set = ps.map { podOf[it] ?: "" }.toSet()
+            return set.singleOrNull()?.takeIf { ps.isNotEmpty() && it.isNotEmpty() }
+        }
+        fun ordered(ms: List<M>) = ms.withIndex()
+            .sortedWith(compareBy({ isBye(it.value) }, { table(it.value) ?: 0 }, { it.index })).map { it.value }
+        val out = mutableListOf<Section<M>>()
+        for ((i, p) in shown) {
+            val ms = matches.filter { podOfMatch(it) == p.first }
+            if (ms.isNotEmpty()) out += Section(p.first, title(p.second, i), ordered(ms))
+        }
+        val across = matches.filter { podOfMatch(it) == null }
+        if (across.isNotEmpty()) out += Section(null, "Across pods", ordered(across))
+        return out
+    }
+
+    /** A list of players under their pods (seat order; no seat keeps list order), then Not seated, or null with fewer
+     *  than two pods in play. */
+    fun <P> playerSections(players: List<P>, pods: List<Pair<String, String?>>, pod: (P) -> String?, seat: (P) -> Int?): List<Section<P>>? {
+        val inPlay = players.mapNotNull(pod).toSet()
+        val shown = pods.withIndex().filter { it.value.first in inPlay }
+        if (shown.size < 2) return null
+        val out = shown.map { (i, p) ->
+            Section(p.first, title(p.second, i), players.withIndex().filter { pod(it.value) == p.first }
+                .sortedWith(compareBy({ seat(it.value) == null }, { seat(it.value) ?: 0 }, { it.index })).map { it.value })
+        }.toMutableList()
+        val rest = players.filter { pod(it) == null }
+        if (rest.isNotEmpty()) out += Section(null, "Not seated", rest)
+        return out
+    }
 }

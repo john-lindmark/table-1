@@ -284,22 +284,14 @@ private struct OrganizerSetupView: View {
             if participants.isEmpty {
                 Notice("No one yet. Add people you've played with, or show the join QR.")
             }
-            ForEach(participants) { p in
-                ListRow(title: p.id == me?.id ? "You · \(p.displayName)" : p.displayName, detail: playerDetail(p),
-                        avatar: AvatarView(name: p.displayName, userId: p.userId)) {
-                    HStack(spacing: 16) {
-                        if event.takesDecklists {
-                            Button { openDecklist(p) } label: { LabelText(b.decklist(p.id) == nil ? "Enter list" : "List", color: T1.accent) }
-                                .buttonStyle(.plain)
-                        }
-                        if event.isBeforeRound1 {
-                            Button { removing = p } label: { LabelText("Remove", color: T1.danger) }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel("Remove \(p.displayName)")
-                        }
-                    }
+            if let pods = ctx.podPlayers(participants) {
+                // A seated draft with 2+ pods: each pod's players by seat, then anyone who joined after the draw.
+                ForEach(pods) { pod in
+                    PodHeader(pod.title, detail: playersText(pod.items.count))
+                    ForEach(pod.items) { p in setupRow(p) }
                 }
-                .opensProfile(p.userId, from: "event_players")
+            } else {
+                ForEach(participants) { p in setupRow(p) }
             }
             AddByNameRow(text: $guestName, enabled: !guestTrimmed.isEmpty && !guestDuplicate && !ctx.busy) { addGuest() }
             if guestDuplicate && !guestTrimmed.isEmpty { Notice("\(guestTrimmed) is already in this event.", error: true) }
@@ -313,6 +305,24 @@ private struct OrganizerSetupView: View {
         } message: { p in
             Text(p.seat != nil && event.status == "seated" ? "They'll leave the event. Seats after theirs move up one." : "They'll leave the event.")
         }
+    }
+
+    private func setupRow(_ p: ParticipantRow) -> some View {
+        ListRow(title: p.id == me?.id ? "You · \(p.displayName)" : p.displayName, detail: playerDetail(p),
+                avatar: AvatarView(name: p.displayName, userId: p.userId)) {
+            HStack(spacing: 16) {
+                if event.takesDecklists {
+                    Button { openDecklist(p) } label: { LabelText(b.decklist(p.id) == nil ? "Enter list" : "List", color: T1.accent) }
+                        .buttonStyle(.plain)
+                }
+                if event.isBeforeRound1 {
+                    Button { removing = p } label: { LabelText("Remove", color: T1.danger) }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Remove \(p.displayName)")
+                }
+            }
+        }
+        .opensProfile(p.userId, from: "event_players")
     }
 
     @MainActor
@@ -968,13 +978,21 @@ private struct OrganizerLiveView: View {
                 if let mine = myMatch(round) { yourMatch(mine) }
                 // Each section's rows get their own identity: in the lazy stack a match keyed only by its id kept its
                 // "Set" row after moving to Results in (2026-10-23).
-                if !g.disputed.isEmpty {
+                let pods = ctx.podSections(round.matches, stage: round.stage)
+                if pods == nil, !g.disputed.isEmpty {
                     Section1("Disputed · \(g.disputed.count)")
                     ForEach(g.disputed) { m in
                         matchButton(m, detail: "Reported differently · tap to set", value: "Set", tone: T1.danger)
                             .id("disputed-\(m.id)-\(m.version)")
                     }
                 }
+                if let pods {
+                    // Drafts with 2+ pods: each pod's tables as their own block, in table order, disputes included.
+                    ForEach(pods) { pod in
+                        PodHeader(pod.title, detail: podProgress(pod.items))
+                        ForEach(pod.items) { m in liveRow(m) }
+                    }
+                } else {
                 if !g.waiting.isEmpty {
                     Section1("Waiting · \(g.waiting.count)")
                     ForEach(g.waiting) { m in
@@ -992,6 +1010,7 @@ private struct OrganizerLiveView: View {
                         ListRow(title: "\(b.name(m.side(0)?.participantId)) · Bye")
                     }
                 }
+                }
             } else {
                 switch b.nextStep {
                 case .pair: Notice("No round running. Pair round \((b.rounds.map(\.number).max() ?? 0) + 1) when everyone is ready.")
@@ -1001,6 +1020,29 @@ private struct OrganizerLiveView: View {
                 }
             }
         }
+    }
+
+    /// One match on the Live round inside its pod: waiting, a result in, or the bye.
+    @ViewBuilder
+    private func liveRow(_ m: MatchRow) -> some View {
+        if m.isBye {
+            ListRow(title: "\(b.name(m.side(0)?.participantId)) · Bye")
+        } else if m.disputed && m.status != "confirmed" {
+            matchButton(m, detail: "Reported differently · tap to set", value: "Set", tone: T1.danger)
+                .id("disputed-\(m.id)-\(m.version)")
+        } else if m.status == "pending" {
+            matchButton(m, detail: "No result yet", value: "Set", tone: T1.text).id("waiting-\(m.id)-\(m.version)")
+        } else {
+            matchButton(m, detail: resultDetail(m, b), value: scoreText(m), tone: T1.accent).id("in-\(m.id)-\(m.version)")
+        }
+    }
+
+    /// "2 of 4 in · 1 disputed", "All in" for a pod's matches (byes don't count).
+    private func podProgress(_ ms: [MatchRow]) -> String {
+        let g = MatchGroups(ms)
+        guard g.played > 0 else { return "Bye" }
+        let text = g.open == 0 ? "All in" : "\(g.resultsIn.count) of \(g.played) in"
+        return g.disputed.isEmpty ? text : "\(text) · \(g.disputed.count) disputed"
     }
 
     /// The organizer's own match when they're playing this round (organizers play by default).
@@ -1068,20 +1110,15 @@ private struct OrganizerLiveView: View {
         let playing = b.participants.filter { $0.status != "dropped" }
         let dropped = b.participants.filter { $0.status == "dropped" }
         return HairlineList {
-            Section1("Playing · \(playing.count)")
-            ForEach(playing) { p in
-                ListRow(title: p.displayName, detail: [recordDetail(p), b.decklistDetail(p)].compactMap { $0 }.joined(separator: " · "),
-                        avatar: AvatarView(name: p.displayName, userId: p.userId)) {
-                    HStack(spacing: 16) {
-                        if event.takesDecklists {
-                            Button {
-                                presentDecklist(event: event, participantId: p.id, playerName: p.displayName, byOrganizer: true, refresh: ctx.refresh)
-                            } label: { LabelText("List", color: T1.accent) }.buttonStyle(.plain)
-                        }
-                        BarButton("Drop") { dropping = p }
-                    }
+            if let pods = ctx.podPlayers(playing) {
+                // Drafts with 2+ pods: each pod's players by seat, then anyone not seated yet.
+                ForEach(pods) { pod in
+                    PodHeader(pod.title, detail: playersText(pod.items.count))
+                    ForEach(pod.items) { p in playingRow(p, seat: pod.pod == nil ? nil : p.seat) }
                 }
-                .opensProfile(p.userId, from: "event_players")
+            } else {
+                Section1("Playing · \(playing.count)")
+                ForEach(playing) { p in playingRow(p, seat: nil) }
             }
             if !dropped.isEmpty {
                 Section1("Dropped · \(dropped.count)")
@@ -1104,6 +1141,22 @@ private struct OrganizerLiveView: View {
         } message: { _ in
             Text("They won't be paired again. Their results so far still count.")
         }
+    }
+
+    private func playingRow(_ p: ParticipantRow, seat: Int?) -> some View {
+        ListRow(title: p.displayName,
+                detail: [seat.map { "Seat \($0)" }, recordDetail(p), b.decklistDetail(p)].compactMap { $0 }.joined(separator: " · "),
+                avatar: AvatarView(name: p.displayName, userId: p.userId)) {
+            HStack(spacing: 16) {
+                if event.takesDecklists {
+                    Button {
+                        presentDecklist(event: event, participantId: p.id, playerName: p.displayName, byOrganizer: true, refresh: ctx.refresh)
+                    } label: { LabelText("List", color: T1.accent) }.buttonStyle(.plain)
+                }
+                BarButton("Drop") { dropping = p }
+            }
+        }
+        .opensProfile(p.userId, from: "event_players")
     }
 
     private func recordDetail(_ p: ParticipantRow) -> String? {
@@ -1389,15 +1442,25 @@ private struct OrganizerResultsView: View {
                                              uniquingKeysWith: { first, _ in first })
         let ordered = b.participants.sorted { (rank[$0.id] ?? Int.max) < (rank[$1.id] ?? Int.max) }
         return HairlineList {
-            Section1("Players · \(ordered.count)")
-            ForEach(ordered) { p in
-                let s = ctx.engine.standings.first { $0.participantId == p.id }
-                ListRow(title: p.displayName, detail: finalDetail(p, s), avatar: AvatarView(name: p.displayName, userId: p.userId)) {
-                    Text(s.map { recordText($0.matchWins, $0.matchLosses, $0.matchDraws) } ?? "–").font(T1.mono(14))
+            // Drafts with 2+ pods: each pod's players in final order (overall places), as their own blocks.
+            if let pods = DraftPods.playerSections(ordered, pods: ctx.podList, pod: { $0.podId }, seat: { _ in nil }) {
+                ForEach(pods) { pod in
+                    PodHeader(pod.title, detail: playersText(pod.items.count))
+                    ForEach(pod.items) { p in finalRow(p) }
                 }
-                .opensProfile(p.userId, from: "event_players")
+            } else {
+                Section1("Players · \(ordered.count)")
+                ForEach(ordered) { p in finalRow(p) }
             }
         }
+    }
+
+    private func finalRow(_ p: ParticipantRow) -> some View {
+        let s = ctx.engine.standings.first { $0.participantId == p.id }
+        return ListRow(title: p.displayName, detail: finalDetail(p, s), avatar: AvatarView(name: p.displayName, userId: p.userId)) {
+            Text(s.map { recordText($0.matchWins, $0.matchLosses, $0.matchDraws) } ?? "–").font(T1.mono(14))
+        }
+        .opensProfile(p.userId, from: "event_players")
     }
 
     @MainActor
@@ -1458,6 +1521,13 @@ private struct RoundsList: View {
     var body: some View {
         let b = ctx.b
         ForEach(rounds.sorted(by: { $0.number > $1.number })) { r in
+            if let pods = ctx.podSections(r.matches, stage: r.stage) {
+                // Drafts with 2+ pods: "Round 2 · Pod 1", "Round 2 · Across pods", each its own block.
+                ForEach(pods) { pod in
+                    PodHeader("Round \(r.number) · \(pod.title)", detail: DraftPods.matchCount(pod.items.filter { !$0.isBye }.count))
+                    ForEach(pod.items) { m in row(m, b) }
+                }
+            } else {
             Section1(r.isPlayoff ? r.name(of: b.event.numberOfRounds) : "Round \(r.number)")
             ForEach(r.matches.filter { !$0.isBye }) { m in
                 Button { ctx.edit(m, false) } label: {
@@ -1473,7 +1543,44 @@ private struct RoundsList: View {
             ForEach(r.matches.filter { $0.isBye }) { m in
                 ListRow(title: "\(b.name(m.side(0)?.participantId)) · Bye")
             }
+            }
         }
+    }
+
+    @ViewBuilder
+    private func row(_ m: MatchRow, _ b: EventBundle) -> some View {
+        if m.isBye {
+            ListRow(title: "\(b.name(m.side(0)?.participantId)) · Bye")
+        } else {
+            Button { ctx.edit(m, false) } label: {
+                ListRow(title: matchTitle(m, b), detail: m.resultSource == "organizer" ? "Set by organizer" : nil) {
+                    Text(m.status == "pending" ? "Set" : scoreText(m))
+                        .font(T1.mono(16))
+                        .foregroundStyle(m.status == "pending" ? T1.muted : T1.accent)
+                }
+            }
+            .buttonStyle(.plain)
+            .id("\(m.id)-\(m.version)")
+        }
+    }
+}
+
+extension OrganizerContext {
+    /// The draft's pods in order (from the engine's seating), for pod headers.
+    var podList: [(id: String, name: String?)] {
+        (b.event.formatName ?? b.event.format) == "draft" ? (engine.seating ?? []).map { ($0.podId, $0.name) } : []
+    }
+
+    /// Drafts with 2+ pods: a round's matches under Pod 1 / Pod 2 / Across pods (nil: one list, as before).
+    func podSections(_ matches: [MatchRow], stage: String?) -> [DraftPods.Section<MatchRow>]? {
+        let podOf = Dictionary(b.participants.compactMap { p in p.podId.map { (p.id, $0) } }, uniquingKeysWith: { a, _ in a })
+        return DraftPods.sections(matches, pods: podList, podOf: podOf, stage: stage,
+                                  players: { $0.matchSides.map(\.participantId) }, table: { $0.tableNumber }, isBye: { $0.isBye })
+    }
+
+    /// Drafts with 2+ pods: players under their pods, then Not seated (nil: one list).
+    func podPlayers(_ players: [ParticipantRow]) -> [DraftPods.Section<ParticipantRow>]? {
+        DraftPods.playerSections(players, pods: podList, pod: { $0.podId }, seat: { $0.seat })
     }
 }
 

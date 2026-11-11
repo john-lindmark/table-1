@@ -201,7 +201,8 @@ data class PublicMatch(
     @SerialName("game_draws") val gameDraws: Int = 0,
     val sides: List<Side> = emptyList(),
 ) {
-    @Serializable data class Side(val side: Int, @SerialName("display_name") val displayName: String? = null, @SerialName("game_wins") val gameWins: Int = 0)
+    @Serializable data class Side(val side: Int, @SerialName("participant_id") val participantId: String? = null,
+                                  @SerialName("display_name") val displayName: String? = null, @SerialName("game_wins") val gameWins: Int = 0)
 
     fun name(side: Int) = sides.firstOrNull { it.side == side }?.displayName ?: "—"
     val tableLabel: String get() = if (isBye) "Bye" else "T${tableNumber ?: "–"}"

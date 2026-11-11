@@ -3,7 +3,8 @@ import { recordLabel } from "../../lib/standings";
 import { playoffStandings } from "../../lib/playoffs";
 import { computeTeamStandings, membersOf } from "../../lib/teams";
 import { toTeams } from "../../lib/useEventExtras";
-import { Notice, Row, Section, WinnerCard } from "../../components/kit";
+import { Notice, PodHeader, Row, Section, WinnerCard } from "../../components/kit";
+import { playerSections, podRefs } from "../../lib/draftPods";
 import { RoundsList, StandingsBlock, type PhaseViewProps } from "./shared";
 import { Avatar } from "../../components/Avatar";
 import { useOpenProfile } from "../../lib/personLink";
@@ -41,7 +42,8 @@ export function ResultsView(props: PhaseViewProps) {
       {tab === "rounds" && (
         <>
           {rounds.length === 0 && <Notice tone="info">No rounds were played.</Notice>}
-          <RoundsList rounds={rounds} participants={participants} numberOfRounds={event.numberOfRounds} onOpenMatch={onOpenMatch} />
+          <RoundsList rounds={rounds} participants={participants} numberOfRounds={event.numberOfRounds} onOpenMatch={onOpenMatch}
+                      pods={podRefs(event.formatName, bundle.pods)} />
           {rounds.length > 0 && (
             <Notice tone="info">Tap a match to correct its result. Standings and records update.</Notice>
           )}
@@ -50,20 +52,35 @@ export function ResultsView(props: PhaseViewProps) {
 
       {tab === "players" && (
         <>
-          <Section title="Players" count={participants.length} />
-          {standings.map((s) => {
-            const p = participants.find((x) => x.id === s.participantId);
-            return (
-              <Row
-                key={s.participantId}
-                title={s.displayName}
-                avatar={<Avatar name={s.displayName} userId={p?.userId} />}
-                onClick={openProfile(p?.userId)}
-                detail={p?.status === "dropped" ? `Dropped after round ${p.droppedInRound ?? lastRoundNumber(rounds)}` : undefined}
-                value={`${recordLabel(s)} · ${s.matchPoints} pts`}
-              />
+          {(() => {
+            const row = (s: (typeof standings)[number]) => {
+              const p = participants.find((x) => x.id === s.participantId);
+              return (
+                <Row
+                  key={s.participantId}
+                  title={s.displayName}
+                  avatar={<Avatar name={s.displayName} userId={p?.userId} />}
+                  onClick={openProfile(p?.userId)}
+                  detail={p?.status === "dropped" ? `Dropped after round ${p.droppedInRound ?? lastRoundNumber(rounds)}` : undefined}
+                  value={`${recordLabel(s)} · ${s.matchPoints} pts`}
+                />
+              );
+            };
+            const podOf = new Map(participants.map((p) => [p.id, p.podId]));
+            // Drafts with 2+ pods: each pod's players in final order (overall places), as their own blocks.
+            const sections = playerSections(standings, podRefs(event.formatName, bundle.pods), (s) => podOf.get(s.participantId), () => null);
+            return sections ? sections.map((sec) => (
+              <div key={sec.pod ?? sec.title} className="flex flex-col gap-px">
+                <PodHeader title={sec.title} right={`${sec.items.length} player${sec.items.length === 1 ? "" : "s"}`} />
+                {sec.items.map(row)}
+              </div>
+            )) : (
+              <>
+                <Section title="Players" count={participants.length} />
+                {standings.map(row)}
+              </>
             );
-          })}
+          })()}
         </>
       )}
     </div>

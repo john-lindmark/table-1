@@ -23,6 +23,19 @@ private struct Cases: Decodable {
     let auto_label: [Auto]
     let note: [Note]
     let round1: [RoundOne]
+    struct Pod: Decodable { let id: String; let name: String? }
+    struct Sections: Decodable {
+        struct M: Decodable { let id: String; let table: Int?; let bye: Bool; let players: [String] }
+        struct Want: Decodable { let pod: String?; let title: String; let matches: [String] }
+        let pods: [Pod]; let players: [String: String?]; let matches: [M]; let stage: String; let want: [Want]?
+    }
+    struct PlayerSections: Decodable {
+        struct P: Decodable { let id: String; let pod: String?; let seat: Int? }
+        struct Want: Decodable { let pod: String?; let title: String; let players: [String] }
+        let pods: [Pod]; let players: [P]; let want: [Want]?
+    }
+    let sections: [Sections]
+    let player_sections: [PlayerSections]
 }
 
 final class DraftPodsTests: XCTestCase {
@@ -64,6 +77,22 @@ final class DraftPodsTests: XCTestCase {
         for n in c.note {
             let seats = n.sizes.map { Array(1...max($0, 1)).prefix($0).map { $0 } }
             XCTAssertEqual(DraftPods.note(seats, pod: n.pod) { "Pod \($0 + 1)" }, n.want, "\(n.sizes) pod \(n.pod)")
+        }
+    }
+
+    func testPodSections() throws {
+        let c = try cases()
+        for k in c.sections {
+            let podOf = k.players.compactMapValues { $0 }
+            let got = DraftPods.sections(k.matches, pods: k.pods.map { ($0.id, $0.name) }, podOf: podOf, stage: k.stage,
+                                         players: { $0.players }, table: { $0.table }, isBye: { $0.bye })
+            XCTAssertEqual(got?.map { [$0.pod ?? "-", $0.title] + $0.items.map(\.id) },
+                           k.want?.map { [$0.pod ?? "-", $0.title] + $0.matches }, "\(k.matches.map(\.id))")
+        }
+        for k in c.player_sections {
+            let got = DraftPods.playerSections(k.players, pods: k.pods.map { ($0.id, $0.name) }, pod: { $0.pod }, seat: { $0.seat })
+            XCTAssertEqual(got?.map { [$0.pod ?? "-", $0.title] + $0.items.map(\.id) },
+                           k.want?.map { [$0.pod ?? "-", $0.title] + $0.players }, "\(k.players.map(\.id))")
         }
     }
 

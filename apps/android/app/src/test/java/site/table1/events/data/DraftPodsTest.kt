@@ -73,4 +73,25 @@ class DraftPodsTest {
         assertNull(old.pods)
         assertEquals("a server without the column paired across pods", "cross", old.podPairing)
     }
+
+    @Test fun podSections() {
+        fun pods(c: JsonObject) = c["pods"]!!.jsonArray.map { it.jsonObject.str("id")!! to it.jsonObject.str("name") }
+        fun want(c: JsonObject, items: String) = c["want"]!!.let { w ->
+            if (w is JsonNull) null else w.jsonArray.map { it.jsonObject }.map { listOf(it.str("pod") ?: "-", it.str("title")!!) +
+                it[items]!!.jsonArray.map { x -> x.jsonPrimitive.content } }
+        }
+        for (c in list("sections")) {
+            val podOf = c["players"]!!.jsonObject.mapValues { (_, v) -> if (v is JsonNull) null else v.jsonPrimitive.content }
+            val matches = c["matches"]!!.jsonArray.map { it.jsonObject }
+            val got = DraftPods.sections(matches, pods(c), podOf, c.str("stage"),
+                players = { m -> m["players"]!!.jsonArray.map { it.jsonPrimitive.content } }, table = { it.intOrNull("table") },
+                isBye = { it["bye"]!!.jsonPrimitive.content == "true" })
+            assertEquals(c.toString(), want(c, "matches"), got?.map { s -> listOf(s.pod ?: "-", s.title) + s.items.map { it.str("id")!! } })
+        }
+        for (c in list("player_sections")) {
+            val players = c["players"]!!.jsonArray.map { it.jsonObject }
+            val got = DraftPods.playerSections(players, pods(c), { it.str("pod") }, { it.intOrNull("seat") })
+            assertEquals(c.toString(), want(c, "players"), got?.map { s -> listOf(s.pod ?: "-", s.title) + s.items.map { it.str("id")!! } })
+        }
+    }
 }

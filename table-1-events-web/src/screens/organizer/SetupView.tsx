@@ -7,14 +7,14 @@ import { slotLetter } from "../../lib/formats";
 import { startBlocker, startDialog } from "../../lib/organizer";
 import { teamProblems } from "../../lib/teams";
 import { toTeams, useSeating } from "../../lib/useEventExtras";
-import type { EventTeam, SeatingPod } from "../../lib/types";
-import { BigAction, Dialog, GhostAction, Menu, Modal, Notice, Row, Section, SwitchRow, type MenuItem } from "../../components/kit";
+import type { EventTeam, Participant, SeatingPod } from "../../lib/types";
+import { BigAction, Dialog, GhostAction, Menu, Modal, Notice, PodHeader, Row, Section, SwitchRow, type MenuItem } from "../../components/kit";
 import { SeatingPanel } from "../../components/SeatingPanel";
 import { SharePanel } from "../../components/SharePanel";
 import { TeamsPanel } from "../../components/TeamsPanel";
 import { DetailsForm } from "./DetailsForm";
 import { DecklistPanel, DraftPodFields, WaitlistRows, copyEventLink, decklistDetail, decklistOf, decklistsMissing } from "../../components/EventExtras";
-import type { PodPairing } from "../../lib/draftPods";
+import { playerSections, podRefs, type PodPairing } from "../../lib/draftPods";
 import { decklistsLine, when } from "../../lib/scheduledEvents";
 import { RotoPickOrder, RotoStartAction } from "../roto/lazy";
 import type { PhaseViewProps } from "./shared";
@@ -238,7 +238,8 @@ export function SetupView({
             {participants.length === 0 && (
               <Notice tone="info">Nobody yet. Add players, or show the join QR so they can scan in.</Notice>
             )}
-            {participants.map((p) => takesLists ? (
+            {(() => {
+              const row = (p: Participant) => takesLists ? (
               <div key={p.id} className="bg-t1-surface px-4 py-3 flex items-center gap-3">
                 <Avatar name={p.displayName} userId={p.userId} opens="event_players" />
                 <span className="flex-1 min-w-0 flex flex-col gap-0.5">
@@ -261,7 +262,16 @@ export function SetupView({
                 action={{ label: "Remove", onClick: () => setRemoving(p), disabled: playersBusy }}
                 dim={p.status === "dropped"}
               />
-            ))}
+            );
+              const sections = playerSections(participants, podRefs(event.formatName, bundle.pods), (p) => p.podId, (p) => p.seat);
+              // A seated draft with 2+ pods: each pod's players by seat, then anyone who joined after the draw.
+              return sections ? sections.map((s) => (
+                <div key={s.pod ?? s.title} className="flex flex-col gap-px">
+                  <PodHeader title={s.title} right={`${s.items.length} player${s.items.length === 1 ? "" : "s"}`} />
+                  {s.items.map(row)}
+                </div>
+              )) : participants.map(row);
+            })()}
             <AddByName
               value={guestName}
               onChange={setGuestName}

@@ -37,7 +37,7 @@ function demoUser(n: number): string | null {
 
 /** An 8-player draft in round 2 of 3, round 1 played, in event_bundle's wire shape. A `team` bundle is a 3v3 team
  *  draft after round 1 with two of round 2's matches in: Alpha has 5 of 9 match wins, so it has clinched. */
-function liveBundle(team = false) {
+function liveBundle(team = false, pods = false) {
   const E = "demo-event";
   const side = (m: string, p: number, s: number, wins: number) =>
     ({ id: `${m}-${s}`, match_id: m, event_id: E, participant_id: `p${p}`, side: s, game_wins: wins, user_id: null });
@@ -54,6 +54,36 @@ function liveBundle(team = false) {
     id: `r${n}`, event_id: E, number: n, status, matches, pairings_published_at: `2026-10-22T${17 + n}:00:00Z`, recorded_at: null, started_at: null,
     timer_duration_seconds: 3000, timer_ends_at: null, timer_last_started_at: null, timer_remaining_at_change: 1724, timer_status: "paused",
   });
+  if (pods) {
+    // ?screen=podslive: 15 in Pod 1 (8) and Pod 2 (7), round 2 of 3 inside pods; Pod 2's odd player out has the bye.
+    const bye = (r: number, a: number) => ({
+      ...match(r, 0, a, a, 2, 0, "confirmed"), id: `m${r}-bye`, table_number: null, is_bye: true, match_sides: [side(`m${r}-bye`, a, 0, 2)],
+    });
+    const disputed = { ...match(2, 3, 5, 3, 2, 1, "reported"), disputed: true };
+    return toBundle({
+      access: "organizer", is_organizer: true, teams: [],
+      pods: [{ id: "podA", name: "Pod 1", display_order: 0 }, { id: "podB", name: "Pod 2", display_order: 1 }],
+      event: {
+        id: E, name: "Draft · Duskmourn · Fri 24 Oct", short_code: "DEMO", status: "in_progress", format: "draft", format_name: "draft",
+        format_label: "Draft · Duskmourn", event_type: "limited", current_round: 2, number_of_rounds: 3, pairing: "swiss", show_clock: true,
+        allow_player_reporting: true, round_length_seconds: 3000, visibility: "link_only", venue_name: "Denver Card Shop", team_size: null,
+        set_name: "Duskmourn", created_by: null, created_at: "2026-10-22T18:00:00Z", updated_at: "2026-10-22T18:00:00Z",
+        pods: 2, pod_pairing: "pod",
+      },
+      participants: [...POD_NAMES, "Oli Kerr"].map((n, i) => ({
+        id: `p${i + 1}`, event_id: E, pod_id: i < 8 ? "podA" : "podB", display_name: n, seat: i < 8 ? i + 1 : i - 7, status: "active",
+        dropped_in_round: null, team_id: null, team_slot: null, user_id: demoUser(i + 1), created_at: "2026-10-22T18:00:00Z",
+      })),
+      rounds: [
+        round(1, "recorded", [match(1, 1, 1, 5, 2, 0, "confirmed"), match(1, 2, 2, 6, 2, 1, "confirmed"), match(1, 3, 3, 7, 0, 2, "confirmed"),
+                              match(1, 4, 4, 8, 2, 1, "confirmed"), match(1, 5, 9, 12, 2, 0, "confirmed"), match(1, 6, 10, 13, 1, 2, "confirmed"),
+                              match(1, 7, 11, 14, 2, 1, "confirmed"), bye(1, 15)]),
+        round(2, "active", [match(2, 1, 1, 2, 0, 0, "pending"), match(2, 2, 7, 4, 2, 1, "confirmed"), disputed,
+                            match(2, 4, 6, 8, 2, 0, "reported"), match(2, 5, 9, 15, 2, 1, "confirmed"),
+                            match(2, 6, 13, 11, 0, 0, "pending"), match(2, 7, 12, 14, 0, 0, "pending"), bye(2, 10)]),
+      ],
+    });
+  }
   if (team) {
     const ids = [1, 2, 3, 4, 5, 6];
     return toBundle({
@@ -107,9 +137,9 @@ const DEMO_TEAMS: EventTeam[] = [
   { id: "tB", name: "Bravo", order: 2, members: [] },
 ];
 
-function LiveDemo({ team = false }: { team?: boolean }) {
-  const [tab, setTab] = useState<OrganizerTab>("round");
-  const [bundle] = useState(() => liveBundle(team));
+function LiveDemo({ team = false, pods = false }: { team?: boolean; pods?: boolean }) {
+  const [tab, setTab] = useState<OrganizerTab>(() => (new URLSearchParams(location.search).get("tab") as OrganizerTab | null) ?? "round");
+  const [bundle] = useState(() => liveBundle(team, pods));
   const teams = team ? DEMO_TEAMS : null;
   return (
     <>
@@ -171,8 +201,8 @@ function PodsDemo() {
   );
 }
 
-type DemoScreen = "create" | "seating" | "live" | "team" | "photos" | "pods";
-const DEMO_SCREENS: DemoScreen[] = ["create", "seating", "live", "team", "photos", "pods"];
+type DemoScreen = "create" | "seating" | "live" | "team" | "photos" | "pods" | "podslive";
+const DEMO_SCREENS: DemoScreen[] = ["create", "seating", "live", "team", "photos", "pods", "podslive"];
 
 export function EventsDemo() {
   // `?screen=live` opens on that screen; `&bare` swaps the demo's picker for the organizer screen's own bar (the
@@ -184,7 +214,7 @@ export function EventsDemo() {
     return asked && DEMO_SCREENS.includes(asked) ? asked : "seating";
   });
   return (
-    <Screen width={screen === "live" || screen === "team" ? "wide" : "column"}>
+    <Screen width={screen === "live" || screen === "team" || screen === "podslive" ? "wide" : "column"}>
       {bare ? <Bar title={screen === "team" ? "Team draft · Duskmourn · Fri 24 Oct" : "Draft · Duskmourn · Fri 24 Oct"} subtitle="Organizer · Round 2 of 3" onBack={() => {}} /> : <Segmented
         label="Demo"
         value={screen}
@@ -196,6 +226,7 @@ export function EventsDemo() {
           { value: "team", label: "Team" },
           { value: "photos", label: "Photos" },
           { value: "pods", label: "Pods" },
+          { value: "podslive", label: "Pods live" },
         ]}
       />}
       {screen === "pods" ? (
@@ -206,6 +237,8 @@ export function EventsDemo() {
         <LiveDemo key="team" team />
       ) : screen === "live" ? (
         <LiveDemo key="live" />
+      ) : screen === "podslive" ? (
+        <LiveDemo key="podslive" pods />
       ) : screen === "create" ? (
         <NewEvent onCancel={() => setScreen("seating")} onCreated={() => {}} />
       ) : (

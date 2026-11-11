@@ -352,6 +352,8 @@ function toPublicPairing(m: any): PublicPairing {
 /** Ranked rows from events-engine (the server's standings; the /s page has no participant list to compute them). */
 export interface PublicStandingRow {
   rank: number;
+  /** Drafts: the player's pod (engine standings). */
+  podId?: string | null;
   participantId: string;
   displayName: string;
   status: string;
@@ -375,10 +377,16 @@ export async function fetchPublicStandings(eventId: string): Promise<PublicStand
   return (await fetchPublicStandingsAndBracket(eventId)).rows;
 }
 
-export async function fetchPublicStandingsAndBracket(eventId: string): Promise<{ rows: PublicStandingRow[]; bracket: PublicBracketStage[] }> {
+export async function fetchPublicStandingsAndBracket(eventId: string): Promise<{
+  rows: PublicStandingRow[]; bracket: PublicBracketStage[]; pods: { id: string; name: string | null }[];
+}> {
   const token = getLocalParticipant(eventId)?.token ?? null;
-  const data = await invokeEngine<{ standings?: any[]; bracket?: PublicBracketStage[] }>({ action: "standings", event_id: eventId, token });
-  return { bracket: data.bracket ?? [], rows: (data.standings ?? []).map((s) => ({
+  const data = await invokeEngine<{ standings?: any[]; bracket?: PublicBracketStage[]; seating?: SeatingPod[] | null }>(
+    { action: "standings", event_id: eventId, token });
+  // Drafts: the pods in order (engine seating), for Matchups by pod.
+  const pods = (data.seating ?? []).map((p) => ({ id: p.pod_id, name: p.name ?? null }));
+  return { bracket: data.bracket ?? [], pods, rows: (data.standings ?? []).map((s) => ({
+    podId: s.pod_id ?? null,
     rank: s.rank,
     participantId: s.participant_id,
     displayName: s.display_name,

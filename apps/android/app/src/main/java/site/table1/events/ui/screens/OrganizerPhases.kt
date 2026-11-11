@@ -42,6 +42,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import site.table1.events.data.DraftPods
 import site.table1.events.data.EventBundle
 import site.table1.events.data.EventRow
 import site.table1.events.data.EventRules
@@ -68,6 +69,7 @@ import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.ListRow
 import site.table1.events.ui.components.T1Switch
 import site.table1.events.ui.components.Notice
+import site.table1.events.ui.components.PodHeader
 import site.table1.events.ui.components.Section
 import site.table1.events.ui.components.T1AlertDialog
 import site.table1.events.ui.components.T1Menu
@@ -164,6 +166,25 @@ private fun rememberSecondsLeft(round: RoundRow?): Int? {
 
 /** Disputed and not yet settled by the organizer. */
 private val MatchRow.isDisputedOpen: Boolean get() = !isBye && disputed && status != "confirmed"
+
+/** A draft's pods in order (from the engine's seating), for pod headers; other formats: none. */
+private fun podList(b: EventBundle, standings: StandingsResponse): List<Pair<String, String?>> =
+    if (b.event.formatName == "draft") standings.seating.orEmpty().map { it.podId to it.name } else emptyList()
+
+/** Drafts with 2+ pods: a round's matches under Pod 1 / Pod 2 / Across pods (null: one list, as before). */
+private fun matchSections(b: EventBundle, pods: List<Pair<String, String?>>, matches: List<MatchRow>, stage: String?) =
+    DraftPods.sections(matches, pods, b.participants.associate { it.id to it.podId }, stage,
+        players = { m -> m.sides.map { it.participantId } }, table = { it.tableNumber }, isBye = { it.isBye })
+
+/** "2 of 4 in · 1 disputed", "All in" for a pod's matches (byes don't count). */
+private fun podProgress(ms: List<MatchRow>): String {
+    val played = ms.filter { !it.isBye }
+    if (played.isEmpty()) return "Bye"
+    val disputed = played.count { it.isDisputedOpen }
+    val done = played.count { !it.isDisputedOpen && it.status != "pending" }
+    val text = if (done == played.size) "All in" else "$done of ${played.size} in"
+    return if (disputed > 0) "$text · $disputed disputed" else text
+}
 
 /** "2–1" (or "1–1–1" with drawn games), side 0 first. */
 private fun score(m: MatchRow): String {
@@ -343,7 +364,7 @@ internal fun OrganizerScreen(
         Box(Modifier.weight(1f)) {
             when (phase) {
                 OrganizerPhase.Setup -> when (selected) {
-                    "players" -> SetupPlayers(b, tags, busy, onAddPlayers, onShowQr = { showQr = true }, onChanged = onChanged) { block -> act(block) }
+                    "players" -> SetupPlayers(b, tags, podList(b, standings), busy, onAddPlayers, onShowQr = { showQr = true }, onChanged = onChanged) { block -> act(block) }
                     "seating" -> if (event.isRoto) site.table1.events.roto.RotoPickOrder(
                         b.participants.filter { it.status == "active" && it.seat != null }.sortedBy { it.seat }.map { it.seat!! to it.displayName }, busy,
                     ) { seat() } else SetupSeating(b, standings, busy, act = { block -> act(block) }, reseat = { block -> reseat(block) }) { seat() }
@@ -352,13 +373,13 @@ internal fun OrganizerScreen(
                 }
                 OrganizerPhase.Live -> when (selected) {
                     "round" -> LiveRound(
-                        b, active, secondsLeft, paused, busy, standings.clinched, hero = hero,
+                        b, active, secondsLeft, paused, busy, standings.clinched, hero = hero, pods = podList(b, standings),
                         onClock = { action -> active?.let { r -> act { Repo.setRoundClock(r.id, action, 300) } } },
                         onEdit = { editing = it },
                         onRepair = { repairFrom = "notice" },
                     )
                     "rounds" -> ResultsRounds(
-                        b, onEdit = { editing = it }, rounds = b.rounds.filter { it.id != active?.id },
+                        b, onEdit = { editing = it }, rounds = b.rounds.filter { it.id != active?.id }, pods = podList(b, standings),
                         note = if (active != null) "Tap a match to correct its result. If that changes who should have played whom, re-pair $repairName."
                         else "Tap a match to correct its result. Standings and records update.",
                     )
@@ -369,7 +390,7 @@ internal fun OrganizerScreen(
                         })
                     }
                     "players" -> LivePlayers(
-                        b, standings.standings, busy, onList = { listFor = it },
+                        b, standings.standings, podList(b, standings), busy, onList = { listFor = it },
                         onDrop = { dropping = it },
                         onReinstate = { p -> act { Repo.setParticipantStatus(p.id, "active", null) } },
                     )
@@ -377,8 +398,8 @@ internal fun OrganizerScreen(
                 }
                 OrganizerPhase.Results -> when (selected) {
                     "standings" -> ResultsStandings(b, standings, tags, roundsPlayed)
-                    "rounds" -> ResultsRounds(b, onEdit = { editing = it })
-                    "players" -> ResultsPlayers(b, standings.standings)
+                    "rounds" -> ResultsRounds(b, onEdit = { editing = it }, pods = podList(b, standings))
+                    "players" -> ResultsPlayers(b, standings.standings, podList(b, standings))
                 }
             }
         }
@@ -646,6 +667,7 @@ internal fun OrganizerScreen(
 private fun SetupPlayers(
     b: EventBundle,
     tags: Map<String, String>,
+    pods: List<Pair<String, String?>>,
     busy: Boolean,
     onAddPlayers: () -> Unit,
     onShowQr: () -> Unit,
@@ -690,7 +712,7 @@ private fun SetupPlayers(
             }
         }
         if (participants.isEmpty()) item { Notice("No players yet. Add players, or show the join QR to the room.") }
-        items(participants, key = { it.id }) { p ->
+        val setupRow: @Composable (ParticipantRow) -> Unit = { p ->
             val team = tags[p.id]?.let { t -> t + (p.teamSlot?.let { " " + slotLetter(it) } ?: "") }
             val detail = listOfNotNull(
                 if (p.userId == null) "Guest" else "Joined",
@@ -708,6 +730,16 @@ private fun SetupPlayers(
                     Label("Remove", Modifier.clickable(enabled = !busy) { removing = p }, color = T1.danger)
                 }
             }
+        }
+        val podsOf = DraftPods.playerSections(participants, pods, { it.podId }, { it.seat })
+        if (podsOf != null) {
+            // A seated draft with 2+ pods: each pod's players by seat, then anyone who joined after the draw.
+            podsOf.forEach { sec ->
+                item(key = "pod-${sec.key}") { PodHeader(sec.title, plural(sec.items.size, "player")) }
+                items(sec.items, key = { it.id }) { setupRow(it) }
+            }
+        } else {
+            items(participants, key = { it.id }) { setupRow(it) }
         }
         item {
             AddByNameRow(guestName, { guestName = it }, enabled = guest.isNotEmpty() && !dup && !busy) {
@@ -1153,6 +1185,8 @@ private fun LiveRound(
     onRepair: () -> Unit,
     /** False when a tabletop fold draws the clock on the upright half. */
     hero: Boolean = true,
+    /** Drafts: the pods in order, so the round's tables sit under Pod 1 / Pod 2 / Across pods. */
+    pods: List<Pair<String, String?>> = emptyList(),
 ) {
     val event = b.event
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -1205,6 +1239,15 @@ private fun LiveRound(
             item(key = "clock") { Notice(caption) }
         }
 
+        val byPod = matchSections(b, pods, matches, active.stage)
+        if (byPod != null) {
+            // Drafts with 2+ pods: each pod's tables as their own block, in table order, disputes included.
+            byPod.forEach { sec ->
+                item(key = "pod-${sec.key}") { PodHeader(sec.title, podProgress(sec.items)) }
+                items(sec.items, key = { it.id }) { m -> LiveMatchRow(m, b, onEdit) }
+            }
+            return@LazyColumn
+        }
         if (disputed.isNotEmpty()) {
             item(key = "h-disputed") { Section("Disputed · ${disputed.size}") }
             items(disputed, key = { it.id }) { m ->
@@ -1236,10 +1279,29 @@ private fun LiveRound(
     }
 }
 
+/** One match on the Live round inside its pod: disputed, waiting, a result in, or the bye. */
 @Composable
-private fun MatchResultRow(title: String, detail: String?, value: String, accent: Boolean, onClick: (() -> Unit)?) {
+private fun LiveMatchRow(m: MatchRow, b: EventBundle, onEdit: (MatchRow) -> Unit) {
+    when {
+        m.isBye -> MatchResultRow(matchTitle(m, b), null, "Bye", accent = false, onClick = null)
+        m.isDisputedOpen -> MatchResultRow(matchTitle(m, b), "Reported differently · tap to set", "Set", accent = false, danger = true) { onEdit(m) }
+        m.status == "pending" -> MatchResultRow(matchTitle(m, b), "No result yet", "Set", accent = false) { onEdit(m) }
+        else -> {
+            val detail = when {
+                m.resultSource == "organizer" -> "Set by organizer"
+                m.status == "confirmed" -> "Confirmed"
+                m.reportedByParticipant != null -> "Reported by ${b.name(m.reportedByParticipant)}"
+                else -> "Reported"
+            }
+            MatchResultRow(matchTitle(m, b), detail, score(m), accent = true) { onEdit(m) }
+        }
+    }
+}
+
+@Composable
+private fun MatchResultRow(title: String, detail: String?, value: String, accent: Boolean, danger: Boolean = false, onClick: (() -> Unit)?) {
     ListRow(title, detail, onClick = onClick) {
-        Text(value, color = if (accent) T1.accent else T1.text, fontFamily = T1.mono, fontSize = 16.sp, maxLines = 1)
+        Text(value, color = if (danger) T1.danger else if (accent) T1.accent else T1.text, fontFamily = T1.mono, fontSize = 16.sp, maxLines = 1)
     }
 }
 
@@ -1247,6 +1309,7 @@ private fun MatchResultRow(title: String, detail: String?, value: String, accent
 private fun LivePlayers(
     b: EventBundle,
     standings: List<Standing>,
+    pods: List<Pair<String, String?>>,
     busy: Boolean,
     onList: (ParticipantRow) -> Unit,
     onDrop: (ParticipantRow) -> Unit,
@@ -1256,15 +1319,25 @@ private fun LivePlayers(
     val playing = b.participants.filter { it.status != "dropped" }
     val dropped = b.participants.filter { it.status == "dropped" }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        item(key = "h-playing") { Section("Playing · ${playing.size}") }
-        items(playing, key = { it.id }) { p ->
+        val playingRow: @Composable (ParticipantRow, Int?) -> Unit = { p, seat ->
             val s = byId[p.id]
-            ListRow(p.displayName, listOfNotNull(s?.let { "${record(it.matchWins, it.matchLosses, it.matchDraws)} · ${it.matchPoints} pts" },
+            ListRow(p.displayName, listOfNotNull(seat?.let { "Seat $it" }, s?.let { "${record(it.matchWins, it.matchLosses, it.matchDraws)} · ${it.matchPoints} pts" },
                     b.decklistDetail(p)).joinToString(" · ").ifEmpty { null },
                 onClick = rememberOpenProfile("event_players")(p.userId), avatar = { Avatar(p.displayName, p.userId) }) {
                 if (b.event.takesDecklists) T1TextAction("List", enabled = !busy, color = T1.accent) { onList(p) }
                 T1TextAction("Drop", enabled = !busy, color = T1.danger) { onDrop(p) }
             }
+        }
+        val byPod = DraftPods.playerSections(playing, pods, { it.podId }, { it.seat })
+        if (byPod != null) {
+            // Drafts with 2+ pods: each pod's players by seat, then anyone not seated yet.
+            byPod.forEach { sec ->
+                item(key = "pod-${sec.key}") { PodHeader(sec.title, plural(sec.items.size, "player")) }
+                items(sec.items, key = { it.id }) { p -> playingRow(p, if (sec.pod != null) p.seat else null) }
+            }
+        } else {
+            item(key = "h-playing") { Section("Playing · ${playing.size}") }
+            items(playing, key = { it.id }) { p -> playingRow(p, null) }
         }
         if (dropped.isNotEmpty()) {
             item(key = "h-dropped") { Section("Dropped · ${dropped.size}") }
@@ -1344,12 +1417,11 @@ private fun ResultsRounds(
     onEdit: (MatchRow) -> Unit,
     rounds: List<RoundRow> = b.rounds,
     note: String = "Tap a match to correct its result. Standings and records update.",
+    pods: List<Pair<String, String?>> = emptyList(),
 ) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
         if (rounds.isEmpty()) item { Notice("No rounds were played.") }
-        rounds.sortedByDescending { it.number }.forEach { r ->
-            item(key = "round-${r.id}") { Section(if (r.isPlayoff) r.name(b.event.numberOfRounds) else "Round ${r.number}") }
-            items(r.matches.sortedWith(compareBy({ it.isBye }, { it.tableNumber ?: 0 })), key = { it.id }) { m ->
+        val row: @Composable (MatchRow) -> Unit = { m ->
                 if (m.isBye) {
                     MatchResultRow(matchTitle(m, b), null, "Bye", accent = false, onClick = null)
                 } else {
@@ -1361,6 +1433,18 @@ private fun ResultsRounds(
                     }
                     MatchResultRow(matchTitle(m, b), detail, if (scored) score(m) else "Set", accent = scored) { onEdit(m) }
                 }
+        }
+        rounds.sortedByDescending { it.number }.forEach { r ->
+            val byPod = matchSections(b, pods, r.matches, r.stage)
+            if (byPod != null) {
+                // Drafts with 2+ pods: "Round 2 · Pod 1", "Round 2 · Across pods", each its own block.
+                byPod.forEach { sec ->
+                    item(key = "round-${r.id}-${sec.key}") { PodHeader("Round ${r.number} · ${sec.title}", DraftPods.matchCount(sec.items.count { !it.isBye })) }
+                    items(sec.items, key = { it.id }) { row(it) }
+                }
+            } else {
+                item(key = "round-${r.id}") { Section(if (r.isPlayoff) r.name(b.event.numberOfRounds) else "Round ${r.number}") }
+                items(r.matches.sortedWith(compareBy({ it.isBye }, { it.tableNumber ?: 0 })), key = { it.id }) { row(it) }
             }
         }
         if (rounds.isNotEmpty()) item(key = "rounds-note") { Notice(note) }
@@ -1368,12 +1452,11 @@ private fun ResultsRounds(
 }
 
 @Composable
-private fun ResultsPlayers(b: EventBundle, standings: List<Standing>) {
+private fun ResultsPlayers(b: EventBundle, standings: List<Standing>, pods: List<Pair<String, String?>> = emptyList()) {
     val byId = standings.associateBy { it.participantId }
     val ordered = b.participants.sortedBy { byId[it.id]?.rank ?: Int.MAX_VALUE }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        item { Section("Players · ${ordered.size}") }
-        items(ordered, key = { it.id }) { p ->
+        val finalRow: @Composable (ParticipantRow) -> Unit = { p ->
             val s = byId[p.id]
             val detail = if (p.status == "dropped") "Dropped after round ${p.droppedInRound ?: "–"}" else s?.let { "#${it.rank}" }
             ListRow(p.displayName, detail, onClick = rememberOpenProfile("event_players")(p.userId), avatar = { Avatar(p.displayName, p.userId) }) {
@@ -1382,6 +1465,17 @@ private fun ResultsPlayers(b: EventBundle, standings: List<Standing>) {
                     Label("${s.matchPoints} pts")
                 }
             }
+        }
+        // Drafts with 2+ pods: each pod's players in final order (overall places), as their own blocks.
+        val byPod = DraftPods.playerSections(ordered, pods, { it.podId }, { null })
+        if (byPod != null) {
+            byPod.forEach { sec ->
+                item(key = "pod-${sec.key}") { PodHeader(sec.title, plural(sec.items.size, "player")) }
+                items(sec.items, key = { it.id }) { finalRow(it) }
+            }
+        } else {
+            item { Section("Players · ${ordered.size}") }
+            items(ordered, key = { it.id }) { finalRow(it) }
         }
     }
 }

@@ -59,6 +59,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -269,6 +270,19 @@ fun Notice(text: String, error: Boolean = false) {
 @Composable
 fun Section(text: String) {
     Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 8.dp)) { Label(text) }
+}
+
+/** A pod's header in a list of matches or players (drafts with 2+ pods, contract/draft-pods-2026-11-09.md § Pods in
+ *  lists): a gap above so each pod reads as its own block, the pod's name in full white, what it holds on the right. */
+@Composable
+fun PodHeader(title: String, detail: String? = null) {
+    Column(Modifier.fillMaxWidth().padding(top = 15.dp).semantics(mergeDescendants = true) { heading() }) {
+        Row(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Label(title, Modifier.weight(1f), color = T1.text)
+            detail?.let { Label(it) }
+        }
+    }
 }
 
 @Composable

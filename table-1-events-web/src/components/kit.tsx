@@ -627,6 +627,19 @@ export function Section({ title, count, right }: { title: string; count?: number
   );
 }
 
+/** A pod's header in a list of matches or players (drafts with 2+ pods, contract/draft-pods-2026-11-09.md § Pods in
+ *  lists): a gap above so each pod reads as its own block, the pod's name in full white, what it holds on the right. */
+export function PodHeader({ title, right }: { title: string; right?: ReactNode }) {
+  return (
+    <div className="shrink-0 pt-4" role="heading" aria-level={3}>
+      <div className="bg-t1-surface px-4 py-2.5 flex items-center justify-between gap-3 t1-label">
+        <span className="truncate text-t1-text">{title}</span>
+        {right != null && <span className="shrink-0">{right}</span>}
+      </div>
+    </div>
+  );
+}
+
 /**
  * A list row: title, optional detail line, and a value on the right. With `onClick` the whole row is
  * tappable; with `action` a separate button sits at the right edge instead of the value. `avatar` sits left of the

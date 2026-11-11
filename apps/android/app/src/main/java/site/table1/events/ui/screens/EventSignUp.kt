@@ -54,6 +54,7 @@ import site.table1.events.ui.components.Ghost
 import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.ListRow
 import site.table1.events.ui.components.Notice
+import site.table1.events.ui.components.PodHeader
 import site.table1.events.ui.components.Section
 import site.table1.events.ui.components.T1AlertDialog
 import site.table1.events.ui.components.T1Panel
@@ -457,9 +458,24 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
                     androidx.compose.foundation.lazy.LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                         val rounds = p.matchupRounds
                         if (rounds.isEmpty()) item { Notice("No rounds yet") }
+                        // Drafts with 2+ pods: "Round 2 · now · Pod 1", "… · Across pods", each its own block (pods
+                        // from the engine's seating, players' pods from its standings).
+                        val pods = st?.seating.orEmpty().map { it.podId to it.name }
+                        val podOf = st?.standings.orEmpty().associate { it.participantId to it.podId }
                         rounds.forEach { r ->
-                            item(key = "r-${r.number}-${r.status}") { Section(r.title) }
-                            items(r.matches, key = { "m-${it.matchId}" }) { PublicMatchRow(it) }
+                            val byPod = DraftPods.sections(r.matches, pods, podOf, r.stage, players = { m -> m.sides.map { it.participantId } },
+                                table = { it.tableNumber }, isBye = { it.isBye })
+                            if (byPod != null) {
+                                byPod.forEach { sec ->
+                                    item(key = "r-${r.number}-${r.status}-${sec.key}") {
+                                        PodHeader("${r.title} · ${sec.title}", DraftPods.matchCount(sec.items.count { !it.isBye }))
+                                    }
+                                    items(sec.items, key = { "m-${it.matchId}" }) { PublicMatchRow(it) }
+                                }
+                            } else {
+                                item(key = "r-${r.number}-${r.status}") { Section(r.title) }
+                                items(r.matches, key = { "m-${it.matchId}" }) { PublicMatchRow(it) }
+                            }
                         }
                     }
                 }

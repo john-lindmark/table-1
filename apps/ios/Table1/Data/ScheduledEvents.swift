@@ -219,7 +219,7 @@ struct PublicMatch: Decodable, Equatable, Identifiable {
     var sides: [Side]?
     var id: String { matchId }
 
-    struct Side: Decodable, Equatable { var side: Int; var displayName: String?; var gameWins: Int? }
+    struct Side: Decodable, Equatable { var side: Int; var participantId: String?; var displayName: String?; var gameWins: Int? }
 
     func name(_ side: Int) -> String { (sides ?? []).first { $0.side == side }?.displayName ?? "—" }
     /// "T3", "Bye".

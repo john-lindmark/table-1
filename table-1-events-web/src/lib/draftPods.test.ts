@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import cases from "../../../testdata/draft-pods/cases.json";
-import { draftAutoLabel, podCode, podNote, roundOneBye } from "./draftPods";
+import { draftAutoLabel, playerSections, podCode, podNote, podSections, roundOneBye } from "./draftPods";
 import { draftRounds } from "./playoffs";
 import { podLabel, podPlan } from "./seating";
 import type { SeatingPod } from "./types";
@@ -23,6 +23,18 @@ describe("draft pods (testdata/draft-pods)", () => {
   it("round 1 notes and the bye across every pod", () => {
     for (const c of cases.note) expect(podNote(podsOf(c.sizes), c.pod), JSON.stringify(c)).toBe(c.want);
     for (const c of cases.round1) expect(roundOneBye(podsOf(c.sizes))).toBe(c.want.bye);
+  });
+
+  it("pod sections for matches and players", () => {
+    for (const c of cases.sections) {
+      const podOf = new Map(Object.entries(c.players as unknown as Record<string, string | null>));
+      const got = podSections(c.matches, c.pods, podOf, c.stage, { players: (m) => m.players, table: (m) => m.table, isBye: (m) => m.bye });
+      expect(got?.map((s) => ({ pod: s.pod, title: s.title, matches: s.items.map((m) => m.id) })) ?? null, JSON.stringify(c)).toEqual(c.want);
+    }
+    for (const c of cases.player_sections) {
+      const got = playerSections(c.players as { id: string; pod: string | null; seat: number | null }[], c.pods, (p) => p.pod, (p) => p.seat);
+      expect(got?.map((s) => ({ pod: s.pod, title: s.title, players: s.items.map((p) => p.id) })) ?? null, JSON.stringify(c)).toEqual(c.want);
+    }
   });
 
   it("pod codes", () => {

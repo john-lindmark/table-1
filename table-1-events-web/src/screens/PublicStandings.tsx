@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bar, BigAction, ClockFace, Dialog, GhostAction, Notice, Screen, TabBar } from "../components/kit";
+import { Bar, BigAction, ClockFace, Dialog, GhostAction, Notice, PodHeader, Screen, TabBar } from "../components/kit";
+import { matchCount, podSections, type PodRef } from "../lib/draftPods";
 import { SignInButtons } from "../components/SignInButtons";
 import {
   errorMessage,
@@ -31,6 +32,7 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [rows, setRows] = useState<PublicStandingRow[] | null>(null);
   const [bracket, setBracket] = useState<PublicBracketStage[]>([]);
+  const [pods, setPods] = useState<PodRef[]>([]);
   const [tab, setTab] = useState<"standings" | "matchups">("standings");
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +42,7 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
       setEvent(e);
       setRows(s.rows);
       setBracket(s.bracket);
+      setPods(s.pods);
       setError(null);
     } catch (e) {
       setError(errorMessage(e));
@@ -79,6 +82,7 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
   }
 
   const round = event.round;
+  const podOf = new Map(rows.map((r) => [r.participantId, r.podId ?? null]));
   return (
     <Screen>
       <Bar
@@ -107,12 +111,28 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
         ) : (
           // Every round, newest first; the round being played leads.
           (event.rounds.length ? event.rounds : round ? [{ number: round.number, stage: round.stage ?? "swiss", status: "active", matches: event.pairings }] : [])
-            .map((r) => (
-              <div key={r.number} className="flex flex-col gap-px">
-                <div className="bg-t1-surface px-4 py-2 t1-label">{roundTitle(r.number, r.stage, r.status)}</div>
-                {r.matches.map((m) => <PairingRow key={m.matchId} match={m} />)}
-              </div>
-            ))
+            .map((r) => {
+              const byPod = podSections(r.matches, pods, podOf, r.stage, {
+                players: (m) => m.sides.map((x) => x.participantId), table: (m) => m.tableNumber, isBye: (m) => m.isBye,
+              });
+              return byPod ? (
+                // Drafts with 2+ pods: "Round 2 · now · Pod 1", "… · Across pods", each its own block.
+                <div key={r.number} className="flex flex-col gap-px">
+                  {byPod.map((s) => (
+                    <div key={s.pod ?? s.title} className="flex flex-col gap-px">
+                      <PodHeader title={`${roundTitle(r.number, r.stage, r.status)} · ${s.title}`}
+                                 right={matchCount(s.items.filter((m) => !m.isBye).length)} />
+                      {s.items.map((m) => <PairingRow key={m.matchId} match={m} />)}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div key={r.number} className="flex flex-col gap-px">
+                  <div className="bg-t1-surface px-4 py-2 t1-label">{roundTitle(r.number, r.stage, r.status)}</div>
+                  {r.matches.map((m) => <PairingRow key={m.matchId} match={m} />)}
+                </div>
+              );
+            })
         )}
         {tab === "matchups" && event.rounds.length === 0 && !round && (
           <div className="bg-t1-surface px-4 py-6 t1-label">No rounds yet</div>

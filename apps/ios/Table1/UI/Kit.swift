@@ -184,6 +184,27 @@ struct Section1: View {
     }
 }
 
+/// A pod's header in a list of matches or players (drafts with 2+ pods, contract/draft-pods-2026-11-09.md § Pods in
+/// lists): a gap above so each pod reads as its own block, the pod's name in full white, what it holds on the right.
+struct PodHeader: View {
+    let title: String
+    var detail: String?
+    init(_ title: String, detail: String? = nil) { self.title = title; self.detail = detail }
+    var body: some View {
+        VStack(spacing: 0) {
+            Color.clear.frame(height: 15)
+            HStack(spacing: 12) {
+                LabelText(title, color: T1.text)
+                Spacer(minLength: 0)
+                if let detail { LabelText(detail) }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 10).background(T1.surface)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
 struct ListRow<Trailing: View>: View {
     let title: String
     var detail: String?

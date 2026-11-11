@@ -19,13 +19,14 @@ import {
   roundCaption,
 } from "../../lib/organizer";
 import type { Match, Participant, RoundWithMatches } from "../../lib/types";
-import { BigAction, BigNumber, Columns, Dialog, GhostAction, Notice, Row, Section, useNow } from "../../components/kit";
+import { BigAction, BigNumber, Columns, Dialog, GhostAction, Notice, PodHeader, Row, Section, useNow } from "../../components/kit";
+import { playerSections, podRefs, type PodRef } from "../../lib/draftPods";
 import { useDesktop } from "../../lib/desktop";
 import { TeamsPanel } from "../../components/TeamsPanel";
 import { teamClinch } from "../../lib/teams";
 import { capture } from "../../lib/telemetry";
 import { toTeams } from "../../lib/useEventExtras";
-import { RoundsList, StandingsBlock, type PhaseViewProps } from "./shared";
+import { matchPodSections, podOfParticipants, RoundsList, StandingsBlock, type PhaseViewProps } from "./shared";
 import { repairLabel, repairPrompt } from "../../lib/repairRound";
 import { RotoSchedule } from "../roto/lazy";
 import { useSession } from "../../lib/useSession";
@@ -49,6 +50,7 @@ export function LiveView(
   const clinch = isTeam && teams ? teamClinch(toTeams(teams), participants, rounds, event.numberOfRounds) : null;
   const action = liveAction(event, rounds, clinch);
   const nameOf = nameLookup(participants);
+  const pods = podRefs(event.formatName, bundle.pods);
   const { userId } = useSession();
   const desktop = useDesktop();
   const meId = (userId && participants.find((p) => p.userId === userId)?.id) || null;
@@ -151,7 +153,7 @@ export function LiveView(
                   // Round timer off: no clock anywhere for this event (rounds still run 50 minutes).
                   <Notice tone="info">{roundCaption(event, active)}</Notice>
                 )}
-                <MatchList round={active} nameOf={nameOf} onOpenMatch={onOpenMatch} />
+                <MatchList round={active} nameOf={nameOf} onOpenMatch={onOpenMatch} pods={pods} participants={participants} />
               </>
             ) : (
               <Notice tone="info">
@@ -170,6 +172,7 @@ export function LiveView(
               participants={participants}
               numberOfRounds={event.numberOfRounds}
               onOpenMatch={onOpenMatch}
+              pods={pods}
             />
             <Notice tone="info">
               {active
@@ -194,22 +197,36 @@ export function LiveView(
 
         {tab === "players" && (
           <>
-            <Section title="Playing" count={playing.length} />
-            {playing.map((p) => (
-              <Row
-                key={p.id}
-                title={p.displayName}
-                detail={teamTag(p)}
-                avatar={<Avatar name={p.displayName} userId={p.userId} opens="event_players" />}
-                action={{
-                  label: "Drop",
-                  onClick: () => {
-                    setDropError(null);
-                    setDropping(p);
-                  },
-                }}
-              />
-            ))}
+            {(() => {
+              const row = (p: Participant, seat?: number | null) => (
+                <Row
+                  key={p.id}
+                  title={p.displayName}
+                  detail={[seat != null ? `Seat ${seat}` : null, teamTag(p)].filter(Boolean).join(" · ") || undefined}
+                  avatar={<Avatar name={p.displayName} userId={p.userId} opens="event_players" />}
+                  action={{
+                    label: "Drop",
+                    onClick: () => {
+                      setDropError(null);
+                      setDropping(p);
+                    },
+                  }}
+                />
+              );
+              const sections = playerSections(playing, pods, (p) => p.podId, (p) => p.seat);
+              // Drafts with 2+ pods: each pod's players by seat, then anyone not seated yet.
+              return sections ? sections.map((s) => (
+                <div key={s.pod ?? s.title} className="flex flex-col gap-px">
+                  <PodHeader title={s.title} right={playersCount(s.items.length)} />
+                  {s.items.map((p) => row(p, s.pod ? p.seat : null))}
+                </div>
+              )) : (
+                <>
+                  <Section title="Playing" count={playing.length} />
+                  {playing.map((p) => row(p))}
+                </>
+              );
+            })()}
             <Section title="Dropped" count={dropped.length} />
             {dropped.map((p) => (
               <Row
@@ -317,16 +334,57 @@ function RoundClock({
   );
 }
 
-/** Disputed · n, Waiting · n, Results in · n. Tapping a non-bye match opens the set-result panel. */
+const playersCount = (n: number) => `${n} player${n === 1 ? "" : "s"}`;
+
+/** "2 of 4 in · 1 disputed", "All in" for a pod's matches (byes don't count). */
+function podProgress(matches: Match[]): string {
+  const g = groupMatches(matches);
+  const played = g.disputed.length + g.waiting.length + g.results.filter((m) => !m.isBye).length;
+  if (played === 0) return "Bye";
+  const done = g.results.filter((m) => !m.isBye).length;
+  const text = done === played ? "All in" : `${done} of ${played} in`;
+  return g.disputed.length ? `${text} · ${g.disputed.length} disputed` : text;
+}
+
+/**
+ * Disputed · n, Waiting · n, Results in · n. Drafts with 2+ pods: one block per pod (and Across pods) in table
+ * order, disputes included. Tapping a non-bye match opens the set-result panel.
+ */
 function MatchList({
   round,
   nameOf,
   onOpenMatch,
+  pods,
+  participants,
 }: {
   round: RoundWithMatches;
   nameOf: (id: string | null | undefined) => string;
   onOpenMatch: (m: Match) => void;
+  pods: PodRef[];
+  participants: Participant[];
 }) {
+  const row = (m: Match) => (
+    <Row
+      key={m.id}
+      title={matchTitle(m, nameOf)}
+      detail={matchDetail(m, nameOf) || undefined}
+      value={matchValue(m)}
+      onClick={m.isBye ? undefined : () => onOpenMatch(m)}
+    />
+  );
+  const byPod = matchPodSections(round.matches, pods, podOfParticipants(participants), round.stage);
+  if (byPod) {
+    return (
+      <>
+        {byPod.map((s) => (
+          <div key={s.pod ?? s.title} className="flex flex-col gap-px">
+            <PodHeader title={s.title} right={podProgress(s.items)} />
+            {s.items.map(row)}
+          </div>
+        ))}
+      </>
+    );
+  }
   const groups = groupMatches(round.matches);
   const sections: [string, Match[]][] = [
     ["Disputed", groups.disputed],
@@ -339,15 +397,7 @@ function MatchList({
         list.length === 0 ? null : (
           <div key={title} className="flex flex-col gap-px">
             <Section title={title} count={list.length} />
-            {list.map((m) => (
-              <Row
-                key={m.id}
-                title={matchTitle(m, nameOf)}
-                detail={matchDetail(m, nameOf) || undefined}
-                value={matchValue(m)}
-                onClick={m.isBye ? undefined : () => onOpenMatch(m)}
-              />
-            ))}
+            {list.map(row)}
           </div>
         ),
       )}

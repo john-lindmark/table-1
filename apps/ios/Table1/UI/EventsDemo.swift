@@ -26,7 +26,7 @@ import SwiftUI
 /// sample data, and nothing here asks for location or notifications.
 struct EventsDemoRoot: View {
     static let switcherModes = ["create", "setup", "seating", "results", "photo"]
-    static let fullModes = ["pods", "home", "homeorg", "account", "live", "player", "playerdone"]
+    static let fullModes = ["pods", "podslive", "home", "homeorg", "account", "live", "player", "playerdone"]
 
     @State private var screen: String
     @State private var path: [Route] = []
@@ -66,6 +66,9 @@ struct EventsDemoRoot: View {
             case "pods":
                 // A seated draft of 15 in two pods, paired inside pods (contract/draft-pods-2026-11-09.md).
                 organizer(DemoData.podsBundle, DemoData.podsEngine)
+            case "podslive":
+                // The same two pods running round 2 inside pods: Live round, Earlier and Players by pod.
+                organizer(DemoData.podsLive, DemoData.podsLiveEngine)
             case "results":
                 organizer(DemoData.finished, DemoData.finalStandings)
             case "live":
@@ -243,6 +246,43 @@ private enum DemoData {
         return r
     }()
 
+    /// `-T1EventsDemo podslive`: 15 players in Pod 1 (8) and Pod 2 (7) on round 2 of 3, paired inside pods; Pod 2's
+    /// odd player out has the bye each round.
+    static func bye(_ round: Int, _ a: Int) -> String {
+        """
+        {"id": "m\(round)-bye", "event_id": "\(eventId)", "round_id": "r\(round)", "table_number": null, "is_bye": true,
+         "game_draws": 0, "status": "confirmed", "version": 1, "disputed": false, "reported_by_user": null,
+         "match_sides": [{"id": "m\(round)-bye-0", "match_id": "m\(round)-bye", "participant_id": "p\(a)", "side": 0, "game_wins": 2}]}
+        """
+    }
+    static let podsLive: EventBundle = {
+        var e = event(status: "in_progress", round: 2)
+        e.pods = 2
+        e.podPairing = DraftPods.inside
+        let r1 = round(1, active: false, [match(1, 1, 1, 5, 2, 0), match(1, 2, 2, 6, 2, 1), match(1, 3, 3, 7, 0, 2),
+                                          match(1, 4, 4, 8, 2, 1), match(1, 5, 9, 12, 2, 0), match(1, 6, 10, 13, 1, 2),
+                                          match(1, 7, 11, 14, 2, 1), bye(1, 15)])
+        let r2 = round(2, active: true, [
+            match(2, 1, 1, 2, 0, 0, status: "pending"), match(2, 2, 7, 4, 2, 1),
+            match(2, 3, 5, 3, 2, 1, status: "reported", disputed: true, reportedBy: "u5"),
+            match(2, 4, 6, 8, 2, 0, status: "reported", reportedBy: "u8"), match(2, 5, 9, 15, 2, 1),
+            match(2, 6, 13, 11, 0, 0, status: "pending"), match(2, 7, 12, 14, 0, 0, status: "pending"), bye(2, 10),
+        ])
+        return EventBundle(event: e, participants: Array(podsParticipants.prefix(15)), rounds: [r1, r2], isOrganizer: true)
+    }()
+    static let podsLiveEngine: StandingsResponse = {
+        var r = standings([(1, 1, 0, 0.33, 1.0, 0.33), (9, 1, 0, 0.33, 1.0, 0.33), (15, 1, 0, 0.33, 1.0, 0.33),
+                           (7, 1, 0, 0.33, 1.0, 0.33), (13, 1, 0, 0.33, 0.67, 0.4), (2, 1, 0, 0.33, 0.67, 0.4),
+                           (4, 1, 0, 0.33, 0.67, 0.4), (11, 1, 0, 0.33, 0.67, 0.4), (6, 0, 1, 1.0, 0.33, 0.67),
+                           (8, 0, 1, 1.0, 0.33, 0.67), (10, 0, 1, 1.0, 0.33, 0.67), (14, 0, 1, 1.0, 0.33, 0.67),
+                           (3, 0, 1, 1.0, 0.33, 0.67), (5, 0, 1, 1.0, 0.0, 0.67), (12, 0, 1, 1.0, 0.0, 0.67)])
+        for i in r.standings.indices {
+            r.standings[i].podId = (Int(r.standings[i].participantId.dropFirst()) ?? 0) <= 8 ? "podA" : "podB"
+        }
+        r.seating = podsEngine.seating
+        return r
+    }()
+
     /// One match. Sides are numbered 0 and 1, as the server sends them (`MatchRow.side(_:)`).
     static func match(_ round: Int, _ table: Int, _ a: Int, _ b: Int, _ aw: Int, _ bw: Int,
                       status: String = "confirmed", disputed: Bool = false, reportedBy: String? = nil) -> String {
@@ -313,7 +353,7 @@ private enum DemoData {
     static func standings(_ rows: [(Int, Int, Int, Double, Double, Double)]) -> StandingsResponse {
         decode(StandingsResponse.self, """
         {"standings": [\(rows.enumerated().map { i, r in """
-        {"rank": \(i + 1), "participant_id": "p\(r.0)", "display_name": "\(names[r.0 - 1])", "status": "active",
+        {"rank": \(i + 1), "participant_id": "p\(r.0)", "display_name": "\(podNames[r.0 - 1])", "status": "active",
          "match_points": \(r.1 * 3), "match_wins": \(r.1), "match_losses": \(r.2), "match_draws": 0, "byes": 0,
          "omw": \(r.3), "gw": \(r.4), "ogw": \(r.5)}
         """ }.joined(separator: ","))]}

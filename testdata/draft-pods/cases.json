@@ -2833,5 +2833,463 @@
     "bye": "P1S9"
    }
   }
+ ],
+ "sections": [
+  {
+   "pods": [
+    {
+     "id": "A",
+     "name": "Pod 1"
+    },
+    {
+     "id": "B",
+     "name": "Pod 2"
+    }
+   ],
+   "players": {
+    "a1": "A",
+    "a2": "A"
+   },
+   "matches": [
+    {
+     "id": "m1",
+     "table": 1,
+     "bye": false,
+     "players": [
+      "a1",
+      "a2"
+     ]
+    }
+   ],
+   "stage": "swiss",
+   "want": null
+  },
+  {
+   "pods": [
+    {
+     "id": "A",
+     "name": "Pod 1"
+    },
+    {
+     "id": "B",
+     "name": "Pod 2"
+    }
+   ],
+   "players": {
+    "a1": "A",
+    "a2": "A",
+    "a3": "A",
+    "b1": "B",
+    "b2": "B",
+    "b3": "B"
+   },
+   "matches": [
+    {
+     "id": "m3",
+     "table": 3,
+     "bye": false,
+     "players": [
+      "a3",
+      "b3"
+     ]
+    },
+    {
+     "id": "m2",
+     "table": 2,
+     "bye": false,
+     "players": [
+      "b1",
+      "b2"
+     ]
+    },
+    {
+     "id": "m1",
+     "table": 1,
+     "bye": false,
+     "players": [
+      "a1",
+      "a2"
+     ]
+    }
+   ],
+   "stage": "swiss",
+   "want": [
+    {
+     "pod": "A",
+     "title": "Pod 1",
+     "matches": [
+      "m1"
+     ]
+    },
+    {
+     "pod": "B",
+     "title": "Pod 2",
+     "matches": [
+      "m2"
+     ]
+    },
+    {
+     "pod": null,
+     "title": "Across pods",
+     "matches": [
+      "m3"
+     ]
+    }
+   ]
+  },
+  {
+   "pods": [
+    {
+     "id": "A",
+     "name": "Pod 1"
+    },
+    {
+     "id": "B",
+     "name": "Pod 2"
+    }
+   ],
+   "players": {
+    "a1": "A",
+    "a2": "A",
+    "a3": "A",
+    "b1": "B",
+    "b2": "B"
+   },
+   "matches": [
+    {
+     "id": "bye",
+     "table": null,
+     "bye": true,
+     "players": [
+      "a3"
+     ]
+    },
+    {
+     "id": "m2",
+     "table": 2,
+     "bye": false,
+     "players": [
+      "b1",
+      "b2"
+     ]
+    },
+    {
+     "id": "m1",
+     "table": 1,
+     "bye": false,
+     "players": [
+      "a1",
+      "a2"
+     ]
+    }
+   ],
+   "stage": "swiss",
+   "want": [
+    {
+     "pod": "A",
+     "title": "Pod 1",
+     "matches": [
+      "m1",
+      "bye"
+     ]
+    },
+    {
+     "pod": "B",
+     "title": "Pod 2",
+     "matches": [
+      "m2"
+     ]
+    }
+   ]
+  },
+  {
+   "pods": [
+    {
+     "id": "A",
+     "name": "Pod 1"
+    },
+    {
+     "id": "B",
+     "name": "Pod 2"
+    }
+   ],
+   "players": {
+    "a1": "A",
+    "a2": "A",
+    "b1": "B",
+    "b2": "B"
+   },
+   "matches": [
+    {
+     "id": "m2",
+     "table": 2,
+     "bye": false,
+     "players": [
+      "b1",
+      "a2"
+     ]
+    },
+    {
+     "id": "m1",
+     "table": 1,
+     "bye": false,
+     "players": [
+      "a1",
+      "b2"
+     ]
+    }
+   ],
+   "stage": "swiss",
+   "want": [
+    {
+     "pod": null,
+     "title": "Across pods",
+     "matches": [
+      "m1",
+      "m2"
+     ]
+    }
+   ]
+  },
+  {
+   "pods": [
+    {
+     "id": "A",
+     "name": "Pod 1"
+    },
+    {
+     "id": "B",
+     "name": "Pod 2"
+    },
+    {
+     "id": "C",
+     "name": null
+    },
+    {
+     "id": "D",
+     "name": "Pod 4"
+    }
+   ],
+   "players": {
+    "a1": "A",
+    "a2": "A",
+    "c1": "C",
+    "c2": "C",
+    "x": null,
+    "b1": "B"
+   },
+   "matches": [
+    {
+     "id": "m1",
+     "table": 1,
+     "bye": false,
+     "players": [
+      "a1",
+      "a2"
+     ]
+    },
+    {
+     "id": "m2",
+     "table": 2,
+     "bye": false,
+     "players": [
+      "c1",
+      "c2"
+     ]
+    },
+    {
+     "id": "m3",
+     "table": 3,
+     "bye": false,
+     "players": [
+      "x",
+      "b1"
+     ]
+    }
+   ],
+   "stage": "swiss",
+   "want": [
+    {
+     "pod": "A",
+     "title": "Pod 1",
+     "matches": [
+      "m1"
+     ]
+    },
+    {
+     "pod": "C",
+     "title": "Pod 3",
+     "matches": [
+      "m2"
+     ]
+    },
+    {
+     "pod": null,
+     "title": "Across pods",
+     "matches": [
+      "m3"
+     ]
+    }
+   ]
+  },
+  {
+   "pods": [
+    {
+     "id": "A",
+     "name": "Pod 1"
+    },
+    {
+     "id": "B",
+     "name": "Pod 2"
+    }
+   ],
+   "players": {
+    "a1": "A",
+    "b1": "B"
+   },
+   "matches": [
+    {
+     "id": "m1",
+     "table": 1,
+     "bye": false,
+     "players": [
+      "a1",
+      "b1"
+     ]
+    }
+   ],
+   "stage": "final",
+   "want": null
+  }
+ ],
+ "player_sections": [
+  {
+   "pods": [
+    {
+     "id": "A",
+     "name": "Pod 1"
+    },
+    {
+     "id": "B",
+     "name": "Pod 2"
+    }
+   ],
+   "players": [
+    {
+     "id": "a1",
+     "pod": "A",
+     "seat": 1
+    }
+   ],
+   "want": null
+  },
+  {
+   "pods": [
+    {
+     "id": "A",
+     "name": "Pod 1"
+    },
+    {
+     "id": "B",
+     "name": "Pod 2"
+    }
+   ],
+   "players": [
+    {
+     "id": "b2",
+     "pod": "B",
+     "seat": 2
+    },
+    {
+     "id": "a2",
+     "pod": "A",
+     "seat": 2
+    },
+    {
+     "id": "late",
+     "pod": null,
+     "seat": null
+    },
+    {
+     "id": "a1",
+     "pod": "A",
+     "seat": 1
+    },
+    {
+     "id": "b1",
+     "pod": "B",
+     "seat": 1
+    }
+   ],
+   "want": [
+    {
+     "pod": "A",
+     "title": "Pod 1",
+     "players": [
+      "a1",
+      "a2"
+     ]
+    },
+    {
+     "pod": "B",
+     "title": "Pod 2",
+     "players": [
+      "b1",
+      "b2"
+     ]
+    },
+    {
+     "pod": null,
+     "title": "Not seated",
+     "players": [
+      "late"
+     ]
+    }
+   ]
+  },
+  {
+   "pods": [
+    {
+     "id": "A",
+     "name": "Pod 1"
+    },
+    {
+     "id": "B",
+     "name": "Pod 2"
+    },
+    {
+     "id": "C",
+     "name": null
+    }
+   ],
+   "players": [
+    {
+     "id": "c1",
+     "pod": "C",
+     "seat": null
+    },
+    {
+     "id": "a1",
+     "pod": "A",
+     "seat": 1
+    }
+   ],
+   "want": [
+    {
+     "pod": "A",
+     "title": "Pod 1",
+     "players": [
+      "a1"
+     ]
+    },
+    {
+     "pod": "C",
+     "title": "Pod 3",
+     "players": [
+      "c1"
+     ]
+    }
+   ]
+  }
  ]
 }

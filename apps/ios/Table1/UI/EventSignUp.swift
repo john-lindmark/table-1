@@ -296,8 +296,16 @@ struct EventPageView: View {
                 Notice("No rounds yet")
             } else {
                 ForEach(page.matchupRounds) { r in
-                    Section1(r.title)
-                    ForEach(r.matches ?? []) { m in PublicMatchRow(match: m) }
+                    if let pods = podSections(r) {
+                        // Drafts with 2+ pods: "Round 2 · now · Pod 1", "… · Across pods", each its own block.
+                        ForEach(pods) { pod in
+                            PodHeader("\(r.title) · \(pod.title)", detail: DraftPods.matchCount(pod.items.filter { $0.isBye != true }.count))
+                            ForEach(pod.items) { m in PublicMatchRow(match: m) }
+                        }
+                    } else {
+                        Section1(r.title)
+                        ForEach(r.matches ?? []) { m in PublicMatchRow(match: m) }
+                    }
                 }
             }
         }
@@ -305,6 +313,16 @@ struct EventPageView: View {
         if page.me == "organizer" || page.me == "player" {
             BigAction(text: "Open event", accent: true) { path = [.event(eventId)] }
         }
+    }
+
+    /// A round's matches under their pods, from the engine's seating (drafts with 2+ pods; nil: one list).
+    private func podSections(_ r: PublicRound) -> [DraftPods.Section<PublicMatch>]? {
+        guard let standings, let seating = standings.seating else { return nil }
+        let podOf = Dictionary(standings.standings.compactMap { s in s.podId.map { (s.participantId, $0) } },
+                               uniquingKeysWith: { a, _ in a })
+        return DraftPods.sections(r.matches ?? [], pods: seating.map { ($0.podId, $0.name) }, podOf: podOf, stage: r.stage,
+                                  players: { ($0.sides ?? []).map(\.participantId) }, table: { $0.tableNumber },
+                                  isBye: { $0.isBye == true })
     }
 
     private var signUpBody: some View {

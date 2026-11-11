@@ -74,9 +74,36 @@ across pods, `swissRounds(everyone)` (16 → 4). Before the draw from the pick, 
   the bye"; only the real bye's chip says Bye.
 - Standings (organizer and player): with 2+ pods seated, each row's tag is its pod code (`P1`, `podCode`) unless it
   has a team, and a filter (All · Pod 1 · Pod 2 …) shows one pod's players in overall order and overall rank.
-- Demos: iOS `-T1EventsDemo pods -T1Tab seating`; web `/dev/events?screen=pods`.
+- Demos: iOS `-T1EventsDemo pods -T1Tab seating`; web `/dev/events?screen=pods` (and `podslive`, § Pods in lists).
 - Telemetry: `event_pods_set` {pods (0 = auto), pod_pairing, reseated}, `seat_moved` {to: pod|new|seat},
   `seat_swapped`; `seating_drawn` unchanged.
+
+## Pods in lists (2026-11-11)
+
+John: "show different pods as more distinct in the event views, right now, all the pairings and lists of players are
+combined into a single list and it makes it tough to parse." Client-only; no server change. Shared cases `sections`
+and `player_sections` in `testdata/draft-pods/cases.json` (`make_cases.py`), tests `DraftPodsTests` /
+`draftPods.test.ts` / `DraftPodsTest`.
+
+- **Rule** (`DraftPods.sections` / `podSections`): a draft (`format_name` `draft`) whose players sit in 2+ pods, on a
+  Swiss round, lists its matches by pod: a match sits in the pod all its players share (a bye in its player's pod),
+  else under **Across pods**, last. Tables in order inside each, the bye last; empty pods left out. Playoff rounds,
+  one-pod events and other formats keep one list. A pod without a name is "Pod N" by its place among the event's pods.
+- **Players** (`playerSections`): pods in order, players by seat (a list without seats keeps its order), then
+  **Not seated** for anyone without a pod.
+- **Pod header** (iOS `PodHeader`, web `PodHeader` in kit, Android `PodHeader` in Kit): a 15–16 pt gap above, the
+  pod's name in full white (not muted like other section labels), a count on the right; no accent.
+- **Where**:
+  - Organizer Live → Round: one block per pod, disputed matches inside their pod (red Set as before), the header
+    "2 of 4 in · 1 disputed" / "All in" / "Bye". The caption above still sums the whole round.
+  - Live → Earlier and Results → Rounds: "Round 1 · Pod 1 · 4 matches", "Round 2 · Across pods".
+  - Live → Players, Setup → Players (seated drafts) and Results → Players: one block per pod, "8 players"; Live and
+    Setup rows say "Seat N", Results keeps final order inside each pod. Dropped stays one list.
+  - The event page's Matchups (`/s/<id>`, and the in-app page for people not in the event): "Round 2 · now · Pod 1".
+    Pods come from the engine's `seating`, each player's pod from its `standings` rows (`pod_id`); event_public's
+    sides already carry `participant_id`.
+  - Standings stay one overall list with pod tags and the pod filter (unchanged).
+- Demos: iOS `-T1EventsDemo podslive [-T1Tab round|rounds|players]`; web `/dev/events?screen=podslive[&tab=…]`.
 
 ## Not yet
 

@@ -106,4 +106,74 @@ enum DraftPods {
         if let name, let n = name.split(separator: " ").last, Int(n) != nil { return "P\(n)" }
         return "P\(index + 1)"
     }
+
+    // MARK: pod sections (cases `sections`, `player_sections`)
+
+    /// One pod's share of a list: its matches or players, under "Pod 1", "Across pods" or "Not seated".
+    struct Section<Item>: Identifiable {
+        /// nil: Across pods (matches) or Not seated (players).
+        let pod: String?
+        let title: String
+        var items: [Item]
+        var id: String { pod ?? title }
+    }
+
+    /// "1 match", "4 matches" (a pod header's detail on lists of finished rounds).
+    static func matchCount(_ n: Int) -> String { "\(n) match\(n == 1 ? "" : "es")" }
+
+    /// A pod's title: its name, else "Pod N" by its place among all the event's pods.
+    static func title(_ name: String?, index: Int) -> String {
+        if let name, !name.trimmingCharacters(in: .whitespaces).isEmpty { return name }
+        return "Pod \(index + 1)"
+    }
+
+    /// A round's matches under their pods (Live round, Earlier, Matchups), or nil when the round isn't grouped:
+    /// playoffs, or fewer than two pods hold a player. A match sits in the pod all its players share (a bye in its
+    /// player's pod), else under Across pods, which comes last. Tables in order inside each, the bye last.
+    static func sections<M>(_ matches: [M], pods: [(id: String, name: String?)], podOf: [String: String],
+                            stage: String? = nil, players: (M) -> [String?], table: (M) -> Int?,
+                            isBye: (M) -> Bool) -> [Section<M>]? {
+        let inPlay = Set(podOf.values)
+        let shown = pods.enumerated().filter { inPlay.contains($0.element.id) }
+        guard stage == nil || stage == "swiss", shown.count >= 2 else { return nil }
+        func pod(_ m: M) -> String? {
+            let ps = players(m).compactMap { $0 }
+            let set = Set(ps.map { podOf[$0] ?? "" })
+            guard set.count == 1, let only = set.first, !only.isEmpty, !ps.isEmpty else { return nil }
+            return only
+        }
+        func ordered(_ ms: [M]) -> [M] {
+            ms.enumerated().sorted { a, b in
+                let ka = (isBye(a.element) ? 1 : 0, table(a.element) ?? 0, a.offset)
+                let kb = (isBye(b.element) ? 1 : 0, table(b.element) ?? 0, b.offset)
+                return ka < kb
+            }.map(\.element)
+        }
+        var out: [Section<M>] = []
+        for (i, p) in shown {
+            let ms = matches.filter { pod($0) == p.id }
+            if !ms.isEmpty { out.append(.init(pod: p.id, title: title(p.name, index: i), items: ordered(ms))) }
+        }
+        let across = matches.filter { pod($0) == nil }
+        if !across.isEmpty { out.append(.init(pod: nil, title: "Across pods", items: ordered(across))) }
+        return out
+    }
+
+    /// A list of players under their pods (seat order), then Not seated, or nil with fewer than two pods in play.
+    static func playerSections<P>(_ players: [P], pods: [(id: String, name: String?)], pod: (P) -> String?,
+                                  seat: (P) -> Int?) -> [Section<P>]? {
+        let inPlay = Set(players.compactMap(pod))
+        let shown = pods.enumerated().filter { inPlay.contains($0.element.id) }
+        guard shown.count >= 2 else { return nil }
+        var out: [Section<P>] = shown.map { i, p in
+            let mine = players.enumerated().filter { pod($0.element) == p.id }.sorted { a, b in
+                let sa = seat(a.element), sb = seat(b.element)
+                return (sa == nil ? 1 : 0, sa ?? 0, a.offset) < (sb == nil ? 1 : 0, sb ?? 0, b.offset)
+            }.map(\.element)
+            return .init(pod: p.id, title: title(p.name, index: i), items: mine)
+        }
+        let rest = players.filter { pod($0) == nil }
+        if !rest.isEmpty { out.append(.init(pod: nil, title: "Not seated", items: rest)) }
+        return out
+    }
 }
