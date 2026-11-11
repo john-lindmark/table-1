@@ -21,3 +21,6 @@ EVERYWHERE
 - Insights: a format's Events list is newest first.
 
 Send anything odd through TestFlight feedback (screenshot + shake).
+
+---
+Build notes (not for testers): archived 2026-11-11 at 0b265d3 from a clean worktree (version 0.1.0, build 61, Release, automatic signing with the App Store Connect API key; archive "Table 1 11-11-2026, 11.12"; dSYMs uploaded to Sentry by the post-action). Uploaded from the command line with the API key ("Upload succeeded"); registered with `bugs.py shipped ios 61 --commit 0b265d3`. Full test tier (web, engine, database, iOS, Android) passed at c1c1abf, the same app code. Server parts (tracker_next, tracker_result_lock, deck_photo_nudge + notify-worker v23, privacy_lockdown_tables) live 2026-11-11. Not yet tried on a phone.
