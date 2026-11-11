@@ -232,6 +232,38 @@ struct TrackerState: Decodable {
 
 struct TrackerPushResult: Decodable { let inserted: Int?; let gameNo: Int? }
 
+/// tracker_next: the player's match in the event's newest later round (contract/life-tracker-options-2026-10-20.md
+/// § Next round). Nil when there is nothing newer, or when this phone isn't one of the match's players.
+struct TrackerNextAnswer: Decodable, Equatable {
+    let round: Int
+    let matchId: String?
+    let bye: Bool?
+}
+
+/// What a synced tracker does with tracker_next's answer: a tracker opened on one match kept showing it after the
+/// next round was paired (2026-11-11), since it only ever listened to that match. Cases `testdata/tracker-next/`.
+enum TrackerNext: Equatable {
+    /// Keep this match.
+    case stay
+    /// The round is paired but its matches are still being written (events-engine inserts the round first).
+    case soon
+    /// Open the newer match.
+    case move(String)
+    /// Show this and keep the match (a bye next).
+    case notice(String)
+
+    /// How often an open tracker asks; also on returning to the app and after a game is recorded.
+    static let every: Duration = .seconds(15)
+    static let soonAfter: Duration = .seconds(2)
+
+    static func decide(current: String?, answer: TrackerNextAnswer?) -> TrackerNext {
+        guard let current, let answer else { return .stay }
+        if let next = answer.matchId { return next == current ? .stay : .move(next) }
+        if answer.bye == true { return .notice("Round \(answer.round) paired | you have a bye") }
+        return .soon
+    }
+}
+
 enum TrackerTime {
     private static let fractional: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -306,6 +338,12 @@ final class TrackerModel {
     /// Bumped whenever a recorded game decides the match (so the screen can prompt once).
     var decidedSignal = 0
     var offline = false
+    var eventId: String?
+    /// Set once the next round is paired and this player has a match in it: the screen opens it.
+    var nextMatchId: String?
+    /// A bye next round: shown on the strip, the match stays.
+    var nextNotice: String?
+    @ObservationIgnored private var checkingNext = false
 
     @ObservationIgnored private var queue: [TrackerOp] = []
     @ObservationIgnored private var flushTask: Task<Void, Never>?
@@ -652,6 +690,8 @@ final class TrackerModel {
             return
         }
         scheduleFlush(after: 0)
+        // Opened from a screen that hadn't caught up (the home's saved round): move on at once.
+        Task { await checkNext("open") }
         guard let sid = sessionId else { return }
         for await change in Repo.trackerChanges(sid, roundId: clock?.roundId) {
             switch change {
@@ -668,6 +708,32 @@ final class TrackerModel {
                 clock = record.clock(previous: clock)
             case .subscribed:
                 await refetch()
+            }
+        }
+    }
+
+    /// Asks whether the next round is paired (contract/life-tracker-options-2026-10-20.md § Next round). `how`:
+    /// poll, foreground or recorded, for telemetry. Players only: an organizer watching or keeping score stays put.
+    func checkNext(_ how: String) async {
+        guard let matchId, sessionId != nil, !readOnly, !keeper, nextMatchId == nil, !checkingNext else { return }
+        checkingNext = true
+        defer { checkingNext = false }
+        for _ in 0..<4 {
+            let answer: TrackerNextAnswer?
+            do { answer = try await Repo.trackerNext(matchId: matchId, eventId: eventId) } catch { return }
+            switch TrackerNext.decide(current: matchId, answer: answer) {
+            case .stay:
+                return
+            case .notice(let text):
+                nextNotice = text
+                return
+            case .move(let next):
+                await flushNow()
+                Telemetry.capture("tracker_next_round", ["how": how, "round": answer?.round ?? 0])
+                nextMatchId = next
+                return
+            case .soon:
+                try? await Task.sleep(for: TrackerNext.soonAfter)
             }
         }
     }
@@ -691,6 +757,7 @@ final class TrackerModel {
         resultIn = state.resultIn ?? false
         if let n = state.names, n.count == 2 { names = n }
         eventName = state.eventName
+        eventId = state.eventId ?? eventId
         round = state.round
         table = state.table
         clock = state.clock

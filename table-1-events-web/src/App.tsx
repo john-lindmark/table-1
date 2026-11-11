@@ -285,8 +285,11 @@ function PlayerRoute() {
 /** /life is the local tracker (no event); /life/:matchId is the shared tracker for a match. */
 function LifeRoute() {
   const { matchId } = useParams();
+  const navigate = useNavigate();
   const back = useBack("/");
-  return <LifeTracker key={matchId ?? "local"} matchId={matchId} onClose={back} />;
+  // The next round is paired: the same page moves to the new match (Back still returns where it came from).
+  return <LifeTracker key={matchId ?? "local"} matchId={matchId} onClose={back}
+                      onNext={(next) => navigate(`/life/${next}`, { replace: true })} />;
 }
 
 function LibraryHomeRoute() {

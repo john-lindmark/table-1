@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
-import { reportFromHome } from "../lib/api";
+import { reportFromHome, trackerNext } from "../lib/api";
+import { decideNext, NEXT_EVERY_MS, NEXT_SOON_MS } from "../lib/trackerNext";
 import { useSession } from "../lib/useSession";
 import { capture } from "../lib/telemetry";
 import { TrackerSync, type TrackerSnapshot } from "../lib/trackerSync";
@@ -184,13 +185,69 @@ function useLocalTracker(): Controller {
 
 /* ── synced session ────────────────────────────────────────────────────── */
 
-function useSyncedTracker(matchId: string): Controller {
+/**
+ * Follows the player into the next round (contract/life-tracker-options-2026-10-20.md § Next round): asks
+ * tracker_next once the tracker is open, every 15 s while the page is visible, and on returning to it. Players only;
+ * an organizer watching stays put (the server answers null for them too).
+ */
+function useNextRound(matchId: string, eventId: string | null | undefined, player: boolean,
+                      onNext: ((matchId: string) => void) | undefined) {
+  const [notice, setNotice] = useState<string | null>(null);
+  const onNextRef = useRef(onNext);
+  onNextRef.current = onNext;
+  useEffect(() => {
+    if (!player || !eventId) return;
+    let live = true;
+    let busy = false;
+    const check = async (how: string) => {
+      if (busy || document.visibilityState !== "visible") return;
+      busy = true;
+      try {
+        for (let i = 0; i < 4 && live; i++) {
+          const answer = await trackerNext(matchId, eventId);
+          const next = decideNext(matchId, answer);
+          if (next.do === "soon") {
+            await new Promise((r) => setTimeout(r, NEXT_SOON_MS));
+            continue;
+          }
+          if (!live) return;
+          if (next.do === "notice") setNotice(next.text);
+          if (next.do === "move") {
+            // Unmounting this tracker closes its sync, which sends anything still queued.
+            capture("tracker_next_round", { how, round: answer?.round ?? 0 });
+            onNextRef.current?.(next.match_id);
+          }
+          return;
+        }
+      } catch {
+        /* offline: the next tick asks again */
+      } finally {
+        busy = false;
+      }
+    };
+    void check("open");
+    const timer = window.setInterval(() => void check("poll"), NEXT_EVERY_MS);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void check("foreground");
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      live = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [matchId, eventId, player]);
+  return notice;
+}
+
+function useSyncedTracker(matchId: string, onNext?: (matchId: string) => void): Controller {
   const { userId } = useSession();
   const uid = useRef(userId);
   uid.current = userId;
   const [snap, setSnap] = useState<TrackerSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const syncRef = useRef<TrackerSync | null>(null);
+  const nextNotice = useNextRound(matchId, snap?.meta.event_id, snap != null && snap.meta.my_side != null, onNext);
 
   useEffect(() => {
     const sync = new TrackerSync(matchId, () => uid.current, setSnap);
@@ -207,7 +264,7 @@ function useSyncedTracker(matchId: string): Controller {
     if (!snap) return null;
     const m = snap.meta;
     const names = [m.names?.[0] ?? "Player 1", m.names?.[1] ?? "Player 2"];
-    const status = snap.status === "offline" ? (snap.unsent ? `Offline | ${snap.unsent} unsent` : "Offline") : snap.unsent ? "Sending…" : null;
+    const status = snap.status === "offline" ? (snap.unsent ? `Offline | ${snap.unsent} unsent` : "Offline") : snap.unsent ? "Sending…" : nextNotice;
     const who = m.my_side == null ? `Watching | ${names[0]} vs ${names[1]}` : names[m.my_side === 0 ? 1 : 0];
     return {
       names,
@@ -223,7 +280,7 @@ function useSyncedTracker(matchId: string): Controller {
       status,
       clock: m.clock ?? null,
     };
-  }, [snap]);
+  }, [snap, nextNotice]);
 
   const add = useCallback((ops: TrackerOp[]) => syncRef.current?.add(ops), []);
   return {
@@ -275,7 +332,8 @@ function useWakeLock() {
   }, []);
 }
 
-export function LifeTracker({ matchId, onClose }: { matchId?: string; onClose: () => void }) {
+/** `onNext`: the next round is paired and this player has a match in it; open that one instead. */
+export function LifeTracker({ matchId, onClose, onNext }: { matchId?: string; onClose: () => void; onNext?: (matchId: string) => void }) {
   useWakeLock();
   const opened = useRef(false); // once per mount, also under StrictMode's double effects
   useEffect(() => {
@@ -283,15 +341,15 @@ export function LifeTracker({ matchId, onClose }: { matchId?: string; onClose: (
     opened.current = true;
     capture("life_tracker_opened", { mode: matchId ? "match" : "local" });
   }, [matchId]);
-  return matchId ? <SyncedBoard matchId={matchId} onClose={onClose} /> : <LocalBoard onClose={onClose} />;
+  return matchId ? <SyncedBoard matchId={matchId} onClose={onClose} onNext={onNext} /> : <LocalBoard onClose={onClose} />;
 }
 
 function LocalBoard({ onClose }: { onClose: () => void }) {
   return <Board ctl={useLocalTracker()} prefsKey="local" onClose={onClose} setupFirst />;
 }
 
-function SyncedBoard({ matchId, onClose }: { matchId: string; onClose: () => void }) {
-  return <Board ctl={useSyncedTracker(matchId)} prefsKey={matchId} onClose={onClose} />;
+function SyncedBoard({ matchId, onClose, onNext }: { matchId: string; onClose: () => void; onNext?: (matchId: string) => void }) {
+  return <Board ctl={useSyncedTracker(matchId, onNext)} prefsKey={matchId} onClose={onClose} />;
 }
 
 type RecordFlow = { step: "pick" } | { step: "confirm"; winner: Side | null; draw: boolean };

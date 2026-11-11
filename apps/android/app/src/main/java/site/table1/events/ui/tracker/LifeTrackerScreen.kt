@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -74,6 +75,7 @@ import site.table1.events.tracker.CounterKind
 import site.table1.events.tracker.MAX_COUNTERS
 import site.table1.events.tracker.TrackerController
 import site.table1.events.tracker.TrackerDoc
+import site.table1.events.tracker.TrackerNext
 import site.table1.events.tracker.TrackerPlace
 import site.table1.events.tracker.TrackerRow
 import site.table1.events.tracker.TrackerSeat
@@ -117,13 +119,27 @@ private data class Winner(val side: Int?, val draw: Boolean)
  * (contract/life-tracker-commander-2026-11-03.md).
  */
 @Composable
-fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
+fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit, onNext: (String) -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val controller = remember(matchId) { TrackerController(context.applicationContext, matchId) }
     DisposableEffect(controller) {
         controller.start()
         onDispose { controller.close() }
+    }
+
+    // The next round is paired: open that match instead (contract/life-tracker-options-2026-10-20.md § Next round).
+    val nextMatch = controller.nextMatchId
+    LaunchedEffect(nextMatch) { nextMatch?.let(onNext) }
+    // While it's up and in front, ask every 15 s.
+    LifecycleResumeEffect(controller) {
+        val poll = if (controller.synced) scope.launch {
+            while (isActive) {
+                delay(TrackerNext.EVERY_MS)
+                controller.checkNext("poll")
+            }
+        } else null
+        onPauseOrDispose { poll?.cancel() }
     }
 
     // Keep the screen on while the tracker is visible.
@@ -139,7 +155,10 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_STOP -> controller.flushSoon()
-                Lifecycle.Event.ON_START -> controller.refetch()
+                Lifecycle.Event.ON_START -> {
+                    controller.refetch()
+                    controller.checkNext("foreground")
+                }
                 else -> {}
             }
         }
@@ -214,7 +233,7 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
         TrackerTable.layout(d.players)
     }
 
-    val stripContext = reportNotice ?: controller.error ?: contextLine(d)
+    val stripContext = reportNotice ?: controller.error ?: controller.nextNotice?.takeIf { d.pending.isEmpty() } ?: contextLine(d)
     val stripColor = when {
         reportNotice != null -> T1.accent
         controller.error != null -> T1.danger

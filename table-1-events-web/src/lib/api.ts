@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import type { TrackerNextAnswer } from "./trackerNext";
 import { getLocalParticipant } from "./session";
 import { loadSaved, saveAnswer } from "./offline";
 import type { User } from "@supabase/supabase-js";
@@ -1285,6 +1286,14 @@ export async function trackerOpen(matchId: string, startingLife = 20): Promise<T
   const { data, error } = await supabase.rpc("tracker_open", { p_match_id: matchId, p_starting_life: startingLife });
   if (error) throw error;
   return data as TrackerState;
+}
+
+/** The player's match in the event's newest later round, or null (contract/life-tracker-options-2026-10-20.md
+ *  § Next round). `eventId` finds it when this match is gone (its round was re-paired). */
+export async function trackerNext(matchId: string, eventId: string | null | undefined): Promise<TrackerNextAnswer | null> {
+  const { data, error } = await supabase.rpc("tracker_next", { p_match_id: matchId, p_event_id: eventId ?? null });
+  if (error) throw error;
+  return (data as TrackerNextAnswer | null) ?? null;
 }
 
 export async function trackerState(sessionId: string): Promise<TrackerState> {

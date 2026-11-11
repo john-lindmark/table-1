@@ -51,6 +51,45 @@ class TrackerController(context: Context, private val matchId: String?) {
 
     val synced: Boolean get() = matchId != null
 
+    /** Set once the next round is paired and this player has a match in it: the screen opens it. */
+    var nextMatchId by mutableStateOf<String?>(null)
+        private set
+    /** A bye next round: shown on the strip, the match stays. */
+    var nextNotice by mutableStateOf<String?>(null)
+        private set
+    private var checkingNext = false
+
+    /**
+     * Asks whether the next round is paired (contract/life-tracker-options-2026-10-20.md § Next round). [how]: open,
+     * poll or foreground, for telemetry. Players only: an organizer watching stays put (the server answers null too).
+     */
+    fun checkNext(how: String) {
+        val mid = matchId ?: return
+        val d = doc ?: return
+        if (d.sessionId == null || d.readOnly || nextMatchId != null || checkingNext) return
+        checkingNext = true
+        scope.launch {
+            try {
+                repeat(4) {
+                    val answer = runCatching { Repo.trackerNext(mid, d.eventId) }.getOrElse { return@launch }
+                    when (val next = TrackerNext.decide(mid, answer)) {
+                        TrackerNext.Stay -> return@launch
+                        is TrackerNext.Notice -> { nextNotice = next.text; return@launch }
+                        is TrackerNext.Move -> {
+                            withTimeoutOrNull(5_000) { flush() }
+                            Telemetry.capture("tracker_next_round", mapOf("how" to how, "round" to (answer?.round ?: 0)))
+                            nextMatchId = next.matchId
+                            return@launch
+                        }
+                        TrackerNext.Soon -> delay(TrackerNext.SOON_MS)
+                    }
+                }
+            } finally {
+                checkingNext = false
+            }
+        }
+    }
+
     fun start() {
         doc = load() ?: if (matchId == null) TrackerDoc(key = key, mySide = 0) else null
         if (matchId == null) return
@@ -65,6 +104,8 @@ class TrackerController(context: Context, private val matchId: String?) {
                     applyState(state)
                     error = null
                     startLive(state.sessionId)
+                    // Opened from a screen that hadn't caught up: move on at once.
+                    checkNext("open")
                     break
                 }
                 if (doc == null) error = opened.exceptionOrNull()?.message ?: "Couldn't open the tracker"

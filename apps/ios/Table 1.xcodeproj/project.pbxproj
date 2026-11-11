@@ -277,6 +277,7 @@
 		F3200A182A95EE219BDC9036 /* MyDeckPhotos.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9338AE4A9C1931829D2D39A1 /* MyDeckPhotos.swift */; };
 		F4EA41201DB0A206889655E4 /* OwnedByCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 474FCFB6907454D95F9FA263 /* OwnedByCard.swift */; };
 		F6F2542FC32A67FB90455CB4 /* Sentry-Dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = B967E990CA99C20AA09E65D9 /* Sentry-Dynamic */; };
+		F7D1AFF5DD14DFFB79E3A057 /* TrackerNextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DB9662D466467DEBF66E56E /* TrackerNextTests.swift */; };
 		FB4808BBFC6CBC9B289A1FF5 /* RotoSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0407D38DABDD58EF2DE679B7 /* RotoSetup.swift */; };
 		FD8C089C15750DBB67527B74 /* insights-demo-constructed-pauper.json in Resources */ = {isa = PBXBuildFile; fileRef = 39E1DEBEAB1AF3D3EB3A2B0C /* insights-demo-constructed-pauper.json */; };
 /* End PBXBuildFile section */
@@ -338,6 +339,7 @@
 		1AB3891C530AC888BF13E49D /* FriendsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsViews.swift; sourceTree = "<group>"; };
 		1BF1D64ED2F48A2ED7D09F04 /* Friends.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Friends.swift; sourceTree = "<group>"; };
 		1C4FD05A2370970B0956A621 /* ListExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListExport.swift; sourceTree = "<group>"; };
+		1DB9662D466467DEBF66E56E /* TrackerNextTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerNextTests.swift; sourceTree = "<group>"; };
 		1E58FE801DEE1F485996A5C8 /* Catalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Catalog.swift; sourceTree = "<group>"; };
 		1ED8F3B9B043218AA5E1D295 /* BuyList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuyList.swift; sourceTree = "<group>"; };
 		2075E9FF3F5F167D9C6B9D93 /* RankingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankingsViews.swift; sourceTree = "<group>"; };
@@ -709,6 +711,7 @@
 				2A58D77D68C5D44D9BC95D78 /* SpotsTests.swift */,
 				560FAECA3D862382F5616015 /* SupportTests.swift */,
 				B315C86A391E28E160556A28 /* TelemetryTests.swift */,
+				1DB9662D466467DEBF66E56E /* TrackerNextTests.swift */,
 				F739ACD36A39454F4F0000EA /* TrackerResultTests.swift */,
 				333F2D78A13779DEA5EF8525 /* TrackerTableTests.swift */,
 				27D70D37E0D41352AEB48679 /* TrackerToolsTests.swift */,
@@ -1257,6 +1260,7 @@
 				2B829B4A57CFC7151F8A404C /* SpotsTests.swift in Sources */,
 				BC1F33BA988F6B3DD5D78083 /* SupportTests.swift in Sources */,
 				2CFD4D7040430A9A75487FD5 /* TelemetryTests.swift in Sources */,
+				F7D1AFF5DD14DFFB79E3A057 /* TrackerNextTests.swift in Sources */,
 				A628E9D15062599703FD9B4A /* TrackerResultTests.swift in Sources */,
 				B52F9A11047D6E1F237AAB78 /* TrackerTableTests.swift in Sources */,
 				AA18C4873606A59EE0F5D0CA /* TrackerToolsTests.swift in Sources */,

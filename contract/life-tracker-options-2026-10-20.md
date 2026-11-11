@@ -71,3 +71,26 @@ model), `trackerTools.test.ts`, `TrackerToolsTest`.
 
 Telemetry: `tracker_dice_rolled {sides, count}`, `tracker_chooser_opened`, `tracker_chooser_picked {fingers}`,
 `tracker_reset {scope: game|match, mode: local|match}`.
+
+## Next round
+
+(2026-11-11; John: "the player sees the old match in their tracker, even after new round has started".) A synced
+tracker opens on one match and only listens to that match's taps, games and round clock, so once the next round
+was paired a tracker left open, or reopened from a screen that hadn't caught up (the iOS home's saved round), kept
+showing the old match. Now it follows its player:
+
+- `tracker_next(p_match_id, p_event_id default null)` (migration `20261111130000_tracker_next.sql`, test
+  `60d_tracker_next_test.sql`) answers the signed-in player of a match with `{round, match_id, bye}` for the event's
+  newest later round, or null when there is none. It answers null to anyone who isn't one of the match's players
+  (an organizer watching, or keeping score for guests, stays put). A match that is gone (its round was re-paired)
+  is looked up by `p_event_id`: the caller's match in the event's newest round.
+- The tracker asks once it has opened, every 15 s while it is on screen and the app is in front, and on returning
+  to the app. It does not subscribe to `event:<id>`: every SDK hands back the same channel for the same topic, so
+  the tracker closing would unsubscribe the event screen open under it.
+- What it does with the answer (`TrackerNext.decide` / `decideNext`, cases `testdata/tracker-next/cases.json`):
+  a different match → send anything queued, then open that match's tracker in place of this one (iOS a new tracker
+  launch, web `/life/<id>` replacing the page, Android `tracker/<id>` replacing the route, so Back still returns
+  where the tracker came from); a bye → "Round 3 paired | you have a bye" on the strip, the match stays; the round is
+  paired but its matches aren't written yet (events-engine inserts the round first) → ask again in 2 s, up to 4
+  tries; nothing newer or the same match → stay.
+- Telemetry `tracker_next_round {how: open|poll|foreground, round}`.

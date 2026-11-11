@@ -580,6 +580,16 @@ enum Repo {
         ]).execute().value
     }
 
+    /// The player's match in the event's newest later round, or nil (contract/life-tracker-options-2026-10-20.md
+    /// § Next round). `eventId` finds it when this match is gone (its round was re-paired).
+    static func trackerNext(matchId: String, eventId: String?) async throws -> TrackerNextAnswer? {
+        let data = try await supabase.rpc("tracker_next", params: [
+            "p_match_id": AnyJSON.string(matchId), "p_event_id": eventId.map { AnyJSON.string($0) } ?? .null,
+        ]).execute().data
+        if String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) == "null" { return nil }
+        return try wireDecoder.decode(TrackerNextAnswer.self, from: data)
+    }
+
     static func trackerState(_ sessionId: String) async throws -> TrackerState {
         try await supabase.rpc("tracker_state", params: ["p_session_id": AnyJSON.string(sessionId)]).execute().value
     }
