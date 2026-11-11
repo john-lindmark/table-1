@@ -724,7 +724,7 @@
       "id": "collection-widget",
       "topic": "collection",
       "q": "Are there home screen widgets?",
-      "a": "Yes, on iPhone and Android: Next event, Collection value, the Card icon (any card's art behind the Table 1 mark), three Insights widgets (Meta, Matchup grid and Archetype matchups) and Limited cards (a set's best cards in draft). Each Insights and Limited widget has its own settings, and Limited cards has Set, Rarity and Color buttons along its top: tap one to switch to the next choice, or tap the rest of the widget to open Insights → Limited on what it shows. On iPhone your match and the round you're running also show on the Lock Screen. Add them from your home screen like any widget.",
+      "a": "Yes, on iPhone and Android: Next event, Collection value, the Card icon (any card's art behind the Table 1 mark), three Insights widgets (Meta, Matchup grid and Archetype matchups) and Limited cards (a set's best cards in draft). Each Insights and Limited widget has its own settings, and Limited cards has Set, Rarity and Color buttons along its top: tap one to switch to the next choice, or tap the rest of the widget to open Insights → Limited on what it shows. On iPhone your match (the round clock, your table and your opponent; results go in from the app) and the round you're running also show on the Lock Screen, and on Android in a live notification. Add them from your home screen like any widget.",
       "keywords": [
         "widget",
         "home screen",

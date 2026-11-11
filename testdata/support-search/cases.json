@@ -199,7 +199,7 @@
     "pair"
    ],
    "partial": false,
-   "count": 31,
+   "count": 32,
    "top": [
     "guide:run-20:18",
     "faq:play-standings:15",
@@ -467,7 +467,7 @@
     "guide:play-10:2",
     "guide:play-11:2",
     "guide:widgets-1:2",
-    "guide:widgets-20:2"
+    "guide:widgets-24:2"
    ]
   },
   {
@@ -554,7 +554,7 @@
     "faq:account-track-games:9",
     "guide:foldables-2:6",
     "guide:foldables-6:6",
-    "guide:widgets-14:6",
+    "guide:widgets-18:6",
     "faq:tracker-counters:5",
     "faq:tracker-first:5",
     "faq:tracker-reset:5"
@@ -603,7 +603,7 @@
     "faq:insights-what:11",
     "guide:insights-32:10",
     "guide:overview-4:6",
-    "guide:widgets-21:6",
+    "guide:widgets-25:6",
     "guide:insights-2:6",
     "guide:decks-29:4",
     "guide:finder-2:4",
@@ -656,15 +656,15 @@
     "android"
    ],
    "partial": false,
-   "count": 9,
+   "count": 10,
    "top": [
     "faq:start-platforms:11",
     "faq:notifications-on:11",
-    "guide:widgets-36:10",
+    "guide:widgets-40:10",
     "guide:push-10:10",
     "guide:account-8:8",
-    "guide:widgets-37:6",
-    "guide:widgets-40:6",
+    "guide:widgets-41:6",
+    "guide:widgets-44:6",
     "guide:push-5:6"
    ]
   },

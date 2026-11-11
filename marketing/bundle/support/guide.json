@@ -665,7 +665,7 @@
   {
    "id": "play-15",
    "s": "play",
-   "x": "On iPhone, the round shows in a Live Activity and widgets (clock, table and opponent on the Lock Screen), and push notifications tell you when you're paired."
+   "x": "On iPhone, the round shows in a Live Activity and widgets (the round clock, your table and your opponent on the Lock Screen; results go in from the app), and push notifications tell you when you're paired."
   },
   {
    "id": "play-16",
@@ -703,255 +703,279 @@
   {
    "id": "widgets-2",
    "s": "widgets",
-   "h": "Organizer on the Lock Screen",
-   "x": "While you run a round, the Lock Screen and Dynamic Island show it: the round, the clock, and 5/8 in with a bar of one mark per match (teal = result in, red = disputed)."
+   "h": "Your match on the Lock Screen",
+   "x": "While you play a round, the Lock Screen, StandBy and Dynamic Island show the event's name and round (R2/3), your table large (T4), vs your opponent, and the round clock counting down (frozen when the organizer pauses it, red past time, hidden when the event's clock is off)."
   },
   {
    "id": "widgets-3",
    "s": "widgets",
-   "h": "Organizer on the Lock Screen",
-   "x": "One line says what's next: \"Waiting on 3 results\", then Ready: Pair round 4 or Ready: Finish event once every result is in. Under it: disputes to decide, and guest matches you have to enter yourself."
+   "h": "Your match on the Lock Screen",
+   "x": "Nothing to tap but the event: report and confirm results in the app. Your opponent's report still comes as a notification."
   },
   {
    "id": "widgets-4",
    "s": "widgets",
-   "h": "Organizer on the Lock Screen",
-   "x": "Between rounds it says \"Round 3 recorded · Pair round 4\". It ends with the event."
+   "h": "Your match on the Lock Screen",
+   "x": "A bye, waiting for the next round, or the event's end show that line in place of the table and opponent."
   },
   {
    "id": "widgets-5",
    "s": "widgets",
-   "h": "Organizer on the Lock Screen",
-   "x": "You get an alert when a match is disputed and when the last result of a round comes in, not for every result."
+   "h": "Your match on the Lock Screen",
+   "x": "Dynamic Island: the table on the left, the clock and round on the right, your opponent in the middle; small, just the clock."
   },
   {
    "id": "widgets-6",
    "s": "widgets",
    "h": "Organizer on the Lock Screen",
-   "x": "It only shows: pairing and deciding disputes happen on the organizer screen, one tap away. If you also play, your own match has its own Live Activity as before."
+   "x": "While you run a round, the Lock Screen and Dynamic Island show it: the round, the clock, and 5/8 in with a bar of one mark per match (teal = result in, red = disputed)."
   },
   {
    "id": "widgets-7",
+   "s": "widgets",
+   "h": "Organizer on the Lock Screen",
+   "x": "One line says what's next: \"Waiting on 3 results\", then Ready: Pair round 4 or Ready: Finish event once every result is in. Under it: disputes to decide, and guest matches you have to enter yourself."
+  },
+  {
+   "id": "widgets-8",
+   "s": "widgets",
+   "h": "Organizer on the Lock Screen",
+   "x": "Between rounds it says \"Round 3 recorded · Pair round 4\". It ends with the event."
+  },
+  {
+   "id": "widgets-9",
+   "s": "widgets",
+   "h": "Organizer on the Lock Screen",
+   "x": "You get an alert when a match is disputed and when the last result of a round comes in, not for every result."
+  },
+  {
+   "id": "widgets-10",
+   "s": "widgets",
+   "h": "Organizer on the Lock Screen",
+   "x": "It only shows: pairing and deciding disputes happen on the organizer screen, one tap away. If you also play, your own match has its own Live Activity as before."
+  },
+  {
+   "id": "widgets-11",
    "s": "widgets",
    "h": "Next event",
    "x": "A home screen widget (small or medium) and a Lock Screen one: your next event's format, name, venue and player count, and when it starts (\"In 2h 10m\", or the day and time)."
   },
   {
-   "id": "widgets-8",
+   "id": "widgets-12",
    "s": "widgets",
    "h": "Next event",
    "x": "A live event comes first, then the soonest one with a start time. It says when you're organizing. The medium size adds the one after and any invitations waiting."
   },
   {
-   "id": "widgets-9",
+   "id": "widgets-13",
    "s": "widgets",
    "h": "Next event",
    "x": "It uses what the Events tab shows, refreshed when you open the app and every so often in between."
   },
   {
-   "id": "widgets-10",
+   "id": "widgets-14",
    "s": "widgets",
    "h": "Collection value",
    "x": "A home screen widget: your collection's value in USD, the change over the last 7 days, and a line of the last 30 days. The medium size adds distinct cards and copies."
   },
   {
-   "id": "widgets-11",
+   "id": "widgets-15",
    "s": "widgets",
    "h": "Collection value",
    "x": "The change counts cards you added or removed as well as price moves, so it says \"7 days\", not \"market\"."
   },
   {
-   "id": "widgets-12",
+   "id": "widgets-16",
    "s": "widgets",
    "h": "Collection value",
    "x": "It starts tracking when you add it, so the first day shows just the value (\"From today\")."
   },
   {
-   "id": "widgets-13",
+   "id": "widgets-17",
    "s": "widgets",
    "h": "Collection value",
    "x": "Kept off the Lock Screen, and hidden while your phone is locked, because your collection's value is private."
   },
   {
-   "id": "widgets-14",
+   "id": "widgets-18",
    "s": "widgets",
    "h": "Quick actions",
    "t": "Life tracker",
    "x": "opens a life tracker straight away, for a game at the table."
   },
   {
-   "id": "widgets-15",
+   "id": "widgets-19",
    "s": "widgets",
    "h": "Quick actions",
    "t": "Scan cards",
    "x": "opens Add cards with the camera already scanning; everything you scan goes in as one batch with Undo, as usual."
   },
   {
-   "id": "widgets-16",
+   "id": "widgets-20",
    "s": "widgets",
    "h": "Quick actions",
    "x": "Both are in Shortcuts and can go on the Action Button; on iOS 18 and later also in Control Center and the Lock Screen's buttons. Siri knows them as \"Open Table 1 life tracker\" and \"Scan cards with Table 1\"."
   },
   {
-   "id": "widgets-17",
+   "id": "widgets-21",
    "s": "widgets",
    "h": "Card icon",
    "t": "Any card behind the Table 1 mark",
    "x": "on a card's page, details (the list icon) → Use for the icon widget saves that printing's art on the phone; the row then reads On your icon widget, and a tap offers Remove from icon widgets. It shows for any printing that has a picture: in your collection, a deck, a binder, a search, a friend's list."
   },
   {
-   "id": "widgets-18",
+   "id": "widgets-22",
    "s": "widgets",
    "h": "Card icon",
    "t": "The widget",
    "x": "(iPhone small; Android one cell, resizable to any shape): the card's art filling the widget under a 60% dark scrim, with the Table 1 mark in white at the app icon's size. No words. A tap opens Table 1 where you left it, as the icon does. With no card picked, or its art missing, it's the plain icon."
   },
   {
-   "id": "widgets-19",
+   "id": "widgets-23",
    "s": "widgets",
    "h": "Card icon",
    "t": "Your icon cards",
    "x": "the phone keeps the last 12 you picked, newest first; picking one again moves it up. Each widget shows the newest unless you pick one in its settings (iPhone: Edit Widget → Card; Android: Newest or a card, with its art). A widget whose card was removed goes back to the newest."
   },
   {
-   "id": "widgets-20",
+   "id": "widgets-24",
    "s": "widgets",
    "h": "Card icon",
    "x": "Kept on the phone, not in your account, so they stay through sign-out and don't follow you to another device. The website has no widgets."
   },
   {
-   "id": "widgets-21",
+   "id": "widgets-25",
    "s": "widgets",
    "h": "Insights widgets",
    "t": "Set up in the widget",
    "x": "each has its own settings (iPhone: long-press → Edit Widget; Android: the settings screen that opens when you place it on older Android, or the widget's settings or Reconfigure on newer ones): Format (Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Canadian Highlander), Events (Big events or All events) and Window (7, 14, 30 or 90 days). They start on Modern, Big events, 30 days. When Big events has nothing in the window, the widget shows All events and says so on its label."
   },
   {
-   "id": "widgets-22",
+   "id": "widgets-26",
    "s": "widgets",
    "h": "Insights widgets",
    "t": "Meta",
    "x": "(iPhone small, medium, large; Android any size): \"MODERN · BIG · 30D\", a bar of the whole meta with each archetype in its color, and the most played archetypes with their shares (five, or eight on the large size). From the medium size up, the graph: Meta over time for those archetypes across the window, each line in its color. The large size adds each archetype's change on the window before (▲ in teal, ▼ in pink) and its win rate."
   },
   {
-   "id": "widgets-23",
+   "id": "widgets-27",
    "s": "widgets",
    "h": "Insights widgets",
    "t": "Matchup grid",
    "x": "(iPhone medium, large; Android two rows and up): the window's matchup grid, the most played archetypes along the top (by short initials, over a line in their color) against the rows that fit, each square's win rate tinted teal or pink like the Insights tab, faded under 30 matches."
   },
   {
-   "id": "widgets-24",
+   "id": "widgets-28",
    "s": "widgets",
    "h": "Insights widgets",
    "t": "Archetype matchups",
    "x": "(iPhone small, medium, large; Android any size): pick the archetype in the widget's settings (the format's archetypes, those with matchups first; or leave it on the most played). It shows the archetype's win rate and share; small adds its best and worst matchup, medium Good against and Bad against (three each, from 20 or more decided matches), large every matchup as a bar from 50%, with its percent and match count."
   },
   {
-   "id": "widgets-25",
+   "id": "widgets-29",
    "s": "widgets",
    "h": "Insights widgets",
    "t": "Colors",
    "x": "the eight most played archetypes of the window each get their own color (a palette checked for color-blind readers on Table 1's dark background), the rest grey; an archetype has the same color in all three widgets with the same settings, and its name always sits beside it."
   },
   {
-   "id": "widgets-26",
+   "id": "widgets-30",
    "s": "widgets",
    "h": "Insights widgets",
    "t": "Tap a square",
    "x": "on the Matchup grid: it's outlined, its row and column names light up, and the top line reads \"Broodscale Combo vs Izzet Prowess\" with the record (\"321-236-14\"); large adds the win rate and likely range, or \"Only 2 matches: too few to say\". Tap it again to let go, or another square to move. On iPhone, two grid widgets with the same settings share what's tapped."
   },
   {
-   "id": "widgets-27",
+   "id": "widgets-31",
    "s": "widgets",
    "h": "Insights widgets",
    "t": "Tap a deck",
    "x": "in Meta's list (medium and up): its line is drawn on top and the other lines and decks fade. Tap again to let go."
   },
   {
-   "id": "widgets-28",
+   "id": "widgets-32",
    "s": "widgets",
    "h": "Insights widgets",
    "t": "Tinted and clear Home Screens",
    "x": "(iPhone): decks in white that fades by place, winning squares filled faintly, losing ones outlined, text always full, so every number stays readable."
   },
   {
-   "id": "widgets-29",
+   "id": "widgets-33",
    "s": "widgets",
    "h": "Insights widgets",
    "x": "A tap anywhere else opens Insights on the same format, events and window (the grid, or the archetype's page). The widgets read the same public Insights data as the tab, with no sign-in, and refresh every three hours; offline before their first load they say the format loads when you're online."
   },
   {
-   "id": "widgets-30",
+   "id": "widgets-34",
    "s": "widgets",
    "h": "Limited cards",
    "t": "What it shows",
    "x": "a Limited set's best cards in draft (Premier draft when the set has it; all players): place, color dots, name, rarity letter, points above or below the set's average win rate, and the sort's number in teal. The Set, Rarity and Color buttons and the sort's code across the top, \"Data from 17Lands\" at the bottom."
   },
   {
-   "id": "widgets-31",
+   "id": "widgets-35",
    "s": "widgets",
    "h": "Limited cards",
    "t": "Tap to switch",
    "x": "three small boxed buttons across the top. Set (its code) steps through the Limited sets Insights has, round to the first; Rarity steps Any → Common → Uncommon → Rare → Mythic → Any (hidden for an Arena cube, which has none); Color steps Any (five dots) → White → Blue → Black → Red → Green → Multicolor → Colorless → Any. One choice at a time; several rarities or colors from the settings go to Any on the next tap. The cards change at once, a new set's after its cards are fetched. Small widgets use letters (\"All\", \"U\", \"C·U\"), the large one words (\"Any rarity\", \"Uncommon\"). On iPhone the buttons' picks belong to the widget's settings: editing them starts over, and two widgets with the same settings share them. On Android they're the widget's own picks, so its settings screen shows them."
   },
   {
-   "id": "widgets-32",
+   "id": "widgets-36",
    "s": "widgets",
    "h": "Limited cards",
    "t": "Set up in the widget",
    "x": "Set (the Limited sets in Insights), Sort (win rate in hand, in the opening hand, improvement when drawn, average pick), and Rarity and Color, several of each, none picked meaning all (iPhone: Edit Widget; Android: its settings screen). With no set picked it shows the newest set the phone knows."
   },
   {
-   "id": "widgets-33",
+   "id": "widgets-37",
    "s": "widgets",
    "h": "Limited cards",
    "t": "The same cards as the app",
    "x": "the widget and Insights → Limited's Top cards use one rule for the filters and the order, so they always agree."
   },
   {
-   "id": "widgets-34",
+   "id": "widgets-38",
    "s": "widgets",
    "h": "Limited cards",
    "t": "Sizes",
    "x": "iPhone small (4 cards), medium (6) and large (12); Android any size from 2×1, rows filling the height (up to 12), the one-row strip showing the set and the best card."
   },
   {
-   "id": "widgets-35",
+   "id": "widgets-39",
    "s": "widgets",
    "h": "Limited cards",
    "x": "A tap anywhere but a button opens Insights → Limited on that set with the widget's sort, rarity and color picked (a widget from before this update opens on the set alone). The set list comes from Insights (signed in, or what the app kept the last time Insights → Limited was opened); the cards need no sign-in and refresh every six hours, and offline the widget keeps its last answer."
   },
   {
-   "id": "widgets-36",
+   "id": "widgets-40",
    "s": "widgets",
    "h": "On Android",
    "t": "A live notification",
-   "x": "for each event you play in or run, in its own quiet Live events group (alerts still come as ordinary notifications). Playing: \"R2/4 · T3 · vs Ana\", where the result stands, ranks and records, and the round clock counting down; Won 2–0, Won 2–1 and Other result while the match is open, Confirm and Dispute when your opponent has reported. Running: \"5/8 in\" with a bar, the next step, disputes and results to enter yourself, and the clock. A tap opens the event. When the event ends the last line stays half an hour, then goes. On Android 16 both show as Live Updates."
+   "x": "for each event you play in or run, in its own quiet Live events group (alerts still come as ordinary notifications). Playing: \"T3 · vs Ana\" with the round (\"R2/4\") and the round clock counting down, and no result buttons, ranks or records (results go in from the app; a bye or waiting shows that line instead). Running: \"5/8 in\" with a bar, the next step, disputes and results to enter yourself, and the clock. A tap opens the event. When the event ends the last line stays half an hour, then goes. On Android 16 both show as Live Updates."
   },
   {
-   "id": "widgets-37",
+   "id": "widgets-41",
    "s": "widgets",
    "h": "On Android",
    "t": "Home screen widgets",
    "x": "Next event, Collection value and Current match, drawn like the iPhone's (same labels, order, colors and buttons) with the same rules. Current match ticks the round clock and, from the wider size, reports (2-0 to 0-2), confirms or disputes without opening the app. Android has no lock screen widgets; the live notification covers the match there."
   },
   {
-   "id": "widgets-38",
+   "id": "widgets-42",
    "s": "widgets",
    "h": "On Android",
    "t": "Any size",
    "x": "long-press a widget and drag its edges, from one row up to the full width and any height. One row: Next event shows when and the name, Collection value the amount (wide: with the line and the week's change), Current match the round, table and clock. 2×2 and 4×2 are the iPhone's small and medium. Three rows and up: Next event lists the later events that fit under the first (tap one to open it, \"+2 more\" for the rest), Collection value grows the amount and the 30-day line, and Current match shows the big clock, where the result stands and all five result buttons (on a narrow one, Confirm above Dispute)."
   },
   {
-   "id": "widgets-39",
+   "id": "widgets-43",
    "s": "widgets",
    "h": "On Android",
    "t": "Quick Settings tiles",
    "x": "and long-press shortcuts on the app icon: Life tracker and Scan cards."
   },
   {
-   "id": "widgets-40",
+   "id": "widgets-44",
    "s": "widgets",
    "h": "On Android",
    "x": "The app refreshes them whenever it reads your events, when it comes back to the front, and when a notification about an event arrives. A widget fetches for itself when its copy is old (Next event 15 minutes, Collection value 6 hours, Current match 5 minutes). Signing out clears them."
