@@ -420,6 +420,21 @@
         "--strictPort"
       ],
       "port": 5187
+    },
+    {
+      "name": "web-taps",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/johnlindmark/Documents/Table 1/.claude/worktrees/tracker-taps/table-1-events-web",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5197",
+        "--strictPort"
+      ],
+      "port": 5197
     }
   ]
 }
