@@ -62,9 +62,56 @@ enum TrackerSeat: String {
 
     /// A swipe toward the player opens their counter picker. No swipe closes it, only Done: swiping away is also
     /// how the picker's rows scroll (commander damage made the list long).
-    func opensPicker(_ t: CGSize, min: CGFloat = 24) -> Bool {
+    func opensPicker(_ t: CGSize, min: CGFloat = TrackerTouch.swipe) -> Bool {
         let (down, across) = toward(t)
         return down >= min && down > abs(across) * 1.5
+    }
+
+    /// How far a point in a box (screen points, origin top-left) is from this player's far edge, their "top".
+    func far(_ p: CGPoint, in size: CGSize) -> CGFloat {
+        switch self {
+        case .bottom: p.y
+        case .top: size.height - p.y
+        case .left: size.width - p.x
+        case .right: p.x
+        }
+    }
+}
+
+/// The touch rule (contract/life-tracker-options-2026-10-20.md § Taps and the pull band, cases
+/// testdata/tracker-touch/cases.json). A touch on a +1 / −1 zone always counts, however far it drifts; only one
+/// that starts in the pull band along the player's far edge and travels toward them opens the counter picker.
+enum TrackerTouch {
+    /// The pull band's depth from the player's far edge.
+    static let band: CGFloat = 44
+    /// Travel toward the player that opens the picker.
+    static let swipe: CGFloat = 24
+    /// Travel before the hold delay that makes a touch a rolled tap, not a hold (no repeat).
+    static let holdSlop: CGFloat = 24
+    /// The old cancel distance: telemetry counts the taps that travelled past it (they used to be lost).
+    static let moved: CGFloat = 10
+
+    static func inBand(_ seat: TrackerSeat, at p: CGPoint, in size: CGSize) -> Bool { seat.far(p, in: size) <= band }
+
+    static func pulls(_ seat: TrackerSeat, from p: CGPoint, in size: CGSize, by t: CGSize) -> Bool {
+        inBand(seat, at: p, in: size) && seat.opensPicker(t)
+    }
+
+    static func holds(_ t: CGSize) -> Bool { hypot(t.width, t.height) <= holdSlop }
+}
+
+/// What the tracker's touches did while it was open, sent as `tracker_touches` when it closes: taps, taps that
+/// travelled past the old 10 pt cancel (`moved`), pulls that opened the picker, holds.
+@MainActor
+final class TrackerTouchStats {
+    static let shared = TrackerTouchStats()
+    var taps = 0, moved = 0, pulls = 0, holds = 0, bandTaps = 0
+
+    func flush(players: Int, mode: String) {
+        defer { taps = 0; moved = 0; pulls = 0; holds = 0; bandTaps = 0 }
+        guard taps + pulls > 0 else { return }
+        Telemetry.capture("tracker_touches", ["taps": taps, "moved": moved, "pulls": pulls, "holds": holds,
+                                              "band_taps": bandTaps, "players": players, "mode": mode])
     }
 }
 

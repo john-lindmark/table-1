@@ -105,6 +105,7 @@ struct LifeTrackerView: View {
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
+            TrackerTouchStats.shared.flush(players: model.players, mode: model.isSynced ? "match" : "local")
             let model = model
             Task { await model.flushNow() }
         }
@@ -133,6 +134,7 @@ struct LifeTrackerView: View {
                     await model.checkNext("foreground")
                 }
             } else {
+                TrackerTouchStats.shared.flush(players: model.players, mode: model.isSynced ? "match" : "local")
                 Task { await model.flushNow() }
             }
         }
@@ -529,7 +531,7 @@ private struct TrackerHalf: View {
         let scale: CGFloat = model.players > 2 ? 0.6 : 1
         let lifeColumn = CounterColumn(value: life, label: nil, size: (counters.isEmpty ? 162 : 120) * scale,
                                        lost: life <= 0, seat: seat, enabled: enabled,
-                                       name: "\(name) life", retract: { model.retract($0) }) { tap(side, .life, $0) }
+                                       name: "\(name) life", retract: { model.retract($0) }, pull: openPicker) { tap(side, .life, $0) }
         // Life first on the player's left.
         let columns: [AnyView] = [AnyView(lifeColumn)] + counters.map { counter in
             let value = model.total(side, counter)
@@ -537,7 +539,7 @@ private struct TrackerHalf: View {
             return AnyView(CounterColumn(value: value, label: model.shortLabel(counter),
                                          size: (counters.count == 1 ? 80 : counters.count == 2 ? 64 : 44) * scale,
                                          lost: lost, seat: seat, enabled: enabled, name: "\(name) \(model.label(counter))",
-                                         retract: { model.retract($0) }) { tap(side, counter, $0) })
+                                         retract: { model.retract($0) }, pull: openPicker) { tap(side, counter, $0) })
         }
         let ordered = seat.reversed ? Array(columns.reversed()) : columns
         let stack = seat.sideways ? AnyLayout(VStackLayout(spacing: 1)) : AnyLayout(HStackLayout(spacing: 1))
@@ -561,12 +563,12 @@ private struct TrackerHalf: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 24, coordinateSpace: .global).onEnded { value in
-                guard !pickerOpen, seat.opensPicker(value.translation) else { return }
-                withAnimation(.easeOut(duration: 0.15)) { pickerOpen = true }
-            }
-        )
+    }
+
+    /// A pull from the band along the player's far edge (the +1 zones' top strip) opens the picker.
+    fileprivate func openPicker() {
+        guard !pickerOpen else { return }
+        withAnimation(.easeOut(duration: 0.15)) { pickerOpen = true }
     }
 }
 
@@ -580,6 +582,7 @@ private struct CounterColumn: View {
     let enabled: Bool
     let name: String
     let retract: (String) -> Void
+    let pull: () -> Void
     let onDelta: (Int) -> String?
 
     var body: some View {
@@ -587,8 +590,11 @@ private struct CounterColumn: View {
         let zones = seat.sideways ? AnyLayout(HStackLayout(spacing: 1)) : AnyLayout(VStackLayout(spacing: 1))
         ZStack {
             zones {
-                TapZone(enabled: enabled, label: "\(name) \(first > 0 ? "+1" : "−1")", retract: retract) { onDelta(first) }
-                TapZone(enabled: enabled, label: "\(name) \(first > 0 ? "−1" : "+1")", retract: retract) { onDelta(-first) }
+                // The +1 zone runs along the player's far edge, where the pull band is.
+                TapZone(enabled: enabled, label: "\(name) \(first > 0 ? "+1" : "−1")", seat: seat, pullable: first > 0,
+                        retract: retract, pull: pull) { onDelta(first) }
+                TapZone(enabled: enabled, label: "\(name) \(first > 0 ? "−1" : "+1")", seat: seat, pullable: first < 0,
+                        retract: retract, pull: pull) { onDelta(-first) }
             }
             Turned(seat: seat) {
                 VStack(spacing: 8) {
@@ -609,67 +615,109 @@ private struct CounterColumn: View {
     }
 }
 
-/// Increment Button. A tap fires on touch-down so the total moves the instant a finger lands; if the touch
-/// then travels more than 10 pt (a swipe, e.g. opening the counter picker) that change is taken back, so a
-/// swipe still never changes a total. Holding repeats after 0.4 s, then every 0.1 s. Pressed = surface, at once.
+/// Increment Button. A tap fires on touch-down so the total moves the instant a finger lands, and it always
+/// counts, however far the finger drifts (a drift past 10 pt used to take it back, which lost real taps).
+/// Only a touch that starts in the pull band along the player's far edge and travels toward them opens the
+/// counter picker, and that one tap is taken back (`TrackerTouch`). Holding repeats after 0.4 s, then every
+/// 0.1 s, unless the finger rolled more than 24 pt first. Pressed = surface, at once.
 private struct TapZone: View {
     let enabled: Bool
     let label: String
+    let seat: TrackerSeat
+    /// This zone touches the player's far edge, so a touch can start in the pull band.
+    let pullable: Bool
     let retract: (String) -> Void
+    let pull: () -> Void
     let fire: () -> String?
-    /// The finger's travel while it's down; SwiftUI resets it however the touch ends (even when cancelled).
-    @GestureState private var travel: CGFloat?
-    @State private var cancelled = false
-    @State private var held = false
+
+    /// One touch: what it did on landing and what it has turned into since.
+    private struct Touch {
+        var landed: String?
+        var inBand: Bool
+        var moved = false
+        var rolled = false
+        var held = false
+        var pulled = false
+    }
+
+    /// True while a finger is down; SwiftUI resets it however the touch ends (even when cancelled).
+    @GestureState private var down = false
+    @State private var touch: Touch?
+    @State private var size: CGSize = .zero
     @State private var repeater: Task<Void, Never>?
-    /// The change this touch made on landing (taken back if the touch becomes a swipe).
-    @State private var landed: String?
 
     var body: some View {
-        let pressed = travel != nil && !cancelled
+        let pressed = down && touch?.pulled != true
         Rectangle()
             .fill(pressed ? T1.surface : T1.bg)
             .contentShape(Rectangle())
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
             .gesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                    .updating($travel) { value, state, _ in
-                        state = hypot(value.translation.width, value.translation.height)
+                DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                    .updating($down) { _, state, _ in state = true }
+                    // onChanged and onEnded arrive in order for every touch, however short, so a quick tap
+                    // can't slip between two redraws the way a state-change watcher could.
+                    .onChanged { value in
+                        if touch == nil { begin(at: value.startLocation) }
+                        track(value.translation)
                     }
-                    .onEnded { _ in },
+                    .onEnded { _ in end() },
                 including: enabled ? .all : .subviews
             )
-            .onChange(of: travel == nil) { _, up in
-                // onEnded has already read these for the touch that just finished.
-                repeater?.cancel()
-                repeater = nil
-                cancelled = false
-                held = false
-                landed = nil
-                guard !up, enabled else { return }
-                landed = fire()
-                repeater = Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(400))
-                    guard !Task.isCancelled, !cancelled else { return }
-                    held = true
-                    while !Task.isCancelled {
-                        _ = fire()
-                        try? await Task.sleep(for: .milliseconds(100))
-                    }
-                }
-            }
-            .onChange(of: travel ?? 0) { _, moved in
-                guard moved > 10, !held, !cancelled else { return }
-                cancelled = true
-                repeater?.cancel()
-                repeater = nil
-                if let landed { retract(landed) }
-                landed = nil
-            }
-            .onDisappear { repeater?.cancel() }
+            .onChange(of: down) { _, isDown in if !isDown { end() } }
+            .onDisappear { end() }
             .accessibilityElement()
             .accessibilityLabel(label)
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { if enabled { _ = fire() } }
+    }
+
+    private func begin(at start: CGPoint) {
+        guard enabled else { return }
+        let inBand = pullable && TrackerTouch.inBand(seat, at: start, in: size)
+        touch = Touch(landed: fire(), inBand: inBand)
+        TrackerTouchStats.shared.taps += 1
+        if inBand { TrackerTouchStats.shared.bandTaps += 1 }
+        repeater = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled, touch?.rolled == false, touch?.pulled == false else { return }
+            touch?.held = true
+            TrackerTouchStats.shared.holds += 1
+            while !Task.isCancelled {
+                _ = fire()
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+    }
+
+    /// Writes state only when the touch changes what it is, never per frame.
+    private func track(_ t: CGSize) {
+        guard let now = touch, !now.pulled else { return }
+        let travel = hypot(t.width, t.height)
+        if !now.moved, travel > TrackerTouch.moved {
+            touch?.moved = true
+            TrackerTouchStats.shared.moved += 1
+        }
+        if !now.held, !now.rolled, !TrackerTouch.holds(t) {
+            touch?.rolled = true
+            repeater?.cancel()
+            repeater = nil
+        }
+        if now.inBand, !now.held, seat.opensPicker(t) {
+            touch?.pulled = true
+            repeater?.cancel()
+            repeater = nil
+            if let landed = now.landed { retract(landed) }
+            TrackerTouchStats.shared.taps -= 1
+            TrackerTouchStats.shared.pulls += 1
+            pull()
+        }
+    }
+
+    private func end() {
+        repeater?.cancel()
+        repeater = nil
+        touch = nil
     }
 }
 

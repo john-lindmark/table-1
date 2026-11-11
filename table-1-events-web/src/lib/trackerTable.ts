@@ -64,10 +64,46 @@ export function toward(seat: Seat, dx: number, dy: number): { down: number; acro
  * A swipe toward the player opens their counter picker. No swipe closes it, only Done: swiping away is also how
  * the picker's rows scroll (commander damage made the list long).
  */
-export function opensPicker(seat: Seat, dx: number, dy: number, min = 24): boolean {
+export function opensPicker(seat: Seat, dx: number, dy: number, min = TOUCH_SWIPE): boolean {
   const { down, across } = toward(seat, dx, dy);
   return down >= min && down > Math.abs(across) * 1.5;
 }
+
+/*
+ * The touch rule (contract/life-tracker-options-2026-10-20.md § Taps and the pull band, cases
+ * testdata/tracker-touch/cases.json): a tap on a +1 / −1 zone always counts, however far it drifts; only a touch
+ * that starts in the pull band along the player's far edge and travels toward them opens the counter picker.
+ */
+/** The pull band's depth from the player's far edge (CSS px). */
+export const TOUCH_BAND = 44;
+/** Travel toward the player that opens the picker. */
+export const TOUCH_SWIPE = 24;
+/** Travel before the hold delay that makes a touch a rolled tap, not a hold (no repeat). */
+export const TOUCH_HOLD_SLOP = 24;
+/** The old cancel distance: telemetry counts the taps that travelled past it (they used to be lost). */
+export const TOUCH_MOVED = 10;
+
+/** How far a point in a box (screen px, origin top-left) is from the player's far edge, their "top". */
+export function farFrom(seat: Seat, x: number, y: number, w: number, h: number): number {
+  switch (seat) {
+    case "top":
+      return h - y;
+    case "left":
+      return w - x;
+    case "right":
+      return x;
+    default:
+      return y;
+  }
+}
+
+export const inPullBand = (seat: Seat, x: number, y: number, w: number, h: number) =>
+  farFrom(seat, x, y, w, h) <= TOUCH_BAND;
+
+export const pulls = (seat: Seat, x: number, y: number, w: number, h: number, dx: number, dy: number) =>
+  inPullBand(seat, x, y, w, h) && opensPicker(seat, dx, dy);
+
+export const holds = (dx: number, dy: number) => Math.hypot(dx, dy) <= TOUCH_HOLD_SLOP;
 
 const SETUP_KEY = "table1.lifeTracker.setup";
 
