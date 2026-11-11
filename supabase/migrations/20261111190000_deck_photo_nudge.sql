@@ -10,6 +10,7 @@
 -- rule again when it's due, so a result undone, a round re-paired, a cancelled event, a top 8 player whose
 -- quarterfinal was paired a moment after the round, or a photo added meanwhile sends nothing. A row no longer done is
 -- deleted, so the player can be queued again later; a row that sent (or found a photo) stays, so nothing repeats.
+-- The triggers run inside pairing, reporting and finishing: an error in them is a warning, never a failed write.
 
 -- ================================================================= the rule (the cases' shape)
 create or replace function t1_private.deck_photo_why_of(p_event jsonb, p_me jsonb, p_rounds jsonb)
@@ -122,6 +123,9 @@ begin
     perform t1_private.deck_photo_consider_event(v_id);
   end loop;
   return null;
+exception when others then
+  raise warning 'deck_photo_sides_trg: %', sqlerrm;   -- a nudge never blocks pairing
+  return null;
 end $$;
 
 drop trigger if exists match_sides_deck_photo on public.match_sides;
@@ -138,6 +142,9 @@ begin
     perform t1_private.deck_photo_consider(v_id);
   end loop;
   return null;
+exception when others then
+  raise warning 'deck_photo_match_trg: %', sqlerrm;   -- a nudge never blocks a result
+  return null;
 end $$;
 
 drop trigger if exists matches_deck_photo on public.matches;
@@ -150,6 +157,9 @@ create or replace function t1_private.deck_photo_event_trg() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
   perform t1_private.deck_photo_consider_event(new.id);
+  return null;
+exception when others then
+  raise warning 'deck_photo_event_trg: %', sqlerrm;   -- a nudge never blocks finishing an event
   return null;
 end $$;
 
