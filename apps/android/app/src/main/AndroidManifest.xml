@@ -112,9 +112,6 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="events" />
 
-        <!-- Report / Confirm / Dispute from the live notification (util/LiveUpdates.kt). -->
-        <receiver android:name=".util.LiveActionReceiver" android:exported="false" />
-
         <!-- Home screen widgets (contract/widgets-2026-10-22.md), drawn with Glance (widgets/). -->
         <receiver android:name=".widgets.NextEventWidgetReceiver" android:exported="true" android:label="@string/widget_next_name">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>

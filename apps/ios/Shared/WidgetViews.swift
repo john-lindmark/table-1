@@ -42,6 +42,39 @@ struct ResultsBar: View {
     }
 }
 
+/// The player Live Activity on the Lock Screen and in StandBy: where you sit, who you play and the round clock. No
+/// result buttons: results go in from the app (contract/widgets-2026-10-22.md § Player Live Activity).
+struct PlayerLockScreenView: View {
+    let snap: LiveSnapshot
+    var stale = false
+
+    var body: some View {
+        let s = snap.state
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                WLabel(snap.eventName)
+                Spacer(minLength: 8)
+                WLabel(s.roundText, color: W1.text)
+            }
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    if s.isPlaying {
+                        Text(s.tableText).font(W1.mono(30, .bold)).foregroundStyle(W1.accent)
+                        Text("vs \(s.oppName ?? "—")").font(W1.mono(16)).foregroundStyle(W1.text).lineLimit(1)
+                    } else {
+                        Text(s.statusLine).font(W1.mono(15)).foregroundStyle(W1.text).lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 8)
+                if s.isPlaying { RoundTimer(state: s, size: 30).frame(width: 110, alignment: .trailing) }
+            }
+            if stale { WLabel("Updating…") }
+        }
+        .padding(14)
+        .foregroundStyle(W1.text)
+    }
+}
+
 struct OrganizerLockScreenView: View {
     let snap: OrganizerSnapshot
     var stale = false

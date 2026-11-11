@@ -2,7 +2,7 @@
 import SwiftUI
 import WidgetKit
 
-/// Design QA for the widgets batch without a home screen: `-T1WidgetsDemo [organizer|next|value|meta|grid|archetype|limited|icon|tinted]`
+/// Design QA for the widgets batch without a home screen: `-T1WidgetsDemo [player|organizer|next|value|meta|grid|archetype|limited|icon|tinted]`
 /// draws every family on sample data at its real size (iPhone 17 points); the Insights widgets on the live Modern pack
 /// of 2026-11-02 (DebugResources/insights-demo-widget-modern.json). Debug only.
 struct WidgetsDemoRoot: View {
@@ -15,6 +15,7 @@ struct WidgetsDemoRoot: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                if only == nil || only == "player" { player }
                 if only == nil || only == "organizer" { organizer }
                 if only == nil || only == "next" { next }
                 if only == nil || only == "value" { value }
@@ -43,6 +44,20 @@ struct WidgetsDemoRoot: View {
         s.state.round = 4; s.state.done = 8; s.state.waiting = 0; s.state.disputes = 0; s.state.guestWaiting = 0
         s.state.endsAt = nil; s.state.pausedRemaining = 312
         return s
+    }
+
+    private static func player(_ change: (inout LiveState) -> Void) -> LiveSnapshot {
+        var s = LiveSnapshot.sample
+        change(&s.state)
+        return s
+    }
+
+    @ViewBuilder private var player: some View {
+        caption("Player Live Activity · lock screen (playing, opponent reported, paused, bye)")
+        PlayerLockScreenView(snap: .sample).frame(width: 370).background(W1.bg)
+        PlayerLockScreenView(snap: Self.player { $0.status = "reported_them"; $0.myWins = 1; $0.theirWins = 2 }).frame(width: 370).background(W1.bg)
+        PlayerLockScreenView(snap: Self.player { $0.endsAt = nil; $0.pausedRemaining = 720 }).frame(width: 370).background(W1.bg)
+        PlayerLockScreenView(snap: Self.player { $0.phase = "bye"; $0.table = nil; $0.oppName = nil }).frame(width: 370).background(W1.bg)
     }
 
     @ViewBuilder private var organizer: some View {

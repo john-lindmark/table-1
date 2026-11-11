@@ -3,7 +3,6 @@ package site.table1.events.util
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -31,8 +30,8 @@ import site.table1.events.widgets.Widgets
 
 /**
  * Android's Live Activities (contract/widgets-2026-10-22.md): one ongoing notification per live event you play in
- * (round, table, opponent, the round clock counting down, where the result stands, and Report / Confirm / Dispute
- * from the shade) and one per event you run (results in as a bar, disputes, the next step). On Android 16 they ask
+ * (round, table, opponent and the round clock counting down; nothing to report from the shade, results go in from
+ * the app: contract/widgets-2026-10-22.md § Player Live Activity) and one per event you run (results in as a bar, disputes, the next step). On Android 16 they ask
  * to be promoted as Live Updates (chip in the status bar, top of the lock screen). Silent channel: alerts come as
  * ordinary pushes. Fed by live-activity's `state` whenever the app reads it, and by its `live.*` FCM messages.
  */
@@ -166,36 +165,13 @@ object LiveUpdates {
             return false
         }
         val paused = s.pausedRemaining?.let { "%02d:%02d".format(it / 60, it % 60) }
-        b.setContentTitle(if (s.isPlaying) "${s.roundText} · ${s.tableText} · vs ${s.oppName ?: "—"}" else "$name · ${s.roundText}")
-            .setContentText(s.statusLine)
-            .setSubText(if (s.isPlaying) "$name${paused?.let { " · paused $it" } ?: ""}" else "You ${s.myRankText} · ${s.myRecord}")
-            .setStyle(NotificationCompat.BigTextStyle().bigText(listOfNotNull(s.statusLine,
-                if (s.isPlaying) "${s.oppName ?: "Opponent"} ${s.oppRankText}${s.oppRecord?.let { " · $it" } ?: ""} · you ${s.myRankText} · ${s.myRecord}" else null,
-            ).joinToString("\n")))
+        b.setContentTitle(if (s.isPlaying) "${s.tableText} · vs ${s.oppName ?: "—"}" else "$name · ${s.roundText}")
+            .setContentText(if (s.isPlaying) "${s.roundText}${paused?.let { " · paused $it" } ?: ""}" else s.statusLine)
+            .setSubText(name)
             .setOngoing(true)
             .clock(if (s.isPlaying) s.endsAt else null, paused)
             .promoted()
-        actions(context, snap).forEach { b.addAction(it) }
         return post(context, k, b.build())
-    }
-
-    /** Report or answer from the shade, as iOS's Live Activity buttons do; anything else opens the event. */
-    private fun actions(context: Context, snap: LiveSnapshot): List<NotificationCompat.Action> {
-        val s = snap.state
-        val match = s.matchId ?: return emptyList()
-        fun act(label: String, op: String, my: Int = 0, their: Int = 0): NotificationCompat.Action {
-            val i = Intent(context, LiveActionReceiver::class.java).setAction(LiveActionReceiver.ACTION)
-                .putExtra("op", op).putExtra("match", match).putExtra("side", s.mySide ?: 0)
-                .putExtra("my", my).putExtra("their", their).putExtra("version", s.matchVersion ?: -1)
-            val pi = PendingIntent.getBroadcast(context, "$op$my$their$match".hashCode(), i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-            return NotificationCompat.Action(0, label, pi)
-        }
-        return when {
-            s.needsMyAnswer -> listOf(act("Confirm", "confirm"), act("Dispute", "dispute"))
-            s.canReportNow -> listOf(act("Won 2–0", "report", 2, 0), act("Won 2–1", "report", 2, 1),
-                NotificationCompat.Action(0, "Other result", open(context, snap.eventId, "live_activity_report")))
-            else -> emptyList()
-        }
     }
 
     private fun organizer(context: Context, snap: OrganizerSnapshot): Boolean {
@@ -217,32 +193,5 @@ object LiveUpdates {
             .promoted()
         if (s.isLive && s.matches > 0) b.setProgress(s.matches, s.done, false)
         return post(context, k, b.build())
-    }
-}
-
-/** Report / Confirm / Dispute from the live notification. */
-class LiveActionReceiver : BroadcastReceiver() {
-    companion object { const val ACTION = "site.table1.events.LIVE_ACTION" }
-
-    override fun onReceive(context: Context, intent: Intent) {
-        val match = intent.getStringExtra("match") ?: return
-        val op = intent.getStringExtra("op") ?: return
-        val done = goAsync()
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                runCatching {
-                    when (op) {
-                        "report" -> Repo.reportFromHome(match, intent.getIntExtra("side", 0), intent.getIntExtra("my", 0), intent.getIntExtra("their", 0),
-                            intent.getIntExtra("version", -1).takeIf { it >= 0 })
-                        "confirm" -> Repo.respondToResult(match, true)
-                        "dispute" -> Repo.respondToResult(match, false)
-                    }
-                }.onSuccess { Telemetry.capture("live_activity_action", mapOf("action" to op, "surface" to "notification")) }
-                Repo.liveState()
-                Widgets.updateMatch(context)
-            } finally {
-                done.finish()
-            }
-        }
     }
 }
