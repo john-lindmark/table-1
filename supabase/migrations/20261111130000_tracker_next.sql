@@ -1,8 +1,8 @@
 -- A player's life tracker follows them into the next round (contract/life-tracker-options-2026-10-20.md § Next round).
 -- The tracker opens on one match and only listened to that match, so once the next round was paired a tracker left
 -- open (or reopened from a stale screen) kept showing the old match. tracker_next answers, for the signed-in player
--- of a match, their match in the event's newest later round: the clients ask it every 15 s while the tracker is up,
--- on returning to the app, and after recording a game, and move to the new match.
+-- of a match, their match in the event's newest later round: the clients ask it once the tracker opens, every 15 s
+-- while it is up and on returning to the app, and move to the new match.
 --
 -- Answers null when there is nothing newer, or when the caller isn't one of the match's players (an organizer
 -- watching, or keeping score for guests, stays put). A match that is gone (its round was re-paired) is looked up
