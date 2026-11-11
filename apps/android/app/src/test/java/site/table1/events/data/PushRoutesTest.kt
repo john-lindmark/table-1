@@ -16,6 +16,13 @@ class PushRoutesTest {
         assertNull(link("event_id" to "e1"))
     }
 
+    /** "Add your deck photo" opens the event, then its Deck photos on Take a photo (contract/event-night-2026-10-16.md § 7). */
+    @Test fun deckPhotoOpensTakeAPhoto() {
+        assertEquals(screens("events", "event/e1", "photos/e1?add=true"), link("kind" to "event.deck_photo", "event_id" to "e1"))
+        assertNull(link("kind" to "event.deck_photo"))
+        assertEquals(PushRoutes.Channel.Events, PushRoutes.channel("event.deck_photo"))
+    }
+
     @Test fun collectionKinds() {
         assertEquals(screens("collection", "collection/wants"), link("kind" to "want.price"))
         assertEquals(screens("collection", "collection/matches", "collection/match/u1"), link("kind" to "trade.wants", "user_id" to "u1"))

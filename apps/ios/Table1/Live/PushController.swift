@@ -70,6 +70,11 @@ final class PushController {
     }
 
     /// A tapped Collection push (a ranking of your cube): opens that stack on the Collection tab.
+    /// A tapped "Add your deck photo": that event's Deck photos on Take a photo.
+    private var pendingDeckPhoto: String?
+    var openDeckPhoto: ((String) -> Void)? {
+        didSet { if let id = pendingDeckPhoto, let openDeckPhoto { pendingDeckPhoto = nil; openDeckPhoto(id) } }
+    }
     private var pendingLibrary: [LibraryRoute]?
     var openLibrary: (([LibraryRoute]) -> Void)? {
         didSet { if let p = pendingLibrary, let openLibrary { pendingLibrary = nil; openLibrary(p) } }
@@ -91,6 +96,11 @@ final class PushController {
     }
 
     func didTap(_ userInfo: [AnyHashable: Any]) {
+        if let id = PushRoutes.deckPhoto(userInfo) {
+            Telemetry.capture("push_opened", ["kind": "event.deck_photo"])
+            if let openDeckPhoto { openDeckPhoto(id) } else { pendingDeckPhoto = id }
+            return
+        }
         if let p = PushRoutes.insights(userInfo) {
             Telemetry.capture("push_opened", ["kind": "insights.new", "what": p.what])
             if let openInsights { openInsights(p) } else { pendingInsights = p }

@@ -40,4 +40,13 @@ final class DeckPhotoPromptTests: XCTestCase {
         XCTAssertEqual(DeckPhotoPrompt.label("dropped"), "Dropped")
         XCTAssertEqual(DeckPhotoPrompt.label("over"), "Event over")
     }
+
+    /// The "Add your deck photo" push opens that event's Deck photos on Take a photo; other event pushes don't.
+    func testPushRoute() {
+        XCTAssertEqual(PushRoutes.deckPhoto(["kind": "event.deck_photo", "event_id": "e1"]), "e1")
+        XCTAssertNil(PushRoutes.deckPhoto(["kind": "event.deck_photo", "event_id": ""]))
+        XCTAssertNil(PushRoutes.deckPhoto(["kind": "round.paired", "event_id": "e1"]))
+        XCTAssertNil(PushRoutes.library(["kind": "event.deck_photo", "event_id": "e1"]))
+        XCTAssertNil(PushRoutes.route(["kind": "event.deck_photo", "event_id": "e1"]))
+    }
 }

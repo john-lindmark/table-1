@@ -207,6 +207,12 @@ struct InsightsPush: Equatable {
 }
 
 enum PushRoutes {
+    /// "Add your deck photo" (contract/event-night-2026-10-16.md § 7): the event whose Deck photos opens on Take a photo.
+    static func deckPhoto(_ info: [AnyHashable: Any]) -> String? {
+        guard info["kind"] as? String == "event.deck_photo", let id = info["event_id"] as? String, !id.isEmpty else { return nil }
+        return id
+    }
+
     /// A tapped Insights widget: `table1://insights/<format>[/matchups | /archetype/<id>]?tier=big&days=30`.
     static func insightsWidget(_ url: URL) -> InsightsPush? {
         guard url.scheme == "table1", url.host() == "insights" else { return nil }

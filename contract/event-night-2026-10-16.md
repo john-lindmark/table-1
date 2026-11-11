@@ -139,6 +139,21 @@ still to do. Wire names are in `rpc.schema.json`.
   `deck_photo_prompt_tapped` {why}; `deck_photo_added` gains `from` (prompt | screen). Routes: iOS `Route.addDeckPhoto(id)`,
   web `/p/<id>/photos?add=1` (the menu opens on arrival; its tap is the gesture the file input needs), Android
   `photos/<id>?add=true`. Demo: iOS `-T1EventsDemo playerdone`.
+- **The push** (2026-11-11, John: "Yes, build the push"): ten minutes after a signed-in player is done (`last`) or the
+  event is finished (`over`), one push, `event.deck_photo` {event_name, why}: "Add your deck photo" / "That was your last
+  match in Friday Modern. Tap to add a photo of your deck." ("Friday Modern is over. …" for `over`; notify-worker
+  `deck-photo.ts`, priority 5, the Events channel on Android). Not for dropping (you chose to leave; you get it when the
+  event is finished), guests, demo events, or a player whose deck photo is already up. Once per player per event. The
+  database has the same rule (`t1_private.deck_photo_why_of` on the cases' shape, run against `prompt.json` in
+  `supabase/tests/63c_deck_photo_nudge_test.sql`; `t1_private.deck_photo_why(participant)` from the tables). Triggers only
+  queue (`t1_private.deck_photo_nudges`, due in ten minutes): sides inserted (byes; a playoff round queues everyone it
+  left out), a match's status updated (a constraint trigger at commit, so the games beside it are read), the event
+  completed. `t1-deck-photo-nudge` (pg_cron, every minute) asks the rule again when a row is due: no longer done (a
+  result undone, a round re-paired, cancelled, a top 8 player whose playoff match came a moment after the round) deletes
+  the row so they can be queued later; a photo up marks it `photo`; else it sends and marks it `sent`. Muted like any
+  kind (`notification_prefs.muted_kinds`). A tap opens the event, then its Deck photos on Take a photo (iOS
+  `PushRoutes.deckPhoto` → `[.event(id), .addDeckPhoto(id)]`, Android `PushRoutes.link` →
+  `event/<id>`, `photos/<id>?add=true`; the web has no pushes). Migration `20261111190000_deck_photo_nudge.sql`.
 
 ## Web (2026-10-30)
 

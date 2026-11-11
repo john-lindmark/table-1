@@ -25,6 +25,8 @@ object PushRoutes {
         fun id(key: String) = data[key]?.takeIf { it.isNotBlank() }
         fun collection(vararg stack: String) = WebLink.Screens("collection", stack.toList())
         return when {
+            // "Add your deck photo" (contract/event-night-2026-10-16.md § 7): the event, then its Deck photos on Take a photo.
+            kind == "event.deck_photo" -> id("event_id")?.let { WebLink.Screens("events", listOf("event/$it", "photos/$it?add=true")) }
             kind == "insights.new" -> insights(data)?.let { WebLink.Screens("insights", if (it.what == "rank") listOf(rankSetRoute(it.key)) else emptyList()) }
             kind == "want.price" -> collection("collection/wants")
             // A deck search finished (contract/deck-finder-2026-10-15.md § Jobs): Find a deck on that job.

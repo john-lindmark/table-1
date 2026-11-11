@@ -85,6 +85,7 @@ struct Table1App: App {
                 .task {
                     PushController.shared.openEvent = { session.pendingEvent = $0 }
                     PushController.shared.openSocial = { session.pendingSocial = $0 }
+                    PushController.shared.openDeckPhoto = { session.pendingEventAddsPhoto = true; session.pendingEvent = $0 }
                     PushController.shared.openLibrary = { session.pendingLibrary = $0 }
                     PushController.shared.openInsights = { session.pendingInsightsPush = $0 }
                     AppIntentRouter.handler = { session.openAppLink($0) }
@@ -165,6 +166,8 @@ final class SessionModel {
     var pendingEvent: String?
     /// A tapped friend push: Account → Friends.
     var pendingSocial: SocialRoute?
+    /// The pending event opens on its Deck photos' Take a photo (a tapped "Add your deck photo").
+    var pendingEventAddsPhoto = false
     /// A tapped Collection push (someone ranking your cube), the value widget or the Scan cards control: the
     /// Collection tab's stack.
     var pendingLibrary: [LibraryRoute]?
@@ -502,7 +505,8 @@ struct SignedInView: View {
                 session.autoOpenArmed = false
                 session.tracker = nil
                 tab = .events
-                path = [.event(id)]
+                path = session.pendingEventAddsPhoto ? [.event(id), .addDeckPhoto(id)] : [.event(id)]
+                session.pendingEventAddsPhoto = false
                 swapForEventPage(id)
             }
         }
