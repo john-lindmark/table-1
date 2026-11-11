@@ -41,7 +41,7 @@ DROP = [r"\bbuilds?\s+\d", r"\bbundle\b", r"TestFlight", r"Play internal", r"Sim
         r"server side", r"\bshadow\b", r"\bsimulat", r"reference", r"golden", r"budget", r"\bms\b", r"\bbatch(es)?\b of",
         r"Android follows", r"\bfirst build\b", r"checked (in|on|there|against)", r"\bbuilt (and tested|on all|on iPhone|on iOS|on Android|on the server)", r"tried again after", r"\bv\d+\b",
         r"\bthe server\b.*\b(live|went)\b", r"\bon the first day\b", r"before 28",
-        r"\bphotos?\b.*\b(right|wrong)\b.*\b\d+\b", r"speed budget", r"\bper cent\b"]
+        r"\bphotos?\b.*\b(right|wrong)\b(?!-click).*\b\d+\b", r"speed budget", r"\bper cent\b"]
 DROP_RE = re.compile("|".join(DROP), re.I)
 
 # Nothing in the output may match these.
