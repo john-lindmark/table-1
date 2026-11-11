@@ -199,16 +199,16 @@
     "pair"
    ],
    "partial": false,
-   "count": 32,
+   "count": 34,
    "top": [
     "guide:run-21:18",
     "faq:play-standings:15",
     "faq:organize-fix-result:15",
     "faq:play-dispute:11",
     "faq:organize-pair:11",
+    "faq:tracker-result-in:11",
     "faq:start-name:9",
-    "faq:organize-schedule:9",
-    "faq:organize-drop:9"
+    "faq:organize-schedule:9"
    ]
   },
   {
@@ -292,16 +292,16 @@
     "dispute"
    ],
    "partial": false,
-   "count": 18,
+   "count": 20,
    "top": [
     "faq:play-dispute:7",
     "faq:play-report:3",
     "faq:organize-pair:3",
+    "faq:tracker-result-in:3",
     "guide:run-12:2",
     "guide:run-13:2",
     "guide:run-21:2",
-    "guide:run-23:2",
-    "guide:run-27:2"
+    "guide:run-23:2"
    ]
   },
   {
@@ -548,7 +548,7 @@
     "life"
    ],
    "partial": false,
-   "count": 48,
+   "count": 50,
    "top": [
     "faq:tracker-open:9",
     "faq:account-track-games:9",

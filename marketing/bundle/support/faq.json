@@ -575,6 +575,20 @@
       "guide": "tracker"
     },
     {
+      "id": "tracker-result-in",
+      "topic": "tracker",
+      "q": "Why does Record say Result in?",
+      "a": "Your match's result is already in: reported by you or your opponent, confirmed, disputed, or set by the organizer. Once it is, the tracker records no more games, though life and counters still work. To change the result, report again from the event or ask the organizer. If the result is cleared, for example when the round is re-paired, Record comes back.",
+      "keywords": [
+        "record",
+        "result in",
+        "extra game",
+        "locked",
+        "can't record"
+      ],
+      "guide": "tracker"
+    },
+    {
       "id": "collection-add",
       "topic": "collection",
       "q": "How do I add cards to my collection?",

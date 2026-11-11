@@ -1217,6 +1217,13 @@
    "id": "tracker-21",
    "s": "tracker",
    "h": "Everywhere",
+   "t": "After the result is in",
+   "x": "(event matches): once the match's result is reported, confirmed, disputed or set by the organizer, Record reads Result in and no more games can be recorded; change the result from the event. Life and counters still work. Clearing the result (a re-paired round) opens it again. Tables on your own phone are never locked."
+  },
+  {
+   "id": "tracker-22",
+   "s": "tracker",
+   "h": "Everywhere",
    "x": "In an event, both players' phones stay in sync and the organizer can watch read-only (or keep score for a guest match)."
   },
   {
