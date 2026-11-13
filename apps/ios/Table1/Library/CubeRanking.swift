@@ -14,8 +14,9 @@ import Foundation
    - The next screen: the cards nothing still in is known to beat (fewest known below, then a seeded hash), filled to
      four with cards unordered against the screen, nearest the top first; in the final, new colors first. When only two
      qualify it's a placement screen: one free card against up to three locked cards in known order.
-   - The final places a card only once its order against the rest is checked (RankSupport); until then the next screen
-     is that check, and its answer wins over what the colors or a detour through another color had settled. */
+   - The final places a card only once its order against the rest is checked (RankSupport): against each other color's
+     best card not yet placed, asked on a screen or backed by two chains of screens that share no card (2026-11-13).
+     Until then the next screen is that check, and its answer wins over what the colors or a detour had settled. */
 
 /// A ranking job: a color of the cube (Group by color) or the final.
 /// `pick` isn't a job: its screens are P1P1 picks (the first card picked over the rest of its pack).
@@ -258,90 +259,134 @@ final class RankSupportCache: @unchecked Sendable {
     init(_ value: RankSupport? = nil) { self.value = value }
 }
 
+/// Pairs RankSupport found backed by two chains. Screens only add wins (a final screen that overturns an order builds
+/// the knowledge and its support again), so a backed pair stays backed; each new screen gets its own copy.
+final class RankBacked: @unchecked Sendable {
+    var pairs: Set<Int>
+    init(_ pairs: Set<Int> = []) { self.pairs = pairs }
+}
+
 /// What the final needs before it places a card (2026-11-07): which orders a screen asked about directly. `met[x]` the
 /// cards x was ordered against on any screen (a pick: the picked card and the rest), `metFinal[x]` on a final screen,
-/// `won[x]` the cards x beat on a screen (and still beats); `color` the same-color order screens set directly (no detour
-/// through another color), `sorted` the order the color's own screens set.
+/// `won[x]` the cards x beat on a screen (and still beats); `sorted` the same-color order the color's own screens set.
 struct RankSupport {
     let groups: [Int]
     private var met: [RankBits]
     private var metFinal: [RankBits]
     private var won: [RankBits]
-    private var color: RankKnowledge
     private var sorted: RankKnowledge
+    private var backed = RankBacked()
 
     init(_ K: RankKnowledge, groups: [Int]) {
         self.groups = groups
         met = Array(repeating: RankBits(count: K.count), count: K.count)
         metFinal = met
         won = met
-        color = RankKnowledge(sameCardsAs: K)
-        sorted = color
+        sorted = RankKnowledge(sameCardsAs: K)
         for sc in K.log { addScreen(K, sc) }
     }
 
     /// One more screen of K's log (K already knows it).
     mutating func addScreen(_ K: RankKnowledge, _ sc: RankScreen) {
         let f = RankJob.final.rawValue, p = RankJob.pick.rawValue
+        backed = RankBacked(backed.pairs)
         for (w, l) in K.pairs(sc) {
             met[w].insert(l); met[l].insert(w)
             if sc.s == f { metFinal[w].insert(l); metFinal[l].insert(w) }
             if K.known(w, l) {
                 won[w].insert(l)
-                if groups[w] == groups[l] {
-                    color.add(w, l)
-                    if sc.s != f && sc.s != p { sorted.add(w, l) }
-                }
+                if groups[w] == groups[l] && sc.s != f && sc.s != p { sorted.add(w, l) }
             }
         }
     }
 
-    /// How many colors other than x's and y's have cards known between them.
-    private func thirdColors(_ K: RankKnowledge, _ x: Int, _ y: Int) -> Int {
-        var gs = Set<Int>()
-        for m in K.beatsSet(x).members where K.belowSet(y).contains(m) && groups[m] != groups[x] && groups[m] != groups[y] { gs.insert(groups[m]) }
-        return gs.count
-    }
-
-    /// x is known to beat every other card in U. The cards it still needs a screen with, one per color at most: each
-    /// other color's best card still in (fewest known above it in U, then index) when its order against x went through
-    /// a third color (Novice Inspector over Colossal Dreadmask over Counterspell put 13 white cards above Counterspell in
-    /// a Pauper top 50 that never showed them together), and x's own color's best card when only the color's own
-    /// screens put x above it (a color sorted wrong holds its better cards back, then lets them out in a run). Checked:
-    /// x met the card on a screen; or, for another color, x (or a card of its color x is above, by that color's screens)
-    /// beat a card of the other color that is above it or is it, by that color's screens; or cards of two or more other
-    /// colors sit between them (Black Lotus over Minsc & Boo through blue and black cards needs no screen of its own).
-    func unchecked(_ K: RankKnowledge, _ x: Int, _ U: RankBits) -> RankBits {
+    /// x is known to beat every other card still in the running; P is the final's cards not placed yet, in the running
+    /// or not (2026-11-13: in Daniel Shea's Lindmark Cube top 50 every white, red and green card had been pushed out of
+    /// the running by answers nothing checked, so places 35-46 were twelve black cards checked only against each other).
+    /// The cards x still needs a screen with, one per color at most: each other color's best card in P (fewest known
+    /// above it in P, then index) unless x met it on a screen or two chains of screens that share no card put x above it
+    /// (one chain is one answer away from wrong: Duress over Wheel of Fortune carried those twelve, all through Urza's
+    /// Saga over Path to Exile); and x's own color's best card when only the color's own screens put x above it (a color
+    /// sorted wrong holds its better cards back, then lets them out in a run).
+    func unchecked(_ K: RankKnowledge, _ x: Int, _ P: RankBits) -> RankBits {
         var best: [Int: (Int, Int)] = [:]
-        for y in U.members where y != x {
-            let g = groups[y], k = K.belowSet(y).intersectionCount(U)
+        for y in P.members where y != x {
+            let g = groups[y], k = K.belowSet(y).intersectionCount(P)
             if let cur = best[g], cur.0 < k || (cur.0 == k && cur.1 < y) { continue }
             best[g] = (k, y)
-        }
-        var reach: RankBits?  // worked out only when a card x never met needs it
-        func reached(_ y: Int) -> Bool {
-            if reach == nil {
-                var r = color.beatsSet(x)
-                for a in [x] + color.beatsSet(x).members {
-                    for b in won[a].members { r.insert(b); r.formUnion(color.beatsSet(b)) }
-                }
-                reach = r
-            }
-            return reach!.contains(y)
         }
         var miss = RankBits(count: K.count)
         for (g, (_, y)) in best {
             if g == groups[x] {
                 if sorted.known(x, y) && !metFinal[x].contains(y) { miss.insert(y) }
-            } else if !met[x].contains(y) && !reached(y) && thirdColors(K, x, y) < 2 {
-                miss.insert(y)
+                continue
             }
+            if met[x].contains(y) { continue }
+            let key = x * K.count + y
+            if backed.pairs.contains(key) { continue }
+            if RankSupport.chains(won, x, y) >= 2 { backed.pairs.insert(key) } else { miss.insert(y) }
         }
         return miss
+    }
+
+    /// How many chains of screens that share no card lead from x down to y, at most `limit` (2026-11-13): vertex-disjoint
+    /// paths in the graph of screen wins (`won[a]`: the cards a beat on a screen and still beats), found by augmenting
+    /// paths over split vertices (in(v) = 2v, out(v) = 2v + 1). Only the count matters, so the search order doesn't.
+    static func chains(_ won: [RankBits], _ x: Int, _ y: Int, limit: Int = 2) -> Int {
+        let n = won.count
+        var usedV = [Bool](repeating: false, count: n)   // vertices carrying a chain (x and y never count)
+        var usedIn: [Int: Set<Int>] = [:]                // b -> the a's whose edge a -> b carries a chain
+        var usedOut: [Int: Set<Int>] = [:]               // a -> the b's of those edges
+        var flow = 0
+        while flow < limit {
+            let start = 2 * x + 1, goal = 2 * y
+            var from = [Int](repeating: -1, count: 2 * n)
+            from[start] = start
+            var queue = [start], h = 0, found = false
+            func go(_ t: Int, _ st: Int) {
+                if from[t] < 0 { from[t] = st; queue.append(t); if t == goal { found = true } }
+            }
+            while h < queue.count && !found {
+                let st = queue[h], v = st >> 1
+                h += 1
+                if st & 1 == 1 {
+                    let out = usedOut[v]
+                    outer: for (k, word) in won[v].words.enumerated() where word != 0 {
+                        var m = word
+                        while m != 0 {
+                            let b = k * 64 + m.trailingZeroBitCount
+                            m &= m - 1
+                            if out?.contains(b) != true { go(2 * b, st); if found { break outer } }
+                        }
+                    }
+                    if usedV[v] && v != x { go(2 * v, st) }
+                } else {
+                    if v != y && !usedV[v] { go(2 * v + 1, st) }
+                    for a in usedIn[v] ?? [] { go(2 * a + 1, st) }
+                }
+            }
+            if !found { break }
+            var t = goal
+            while t != start {
+                let f = from[t], fv = f >> 1, tv = t >> 1
+                if f & 1 == 1 && t & 1 == 0 {        // out(fv) -> in(tv): along an edge, or back across a used vertex
+                    if fv == tv { usedV[fv] = false } else { usedIn[tv, default: []].insert(fv); usedOut[fv, default: []].insert(tv) }
+                } else if f & 1 == 0 && t & 1 == 1 { // in(fv) -> out(tv): across a vertex, or back along a used edge
+                    if fv == tv { usedV[fv] = true } else { usedIn[fv]?.remove(tv); usedOut[tv]?.remove(fv) }
+                }
+                t = f
+            }
+            flow += 1
+        }
+        return flow
     }
 }
 
 enum CubeRanking {
+    /// The rules this engine implements, by the date they changed; the same in every engine and in cases.json (`rules`).
+    /// RankEngine runs the server's engine file instead when its manifest names newer rules.
+    static let rules = "2026-11-13"
+
     static func fnv1a(_ s: String) -> UInt32 {
         var h: UInt32 = 0x811C_9DC5
         for b in s.utf8 {
@@ -386,10 +431,10 @@ enum CubeRanking {
         let full = ranked(K, &U, T)
         var sure = full.count
         var stuck: (Int, RankBits)?
-        var left = U
+        var unplaced = scope
         if let groups {
-            left = live
-            let (good, why) = checked(K, &left, T, K.supportFor(groups))
+            var left = live
+            let (good, why) = checked(K, &left, &unplaced, T, K.supportFor(groups))
             sure = good.count
             stuck = why
         }
@@ -414,7 +459,7 @@ enum CubeRanking {
             let v = fnv1a(seed + ":" + K.ids[x]); hashes[x] = v; return v
         }
         if let (x, miss) = stuck, let groups {
-            return RankSession(top: top, done: false, target: T, size: n, question: checkScreen(K, left, x, miss, groups, h), pinned: [],
+            return RankSession(top: top, done: false, target: T, size: n, question: checkScreen(K, unplaced, x, miss, groups, h), pinned: [],
                                open: U, waiting: waiting, check: true, checked: sure)
         }
         let openCards = U.members
@@ -450,24 +495,28 @@ enum CubeRanking {
     /// ranked() for the final: a card known to beat every other card still in is placed only once its order against
     /// them is checked (RankSupport.unchecked). Returns the places and, when it stops at one, the card and its unchecked
     /// cards.
-    private static func checked(_ K: RankKnowledge, _ U: inout RankBits, _ T: Int, _ support: RankSupport) -> ([Int], (Int, RankBits)?) {
+    /// ranked() for the final: a card known to beat every other card still in (U) is placed only once its order against
+    /// the cards not placed yet (P) is checked (RankSupport.unchecked). U and P lose the placed cards.
+    private static func checked(_ K: RankKnowledge, _ U: inout RankBits, _ P: inout RankBits, _ T: Int, _ support: RankSupport) -> ([Int], (Int, RankBits)?) {
         var top: [Int] = []
         while top.count < T {
             var probe = U
             guard let x = ranked(K, &probe, 1).first else { break }
-            let miss = support.unchecked(K, x, U)
+            let miss = support.unchecked(K, x, P)
             if !miss.members.isEmpty { return (top, (x, miss)) }
             top.append(x)
             U.remove(x)
+            P.remove(x)
         }
         return (top, nil)
     }
 
     /// The check: x with up to three of the cards it hasn't been checked against: its own color's next card first, then
-    /// other colors' cards nearest the top, one per color first. Nothing is locked: the answer is new and wins.
-    private static func checkScreen(_ K: RankKnowledge, _ U: RankBits, _ x: Int, _ miss: RankBits, _ groups: [Int],
+    /// other colors' cards nearest the top (fewest known above them among the cards not placed yet, P), one per color
+    /// first. Nothing is locked: the answer is new and wins.
+    private static func checkScreen(_ K: RankKnowledge, _ P: RankBits, _ x: Int, _ miss: RankBits, _ groups: [Int],
                                     _ h: (Int) -> UInt32) -> [Int] {
-        let keys = Dictionary(uniqueKeysWithValues: miss.members.map { ($0, (K.belowSet($0).intersectionCount(U), h($0))) })
+        let keys = Dictionary(uniqueKeysWithValues: miss.members.map { ($0, (K.belowSet($0).intersectionCount(P), h($0))) })
         let ys = miss.members.sorted { a, b in
             let ka = keys[a]!, kb = keys[b]!
             if ka.0 != kb.0 { return ka.0 < kb.0 }
@@ -568,7 +617,7 @@ enum CubeRanking {
             }
             f = g
         }
-        return Int((4.9 * log2(f[T]) / log2(24.0)).rounded(.up))
+        return Int((6.0 * log2(f[T]) / log2(24.0)).rounded(.up)) // 1.78 before the final's checks, 4.9 before 2026-11-13
     }
 
     // MARK: why
@@ -698,6 +747,8 @@ struct RankingState: Sendable {
     let top: Int
     /// The cube's cards added since the ranking last caught up: they wait outside the lists until they're placed.
     let fresh: Set<String>
+    /// The same ranking in the server's engine file when it has newer rules than this build (RankEngine); nil = ours.
+    let js: RankEngineState?
 
     /// `cards` are the cube's cards now (a card in the log but not here has left the cube); `fresh` its new cards.
     init(rankingId: String, cards: [String: RankJob], log: [RankScreen], depth: String, top: Int, fresh: Set<String> = []) {
@@ -708,10 +759,11 @@ struct RankingState: Sendable {
         self.top = top
         let cube = category
         self.fresh = Set(fresh.map { $0.lowercased() }.filter { cube[$0] != nil })
+        js = RankEngine.shared.open(rankingId: self.rankingId, category: category, log: log, depth: depth, top: top, fresh: self.fresh)
     }
 
-    private init(_ s: RankingState, knowledge: RankKnowledge) {
-        rankingId = s.rankingId; category = s.category; depth = s.depth; top = s.top; fresh = s.fresh; self.knowledge = knowledge
+    private init(_ s: RankingState, knowledge: RankKnowledge, js: RankEngineState?) {
+        rankingId = s.rankingId; category = s.category; depth = s.depth; top = s.top; fresh = s.fresh; self.knowledge = knowledge; self.js = js
     }
 
     /// New cards not placed yet in any list: a re-rank is due.
@@ -725,7 +777,7 @@ struct RankingState: Sendable {
     func appending(_ screen: RankScreen) -> RankingState {
         var k = knowledge
         k.apply(screen)
-        return RankingState(self, knowledge: k)
+        return RankingState(self, knowledge: k, js: js?.appending(screen))
     }
 
     func scope(_ job: RankJob) -> RankBits {
@@ -747,6 +799,7 @@ struct RankingState: Sendable {
     var jobs: [RankJob] { RankJob.colors.filter { size($0) > 0 } }
 
     func session(_ job: RankJob) -> RankSession {
+        if let js, let s = js.session(job, knowledge) { return s }
         let groups: [Int]? = job == .final
             ? knowledge.ids.map { RankJob.colors.firstIndex(of: category[$0] ?? .c) ?? 0 } : nil
         var freshBits: RankBits?
@@ -760,7 +813,8 @@ struct RankingState: Sendable {
     }
 
     func expected(_ job: RankJob) -> Int {
-        job == .final ? CubeRanking.expectedMerge(jobs.map(size), top) : CubeRanking.expectedSort(size(job), target(job))
+        if let js, let n = js.expected(job) { return n }
+        return job == .final ? CubeRanking.expectedMerge(jobs.map(size), top) : CubeRanking.expectedSort(size(job), target(job))
     }
 
     /// Colors sorted, colors with cards, places ranked in the final: what list rows show.

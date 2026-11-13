@@ -70,6 +70,7 @@
 		3A2BC4BC770631432A1F8A57 /* RankingModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42CF56D442321A69A4FB21C5 /* RankingModelTests.swift */; };
 		3BA217B45A3497067AE9E62B /* InsightsReviewViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67FBDB96ABBDA166C306F1A1 /* InsightsReviewViews.swift */; };
 		3C0078E093BFBAA4F36CB730 /* MetaWidgetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6154A378C9E146013FBB40EB /* MetaWidgetTests.swift */; };
+		3C4B1DA109B6D19D1F4A39F9 /* RankEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2EA8D981B245EFE79F0E6DE /* RankEngine.swift */; };
 		3CB5B3EA66C02445E2542B8C /* LimitedRankingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53AF4A007C6F3C3435BEC7CF /* LimitedRankingsTests.swift */; };
 		3CE8E4AAC14962F4D690798D /* InsightsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1730671388E1EEF6E83C7BB /* InsightsViews.swift */; };
 		3DA1CC73F6AEF746996C64BB /* EventLinksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F1EB35542E6978329A18DFD /* EventLinksTests.swift */; };
@@ -124,6 +125,7 @@
 		70B4BE14B1DCD8D72628B8EB /* FriendsDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14AB06BD876B8A78DC502CD /* FriendsDemo.swift */; };
 		70D27255D0875C95F16A6B83 /* LimitedWidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0B7D9DEE490E27F09305D2F /* LimitedWidgetViews.swift */; };
 		718A338B9038D7DFD7E9F125 /* ListExportViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A9C60903D2BA0BC7797E06 /* ListExportViews.swift */; };
+		71AE261451EE33334AE56D6A /* RankEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A30C88F4F4E4D08860EAD80D /* RankEngineTests.swift */; };
 		721D871B01D6D27B9D713E76 /* SpiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68BD680ADA8784C842E698AE /* SpiceTests.swift */; };
 		722CF6EDB4B50328913BF374 /* CardSortTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75113DBF7EDD6C6A6C4D6B88 /* CardSortTests.swift */; };
 		72D25F18D04A432DF1F08706 /* WantPricesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C762952B6C07F999AFBE53F2 /* WantPricesTests.swift */; };
@@ -495,6 +497,7 @@
 		A00C95CF97E3DDF3302A0F73 /* T1Shared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = T1Shared.swift; sourceTree = "<group>"; };
 		A08A26022063DCF85E09E341 /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		A149B70408DCB16D736D4918 /* LibraryDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryDemo.swift; sourceTree = "<group>"; };
+		A30C88F4F4E4D08860EAD80D /* RankEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankEngineTests.swift; sourceTree = "<group>"; };
 		A3A9C60903D2BA0BC7797E06 /* ListExportViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListExportViews.swift; sourceTree = "<group>"; };
 		A56BBC327C84AC79A56A3E0B /* SideboardGuideViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideboardGuideViews.swift; sourceTree = "<group>"; };
 		A67FC742C3F4CA71D8DFD05E /* LimitedWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LimitedWidgets.swift; sourceTree = "<group>"; };
@@ -545,6 +548,7 @@
 		D2529E7A9FBD777D9D65B461 /* LimitedFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LimitedFilter.swift; sourceTree = "<group>"; };
 		D2ADDE7A837AA5B71EAC4F54 /* Heroes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Heroes.swift; sourceTree = "<group>"; };
 		D2BD7D181061AD027D497369 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		D2EA8D981B245EFE79F0E6DE /* RankEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankEngine.swift; sourceTree = "<group>"; };
 		D32E44C4EB38C9E8A620A495 /* ListStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListStats.swift; sourceTree = "<group>"; };
 		D6B8EFE76370BBE1C6831870 /* RotoStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RotoStoreTests.swift; sourceTree = "<group>"; };
 		D937184FD4C3DFD141073B51 /* CreateEventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateEventView.swift; sourceTree = "<group>"; };
@@ -694,6 +698,7 @@
 				6BC1D3FEA7A2D4E270B573A2 /* PermissionsTests.swift */,
 				C6C736BE7741846816336496 /* PersonLinkTests.swift */,
 				71DEF4750BDB88600510A208 /* PopularCubesTests.swift */,
+				A30C88F4F4E4D08860EAD80D /* RankEngineTests.swift */,
 				42CF56D442321A69A4FB21C5 /* RankingModelTests.swift */,
 				B517A25D93C588325FD387E1 /* RankSyncTests.swift */,
 				246838AA6705DE0C779BCEFB /* RepairRoundTests.swift */,
@@ -964,6 +969,7 @@
 				24F623BE06487D1AB2A0F05D /* ModerationViews.swift */,
 				474FCFB6907454D95F9FA263 /* OwnedByCard.swift */,
 				72DEBB4B6FB502FD419464DB /* Prices.swift */,
+				D2EA8D981B245EFE79F0E6DE /* RankEngine.swift */,
 				E8B652BBD0758CE6F2D6B13D /* Rankings.swift */,
 				2075E9FF3F5F167D9C6B9D93 /* RankingsViews.swift */,
 				CDA4C1289215B2E1BF32D184 /* RankSync.swift */,
@@ -1244,6 +1250,7 @@
 				CAC51AE10145903D3D171C85 /* PermissionsTests.swift in Sources */,
 				D4E480F6BC388C01D18428BA /* PersonLinkTests.swift in Sources */,
 				2B9875B0A93D12D1B60A84B8 /* PopularCubesTests.swift in Sources */,
+				71AE261451EE33334AE56D6A /* RankEngineTests.swift in Sources */,
 				06FD4A71EF2A46B079F935E2 /* RankSyncTests.swift in Sources */,
 				3A2BC4BC770631432A1F8A57 /* RankingModelTests.swift in Sources */,
 				DB9A21E8F95C6380CB5518D8 /* RepairRoundTests.swift in Sources */,
@@ -1380,6 +1387,7 @@
 				31399EE11B591B082148C757 /* ProfileView.swift in Sources */,
 				F1D9BD70162B19F8B4D20264 /* PushController.swift in Sources */,
 				EA7FFB31FDA3622BCB2A7381 /* QR.swift in Sources */,
+				3C4B1DA109B6D19D1F4A39F9 /* RankEngine.swift in Sources */,
 				107F3904D521E87AF5BBCEBC /* RankSync.swift in Sources */,
 				5DC0D4A8361D45780A65169B /* Rankings.swift in Sources */,
 				E0A4337BD8959473005866A9 /* RankingsViews.swift in Sources */,

@@ -56,6 +56,12 @@ class MainActivity : ComponentActivity() {
             // `--es t1Overlays menu|panel|sheet|dice|dialog`: every kind of bottom surface, signed out
             // (contract/android-bottom-bars-2026-11-11.md).
             site.table1.events.ui.components.OverlayDebug.open = intent?.getStringExtra("t1Overlays")
+            // `--es t1RankEngine /data/local/tmp/rank-engine.js [--es t1RankArgs <open args json>]`: loads that engine file in
+            // QuickJS whatever its rules, logs its self test and timings to Logcat (tag RankEngine), then unloads it.
+            intent?.getStringExtra("t1RankEngine")?.let { path ->
+                val args = intent?.getStringExtra("t1RankArgs")
+                Thread({ site.table1.events.library.RankEngine.debugCheck(path, args) }, "rank-engine-check").start()
+            }
         }
         setContent {
             Table1Theme {

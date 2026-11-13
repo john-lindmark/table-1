@@ -12,11 +12,16 @@
 // - The next screen: the cards nothing still in is known to beat (fewest known below, then a seeded hash), filled to
 //   four with cards unordered against the screen, nearest the top first; in the final, new colors first. When only two
 //   qualify it's a placement screen: one free card against up to three locked cards in known order.
-// - The final places a card only once its order against the rest is checked (Support); until then the next screen is
-//   that check, and its answer wins over what the colors or a detour through another color had settled.
+// - The final places a card only once its order against the rest is checked (Support): against each other color's best
+//   card not yet placed, asked on a screen or backed by two chains of screens that share no card (2026-11-13). Until
+//   then the next screen is that check, and its answer wins over what the colors or a detour had settled.
 
 /** A ranking job: a color of the cube (Group by color) or the final. "P" isn't a job: its screens are P1P1 picks (the
  *  first card picked over the rest of its pack). */
+/** The rules this engine implements, by the date they changed; the same in every engine and in cases.json (`rules`). The
+ *  apps compare their own with the downloaded engine's (rankEngine.ts) to know when the file has newer rules. */
+export const RULES = "2026-11-13";
+
 export type RankJob = "W" | "U" | "B" | "R" | "G" | "M" | "C" | "L" | "F" | "P";
 export const COLOR_JOBS: RankJob[] = ["W", "U", "B", "R", "G", "M", "C", "L"];
 export const JOB_TITLE: Record<RankJob, string> = {
@@ -59,11 +64,21 @@ export function members(b: Bits): number[] {
 }
 export const contains = has;
 
+/** FNV-1a 32 of the string's UTF-8 bytes. Encoded by hand: the phones run this file in JavaScriptCore / QuickJS, which
+ *  have no TextEncoder (rankEngine.ts). */
 export function fnv1a(s: string): number {
   let h = 0x811c9dc5;
-  for (const b of new TextEncoder().encode(s)) {
-    h ^= b;
-    h = Math.imul(h, 0x01000193) >>> 0;
+  const byte = (b: number) => { h ^= b; h = Math.imul(h, 0x01000193) >>> 0; };
+  for (let i = 0; i < s.length; i++) {
+    let c = s.charCodeAt(i);
+    if (c >= 0xd800 && c < 0xdc00 && i + 1 < s.length) {
+      const d = s.charCodeAt(i + 1);
+      if (d >= 0xdc00 && d < 0xe000) { c = 0x10000 + ((c - 0xd800) << 10) + (d - 0xdc00); i++; }
+    }
+    if (c < 0x80) byte(c);
+    else if (c < 0x800) { byte(0xc0 | (c >> 6)); byte(0x80 | (c & 63)); }
+    else if (c < 0x10000) { byte(0xe0 | (c >> 12)); byte(0x80 | ((c >> 6) & 63)); byte(0x80 | (c & 63)); }
+    else { byte(0xf0 | (c >> 18)); byte(0x80 | ((c >> 12) & 63)); byte(0x80 | ((c >> 6) & 63)); byte(0x80 | (c & 63)); }
   }
   return h >>> 0;
 }
@@ -241,16 +256,63 @@ function ranked(K: Knowledge, U: Bits, T: number): number[] {
 
 const bitsOf = (n: number) => new Uint32Array(words(n));
 
+/** How many chains of screens that share no card lead from x down to y, at most `limit` (2026-11-13): vertex-disjoint
+ *  paths in the graph of screen wins (`won[a]`: the cards a beat on a screen and still beats), found by augmenting paths
+ *  over split vertices (in(v) = 2v, out(v) = 2v + 1). Only the count matters, so the search order doesn't. */
+export function chains(won: Bits[], x: number, y: number, limit = 2): number {
+  const n = won.length;
+  const usedV = new Uint8Array(n);                 // vertices carrying a chain (x and y never count)
+  const usedE = new Map<number, Set<number>>();    // b -> the a's whose edge a -> b carries a chain
+  const usedOut = new Map<number, Set<number>>();  // a -> the b's of those edges
+  let flow = 0;
+  while (flow < limit) {
+    const start = 2 * x + 1, goal = 2 * y;
+    const from = new Int32Array(2 * n).fill(-1);
+    from[start] = start;
+    const queue = [start];
+    let found = false;
+    for (let h = 0; h < queue.length && !found; h++) {
+      const st = queue[h], v = st >> 1;
+      const go = (t: number) => { if (from[t] < 0) { from[t] = st; queue.push(t); if (t === goal) found = true; } };
+      if (st & 1) {
+        const w = won[v], out = usedOut.get(v);
+        for (let k = 0; k < w.length && !found; k++) {
+          let m = w[k];
+          while (m && !found) { const b = (k << 5) + (31 - Math.clz32(m & -m)); m &= m - 1; if (!out?.has(b)) go(2 * b); }
+        }
+        if (usedV[v] && v !== x) go(2 * v);
+      } else {
+        if (v !== y && !usedV[v]) go(2 * v + 1);
+        for (const a of usedE.get(v) ?? []) go(2 * a + 1);
+      }
+    }
+    if (!found) break;
+    for (let t = goal; t !== start; t = from[t]) {
+      const f = from[t], fv = f >> 1, tv = t >> 1;
+      if (f & 1 && !(t & 1)) {        // out(fv) -> in(tv): along an edge, or back across a used vertex
+        if (fv === tv) usedV[fv] = 0;
+        else { (usedE.get(tv) ?? usedE.set(tv, new Set()).get(tv)!).add(fv); (usedOut.get(fv) ?? usedOut.set(fv, new Set()).get(fv)!).add(tv); }
+      } else if (!(f & 1) && t & 1) { // in(fv) -> out(tv): across a vertex, or back along a used edge
+        if (fv === tv) usedV[fv] = 1;
+        else { usedE.get(fv)?.delete(tv); usedOut.get(tv)?.delete(fv); }
+      }
+    }
+    flow++;
+  }
+  return flow;
+}
+
 /** What the final needs before it places a card (2026-11-07): which orders a screen asked about directly. `met[x]` the
  *  cards x was ordered against on any screen (a pick: the picked card and the rest), `metFinal[x]` on a final screen,
- *  `won[x]` the cards x beat on a screen (and still beats); `color` the same-color order screens set directly (no detour
- *  through another color), `sorted` the order the color's own screens set. */
+ *  `won[x]` the cards x beat on a screen (and still beats); `sorted` the same-color order the color's own screens set.
+ *  `backed` remembers pairs with two chains: screens only add wins, and a final screen that overturns an order builds
+ *  the knowledge (and this) again, so a backed pair stays backed. */
 class Support {
   readonly met!: Bits[];
   readonly metFinal!: Bits[];
   readonly won!: Bits[];
-  readonly color!: Knowledge;
   readonly sorted!: Knowledge;
+  readonly backed!: Set<number>;
 
   constructor(K: Knowledge | null, readonly groups: number[]) {
     if (!K) return; // clone() fills it in
@@ -258,13 +320,10 @@ class Support {
     this.met = K.ids.map(() => bitsOf(n));
     this.metFinal = K.ids.map(() => bitsOf(n));
     this.won = K.ids.map(() => bitsOf(n));
-    const blank = () => {
-      const k = Object.create(Knowledge.prototype) as Knowledge;
-      Object.assign(k, { ids: K.ids, index: K.index, beats: K.ids.map(() => bitsOf(n)), below: K.ids.map(() => bitsOf(n)) });
-      return k;
-    };
-    this.color = blank();
-    this.sorted = blank();
+    this.backed = new Set();
+    const k = Object.create(Knowledge.prototype) as Knowledge;
+    Object.assign(k, { ids: K.ids, index: K.index, beats: K.ids.map(() => bitsOf(n)), below: K.ids.map(() => bitsOf(n)) });
+    this.sorted = k;
     for (const sc of K.log) this.addScreen(K, sc);
   }
 
@@ -275,94 +334,69 @@ class Support {
       if (sc.s === "F") { put(this.metFinal[w], l); put(this.metFinal[l], w); }
       if (K.known(w, l)) {
         put(this.won[w], l);
-        if (this.groups[w] === this.groups[l]) {
-          this.color.add(w, l);
-          if (sc.s !== "F" && sc.s !== "P") this.sorted.add(w, l);
-        }
+        if (this.groups[w] === this.groups[l] && sc.s !== "F" && sc.s !== "P") this.sorted.add(w, l);
       }
     }
   }
 
   clone(): Support {
     const s = new Support(null, this.groups);
-    const copy = (k: Knowledge) => {
-      const c = Object.create(Knowledge.prototype) as Knowledge;
-      Object.assign(c, { ids: k.ids, index: k.index, beats: k.beats.map((b) => b.slice()), below: k.below.map((b) => b.slice()) });
-      return c;
-    };
+    const c = Object.create(Knowledge.prototype) as Knowledge;
+    Object.assign(c, { ids: this.sorted.ids, index: this.sorted.index, beats: this.sorted.beats.map((b) => b.slice()), below: this.sorted.below.map((b) => b.slice()) });
     Object.assign(s, { met: this.met.map((b) => b.slice()), metFinal: this.metFinal.map((b) => b.slice()), won: this.won.map((b) => b.slice()),
-                       color: copy(this.color), sorted: copy(this.sorted) });
+                       sorted: c, backed: new Set(this.backed) });
     return s;
   }
 
-  /** How many colors other than x's and y's have cards known between them. */
-  private thirdColors(K: Knowledge, x: number, y: number): number {
-    const between = K.beats[x].slice();
-    for (let k = 0; k < between.length; k++) between[k] &= K.below[y][k];
-    const gs = new Set<number>();
-    for (const m of members(between)) if (this.groups[m] !== this.groups[x] && this.groups[m] !== this.groups[y]) gs.add(this.groups[m]);
-    return gs.size;
-  }
-
-  /** x is known to beat every other card in U. The cards it still needs a screen with, one per color at most: each
-   *  other color's best card still in (fewest known above it in U, then index) when its order against x went through a
-   *  third color (Novice Inspector over Colossal Dreadmask over Counterspell put 13 white cards above Counterspell in a
-   *  Pauper top 50 that never showed them together), and x's own color's best card when only the color's own screens
-   *  put x above it (a color sorted wrong holds its better cards back, then lets them out in a run). Checked: x met the
-   *  card on a screen; or, for another color, x (or a card of its color x is above, by that color's screens) beat a
-   *  card of the other color that is above it or is it, by that color's screens; or cards of two or more other colors
-   *  sit between them (Black Lotus over Minsc & Boo through blue and black cards needs no screen of its own). */
-  unchecked(K: Knowledge, x: number, U: Bits): Bits {
+  /** x is known to beat every other card still in the running; P is the final's cards not placed yet, in the running or
+   *  not (2026-11-13: in Daniel Shea's Lindmark Cube top 50 every white, red and green card had been pushed out of the
+   *  running by answers nothing checked, so places 35-46 were twelve black cards checked only against each other). The
+   *  cards x still needs a screen with, one per color at most: each other color's best card in P (fewest known above it
+   *  in P, then index) unless x met it on a screen or two chains of screens that share no card put x above it (one chain
+   *  is one answer away from wrong: Duress over Wheel of Fortune carried those twelve, all through Urza's Saga over Path
+   *  to Exile); and x's own color's best card when only the color's own screens put x above it (a color sorted wrong
+   *  holds its better cards back, then lets them out in a run). */
+  unchecked(K: Knowledge, x: number, P: Bits): Bits {
     const best = new Map<number, [number, number]>();
-    for (const y of members(U)) {
+    for (const y of members(P)) {
       if (y === x) continue;
-      const g = this.groups[y], k = andCount(K.below[y], U);
+      const g = this.groups[y], k = andCount(K.below[y], P);
       const cur = best.get(g);
       if (!cur || k < cur[0] || (k === cur[0] && y < cur[1])) best.set(g, [k, y]);
     }
-    let reach: Bits | null = null; // worked out only when a card x never met needs it
-    const reached = (y: number) => {
-      if (!reach) {
-        const C = this.color, r = C.beats[x].slice();
-        for (const a of [x, ...members(C.beats[x])]) {
-          for (const b of members(this.won[a])) {
-            put(r, b);
-            const cb = C.beats[b];
-            for (let k = 0; k < r.length; k++) r[k] |= cb[k];
-          }
-        }
-        reach = r;
-      }
-      return has(reach, y);
-    };
     const miss = bitsOf(K.size);
     for (const [g, [, y]] of best) {
-      if (g === this.groups[x]) { if (this.sorted.known(x, y) && !has(this.metFinal[x], y)) put(miss, y); }
-      else if (!has(this.met[x], y) && !reached(y) && this.thirdColors(K, x, y) < 2) put(miss, y);
+      if (g === this.groups[x]) { if (this.sorted.known(x, y) && !has(this.metFinal[x], y)) put(miss, y); continue; }
+      if (has(this.met[x], y)) continue;
+      const key = x * K.size + y;
+      if (this.backed.has(key)) continue;
+      if (chains(this.won, x, y) >= 2) this.backed.add(key); else put(miss, y);
     }
     return miss;
   }
 }
 
-/** ranked() for the final: a card known to beat every other card still in is placed only once its order against them
- *  is checked (Support.unchecked). Returns the places and, when it stops at one, the card and its unchecked cards. */
-function checked(K: Knowledge, U: Bits, T: number, sup: Support): [number[], [number, Bits] | null] {
+/** ranked() for the final: a card known to beat every other card still in (U) is placed only once its order against
+ *  the cards not placed yet (P) is checked (Support.unchecked). U and P lose the placed cards. Returns the places and,
+ *  when it stops at one, the card and its unchecked cards. */
+function checked(K: Knowledge, U: Bits, P: Bits, T: number, sup: Support): [number[], [number, Bits] | null] {
   const top: number[] = [];
   while (top.length < T) {
     const one = ranked(K, U.slice(), 1);
     if (!one.length) break;
     const x = one[0];
-    const miss = sup.unchecked(K, x, U);
+    const miss = sup.unchecked(K, x, P);
     if (members(miss).length) return [top, [x, miss]];
-    top.push(x); drop(U, x);
+    top.push(x); drop(U, x); drop(P, x);
   }
   return [top, null];
 }
 
 /** The check: x with up to three of the cards it hasn't been checked against: its own color's next card first, then
- *  other colors' cards nearest the top, one per color first. Nothing is locked: the answer is new and wins. */
-function checkScreen(K: Knowledge, U: Bits, x: number, miss: Bits, groups: number[], h: (x: number) => number): number[] {
-  const key = new Map(members(miss).map((y) => [y, [andCount(K.below[y], U), h(y)]]));
+ *  other colors' cards nearest the top (fewest known above them among the cards not placed yet, P), one per color first.
+ *  Nothing is locked: the answer is new and wins. */
+function checkScreen(K: Knowledge, P: Bits, x: number, miss: Bits, groups: number[], h: (x: number) => number): number[] {
+  const key = new Map(members(miss).map((y) => [y, [andCount(K.below[y], P), h(y)]]));
   const ys = [...key.keys()].sort((a, b) => { const ka = key.get(a)!, kb = key.get(b)!; return ka[0] - kb[0] || ka[1] - kb[1] || a - b; });
   const picked = [x, ...ys.filter((y) => groups[y] === groups[x]).slice(0, 1)];
   for (const y of ys) if (picked.length < 4 && !picked.includes(y) && !picked.some((p) => groups[p] === groups[y])) picked.push(y);
@@ -381,10 +415,10 @@ export function session(K: Knowledge, scope: Bits, target: number, seed: string,
   for (const x of inScope) if (andCount(K.below[x], scope) < T) put(live, x);
   const U = live.slice();
   const full = ranked(K, U, T);
-  let sure = full.length, stuck: [number, Bits] | null = null, left = U;
+  let sure = full.length, stuck: [number, Bits] | null = null;
+  const unplaced = scope.slice();
   if (groups) {
-    left = live.slice();
-    const [good, why] = checked(K, left, T, K.supportFor(groups));
+    const [good, why] = checked(K, live.slice(), unplaced, T, K.supportFor(groups));
     sure = good.length; stuck = why;
   }
   const done = sure >= T;
@@ -406,7 +440,7 @@ export function session(K: Knowledge, scope: Bits, target: number, seed: string,
     if (v == null) { v = fnv1a(`${seed}:${K.ids[x]}`); hashes.set(x, v); }
     return v;
   };
-  if (stuck) return { top, done: false, target: T, size: n, question: checkScreen(K, left, stuck[0], stuck[1], groups!, h), pinned: [], open: U, waiting, check: true, checked: sure };
+  if (stuck) return { top, done: false, target: T, size: n, question: checkScreen(K, unplaced, stuck[0], stuck[1], groups!, h), pinned: [], open: U, waiting, check: true, checked: sure };
   const open = members(U);
   const cands = open.filter((x) => !intersects(K.below[x], U));
   const ck = new Map(cands.map((x) => [x, [andCount(K.beats[x], U), h(x)]]));
@@ -503,7 +537,7 @@ export function expectedMerge(sizes: number[], top: number): number {
     for (let t = 0; t <= T; t++) for (let k = 0; k <= Math.min(s, t); k++) g[t] += f[t - k] * C[t][k];
     f = g;
   }
-  return Math.ceil((4.9 * Math.log2(f[T])) / Math.log2(24));
+  return Math.ceil((6.0 * Math.log2(f[T])) / Math.log2(24)); // 1.78 before the final's checks, 4.9 before 2026-11-13
 }
 
 /* ── why ──────────────────────────────────────────────────────────────── */

@@ -165,7 +165,7 @@ Read `make_cases.py`'s docstring; in short:
   When other screens already settle everything it did, say "Removing it changes nothing".
 - **Undo:** removes the last screen of the job you're in and shows those cards again.
 - **Estimates:** screens for a job = ceil(f · log2(n!/(n−k)!) / log2 24), f = 1.55 for a full sort (k ≥ n − 1), 1.66
-  for a top-k; the final = ceil(4.9 · log2(ways) / log2 24) (1.78 before the final's checks), ways = the number of color sequences for the top N given
+  for a top-k; the final = ceil(6.0 · log2(ways) / log2 24) (1.78 before the final's checks, 4.9 before 2026-11-13), ways = the number of color sequences for the top N given
   each color's size. "About N to go" is max(1, estimate − screens so far in that job). Tests allow ±1.
 - **Why is A above B:** the shortest chain of screens (each screen one link; every pair on a screen counts, earliest
   screen first) that puts A above B, or "No screen has settled these two yet".
@@ -295,6 +295,91 @@ updated_at, mine, by: Person}`. Errors read like the rest of sharing: not yours 
 (42501). Deleting the cube deletes its rankings; deleting the account deletes yours. Moderation: a shared ranking's
 name is checked like a list name (`ranking_name`; a block makes it Only me, with a notice and one appeal).
 
+### Tighter checks (2026-11-13)
+
+John: "The ranking logic still appears to be grouping colors at the 50-100 levels … Daniel Shea's ranking of the vintage
+cube is the best example." Every finished live final of Lindmark Cube still ran in long same-color blocks: Daniel Shea's
+top 50 (every card sorted, 825 screens) had places 35–46 all black and 27–32 all white; John Healy's top 100 (a third)
+82–100 all lands; John's top 50 34–45 all lands. **All of them were made without the checks:** Daniel ranks on Android,
+and the newest Android build on Play (29896900, 2026-11-04) predates them; the others finished before 2026-11-07.
+
+Replaying Daniel's log through the checks above showed two holes they'd still have let through:
+- **Cards out of the running were never checked.** A card leaves the running once `top` cards are known above it, even
+  when that's only inferred. At place 35 the only cards still in were black ones, Teferi, Atraxa, Nadu and Duress: every
+  white, red and green card had been pushed out by the same chains, so the black run was checked only black against
+  black.
+- **One chain counted as backing.** The black cards' wins over other colors all came from Duress (the bottom of the black
+  sort) beating Wheel of Fortune, Urza, Lord High Artificer and Dack Fayden on one final screen, and every chain to Path
+  to Exile also ran through one screen (Urza's Saga over Path). "A card of x's color below x beat it" and "cards of two
+  other colors between them" both accepted that.
+
+**Rules now** (reference `make_cases.py` `chains` / `Support.unchecked`; `RULES = "2026-11-13"`):
+- The final checks x against each other color's best card **not yet placed**, in the running or not (fewest known above
+  it among the cards not placed yet).
+- That order is checked when x met the card on a screen, or when **two chains of screens that share no card** lead from x
+  down to it (vertex-disjoint paths in the graph of screen wins, `won`; at most two are looked for, by augmenting paths).
+  No single answer can then carry a run. Pairs found backed are remembered (`backed`): screens only add wins, and a final
+  screen that overturns an order rebuilds the knowledge and its support. The same-color check is unchanged.
+- The check screen orders its cards by fewest known above among the cards not placed yet.
+- Replayed (answering as his log already says), Daniel's final asks 51 checks instead of 45, and the black run is now
+  checked two black cards at a time against Path to Exile and Chrome Mox.
+
+**Simulation** (the TypeScript engine, 540 cards in Lindmark Cube's color sizes, 20 rankers per row, each screen sorted
+by a card's value plus noise σ; scripts were scratch work):
+
+| | screens | longest run 51–100 (truth 2.55) | 10+ off | missing | worst |
+|---|---|---|---|---|---|
+| top 50, quarter, σ 0.05: before → now | 507 → 534 | – | 0.9 → 0.2 | 2.5 → 1.6 | 10 → 8 |
+| top 100, third, σ 0.05 | 819 → 912 | 3.40 → 3.00 | 3.9 → 2.5 | 3.6 → 2.4 | 15 → 12 |
+| top 50, quarter, σ 0.15 | 589 → 666 | – | 7.9 → 6.0 | 6.0 → 4.7 | 28 → 20 |
+| top 100, third, σ 0.15 | 1063 → 1236 | 3.10 → 2.80 | 25.6 → 23.1 | 9.1 → 7.8 | 46 → 33 |
+
+Depth still makes no difference to the final (quarter, third and every card gave the same numbers; every card costs ~450
+more screens), so a top 50 or 100 doesn't need deeper color sorts. What's left is the ranker's own inconsistency, which
+more screens of the same kind can't remove. Also tried and dropped: requiring 4 or 8 other-color cards between (one
+screen can still link a card to many), and "two other colors' cards beaten directly" (Duress's answer still carried it).
+
+## The engine as a file (2026-11-13)
+
+John: "can we design the solution in such a way that updates to the cube logic don't require new builds and just require
+a server update?" (picked: a downloaded JavaScript engine over a server that picks each screen, which would put a network
+wait on every screen and end offline ranking).
+
+- **One engine, published.** `table-1-events-web/src/lib/rankEngine.ts` wraps the TypeScript engine in a JSON interface
+  (`T1Rank`: `api`, `rules`, `version`, `open(json)` → handle, `append(h, screen)` → handle, `free(h)`, `session(h, job)`
+  → JSON with card ids, `expected(h, job)`, `selfTest()`). `tools/rank-engine/build.mjs` bundles it (ES2019, no host APIs:
+  the hash encodes UTF-8 by hand since JavaScriptCore and QuickJS have no TextEncoder), names it by content
+  (`rank-<sha256 12>.js`), replays every shared case through the built file in a bare context, and writes
+  `manifest.json` `{api, rules, version, file, sha256, bytes}` plus `testdata/cube-ranking/rank-engine.js` for the apps'
+  tests. `tools/rank-engine/publish.sh` (with John's OK) uploads the file, then the manifest, to the public `catalog`
+  bucket at `engines/rank/`, and reads both back.
+- **Native first.** Every engine carries `rules`, the date its rules last changed (cases.json `rules`; each client's tests
+  check theirs). A phone uses the file only when the manifest's `rules` are newer than its own engine's, the `api`
+  matches (1), the hash matches and the file's own `rules` and `selfTest()` (run D of the shared cases) pass; anything
+  else, or no file, is the app's own engine. A build that's current never runs JavaScript.
+- **What the file decides:** each job's session (list, next screen, placement, checks, `checked`, `done`) and the
+  estimates. Knowledge, why-chains, picks, comparisons and change diffs stay native: the file's sessions come back as
+  card ids and are mapped onto the native knowledge, indexed the same way (sorted oracle ids). `RankingState` holds the
+  file's state beside its own (iOS `RankEngineState`, freed on deinit; Android keeps the 16 newest handles, an older one
+  asked again falls back to native).
+- **iOS:** `Library/RankEngine.swift`, JavaScriptCore (one JSContext, calls under a lock). Android:
+  `library/RankEngine.kt`, QuickJS (`wang.harlon.quickjs:wrapper-android` 3.2.0, ~1.3 MB per ABI) on one thread of its
+  own. Kept in Application Support/RankEngine and files/rank-engine; loaded at launch, the manifest asked for again at
+  most hourly when a ranking opens; a ranking opened after a new file arrives uses it.
+- **Speed** (Daniel's 825-screen ranking): JavaScriptCore without JIT (as in an iOS app, measured on a Mac) opens in ~360
+  ms, a lock-in 10 ms median, ~340 ms when a check overturns an order and the knowledge rebuilds; QuickJS on the Android
+  emulator (busy host) opens in 1.7 s, 28 ms median, 670 ms on a rebuild. Hence native first: the cost applies only
+  between a rules change and the build that carries it.
+- **Changing the rules:** change the reference (`make_cases.py`, bump `RULES`), the TypeScript engine and both native
+  engines together as before (their tests read the same cases), build and publish the file: phones on this build or later
+  get the new rules at once, and the next builds carry them natively. To pull a file back, publish a manifest whose
+  `rules` are the native ones.
+- Telemetry `rank_engine_used` {version, rules, from: kept|downloaded}, `rank_engine_failed` {why: api|hash|self_test|load|call}.
+- Debug: Android `--es t1RankEngine /data/local/tmp/rank-engine.js [--es t1RankArgs <open args>]` loads a file in QuickJS
+  and logs its self test and timings (tag RankEngine).
+- Web and the edge functions (`ranking-brief`, `discord-bot`, `ranking-image`) import the TypeScript engine directly, so a
+  web deploy or a function deploy is their update.
+
 ## Depth (2026-10-23)
 
 A ranking sorts the **top quarter**, **top third** or **top half** of each color, or **every card** (`depth` `quarter` /
@@ -411,6 +496,12 @@ keep / pick_wins, `removed`: screens), `ranking_changes_opened`, `ranking_job_do
 
 ## Status
 
+- **Tighter checks and the engine as a file (2026-11-13; committed, not published, deployed or shipped yet):** reference, web, iOS and Android
+  engines pass the regenerated cases (web 39 + `rankEngine.test.ts` 5, lock-in p95 2.2 ms; iOS `CubeRankingTests` 10,
+  `RankEngineTests` 5; Android `CubeRankingTest` 7, `RankEngineTest` 4, the last through Node). The built file replays
+  every shared case in a bare context, in JavaScriptCore on iOS (Simulator) and in QuickJS on the Android emulator
+  (`T1-Bars`, Debug hook). Not published (`publish.sh` waits for John's OK); `ranking-brief` / `discord-bot` not
+  redeployed with the new engine copy. Phones get the new rules with their next builds; older builds can't load the file.
 - Engine: one module per client, all three pass every shared case (`testdata/cube-ranking/cases.json`: three simulated
   rankings replayed screen by screen incl. placement screens and 7 P1P1 picks, comparisons, why-chains, redo, let the
   pick win, change-log diffs, a contradiction, a card that left the cube, estimates). iOS `CubeRankingTests`,

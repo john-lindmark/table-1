@@ -102,6 +102,8 @@ dependencies {
     implementation(libs.supabase.storage)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.kotlinx.serialization.json)
+    // QuickJS runs the cube ranking engine file the server publishes (library/RankEngine.kt).
+    implementation(libs.quickjs.android)
     implementation(libs.kotlinx.coroutines.play.services)
 
     implementation(libs.androidx.credentials)

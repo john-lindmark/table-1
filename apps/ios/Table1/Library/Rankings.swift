@@ -615,6 +615,8 @@ final class RankingModel {
     /// baseline) are looked up too, for their names; only the cube's cards make the lists.
     private func rebuild(cubeCards: [String]?) async {
         guard let row else { return }
+        // A newer engine file from the server is used from the next ranking opened (RankEngine; at most hourly).
+        Task.detached(priority: .utility) { await RankEngine.shared.refresh() }
         var ids = cubeCards?.map { $0.lowercased() }
         if ids == nil, let state { ids = Array(state.category.keys) }
         cubeGone = cubeCards == nil

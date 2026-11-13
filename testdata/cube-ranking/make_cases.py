@@ -23,11 +23,11 @@ The engine is pure: everything comes from the ranking's screen log, so undo, red
   ever have a known order, so a screen can't contradict earlier ones. In the final, cards from colors not already on the
   screen come first. When only two cards qualify, the screen is a placement: one free card against up to three
   cards whose order is known, locked (see placement()).
-- The final checks before it places (2026-11-07, see Support and checked()): a card is placed once its order against each
-  other color's best card still in was asked on a screen (directly or through cards of its own and that color only, or
-  backed by two other colors), and against its own color's next card on a final screen. Until then the next screen is
-  that check, and its answer wins: final screens apply newest first (apply_order). The list shows every settled place;
-  `checked` counts the checked ones and `done` waits for them.
+- The final checks before it places (2026-11-07, tightened 2026-11-13, see Support and checked()): a card is placed once
+  its order against each other color's best card not yet placed (in the running or not) was asked on a screen, or is
+  backed by two chains of screens that share no card, and against its own color's next card on a final screen. Until
+  then the next screen is that check, and its answer wins: final screens apply newest first (apply_order). The list
+  shows every settled place; `checked` counts the checked ones and `done` waits for them.
 """
 import json
 import math
@@ -39,6 +39,10 @@ FINAL = "F"
 PICK = "P"     # a P1P1 pick: o[0] was picked from a pack of the rest (beats each of them; no order among the rest)
 PACK = 15
 LOG2_24 = math.log2(24)
+# The rules this engine implements, by the date they changed (2026-11-13: the final's checks reach cards out of the
+# running and want two chains). Every engine carries the same value and its tests check it against cases.json; the apps
+# compare theirs with the downloaded engine's manifest to know when the file has newer rules (see rankEngine.ts).
+RULES = "2026-11-13"
 
 
 def fnv1a(s):
@@ -145,23 +149,69 @@ def ranked(K, U, T):
     return top, U
 
 
+def chains(won, x, y, limit=2):
+    """How many chains of screens that share no card lead from x down to y, at most `limit` (2026-11-13): vertex-disjoint
+    paths in the graph of screen wins (won[a]: the cards a beat on a screen and still beats), found by augmenting paths
+    over split vertices (in(v) = 2v, out(v) = 2v + 1), breadth first, cards in index order."""
+    used_v, used_e = set(), set()  # vertices and (a, b) edges carrying a chain; x and y never count as vertices
+    flow = 0
+    while flow < limit:
+        start, goal = 2 * x + 1, 2 * y
+        prev = {start: None}
+        queue, found = [start], False
+        for st in queue:
+            v, out = st >> 1, st & 1
+            nxt = []
+            if out:
+                nxt += [2 * b for b in bits(won[v]) if (v, b) not in used_e]
+                if v in used_v and v != x:
+                    nxt.append(2 * v)
+            else:
+                if v != y and v not in used_v:
+                    nxt.append(2 * v + 1)
+                nxt += [2 * a + 1 for a, b in sorted(used_e) if b == v]
+            for t in nxt:
+                if t not in prev:
+                    prev[t] = st
+                    queue.append(t)
+                    if t == goal:
+                        found = True
+                        break
+            if found:
+                break
+        if not found:
+            break
+        t = goal
+        while prev[t] is not None:
+            f = prev[t]
+            fv, tv = f >> 1, t >> 1
+            if f & 1 and not t & 1:      # out(fv) -> in(tv): through an edge, or back across a used vertex
+                if fv == tv:
+                    used_v.discard(fv)
+                else:
+                    used_e.add((fv, tv))
+            elif not f & 1 and t & 1:    # in(fv) -> out(tv): across a vertex, or back along a used edge
+                if fv == tv:
+                    used_v.add(fv)
+                else:
+                    used_e.discard((tv, fv))
+            t = f
+        flow += 1
+    return flow
+
+
 class Support:
     """What the final needs before it places a card (2026-11-07): which orders a screen asked about directly. Built from
     the log: `met[x]` the cards x was ordered against on any screen (a pick: the picked card and the rest), `met_final[x]`
-    on a final screen, `won[x]` the cards x beat on a screen (and still beats); `color` the same-color order screens set
-    directly (no detour through another color), `sorted` the order the color's own screens set."""
+    on a final screen, `won[x]` the cards x beat on a screen (and still beats); `sorted` the same-color order the color's
+    own screens set."""
 
     def __init__(self, K, groups):
         n = len(K.ids)
         self.groups = groups
         self.met, self.met_final, self.won = [0] * n, [0] * n, [0] * n
-
-        def blank():
-            k = Knowledge([], [])
-            k.ids, k.idx, k.beats, k.below = K.ids, K.idx, [0] * n, [0] * n
-            return k
-
-        self.color, self.sorted = blank(), blank()
+        self.sorted = Knowledge([], [])
+        self.sorted.ids, self.sorted.idx, self.sorted.beats, self.sorted.below = K.ids, K.idx, [0] * n, [0] * n
         for sc in K.log:
             for w, l in pairs(K, sc):
                 self.met[w] |= 1 << l
@@ -171,46 +221,39 @@ class Support:
                     self.met_final[l] |= 1 << w
                 if K.known(w, l):
                     self.won[w] |= 1 << l
-                    if groups[w] == groups[l]:
-                        self.color.add(w, l)
-                        if sc["s"] not in (FINAL, PICK):
-                            self.sorted.add(w, l)
+                    if groups[w] == groups[l] and sc["s"] not in (FINAL, PICK):
+                        self.sorted.add(w, l)
 
-    def unchecked(self, K, x, U):
-        """x is known to beat every other card in U. The cards it still needs a screen with, one per color at most:
-        each other color's best card still in (fewest known above it in U, then index) when its order against x went
-        through a third color (Novice Inspector over Colossal Dreadmask over Counterspell put 13 white cards above
-        Counterspell in a Pauper top 50 that never showed them together), and x's own color's best card when only the
-        color's own screens put x above it (a color sorted wrong holds its better cards back, then lets them out in a
-        run). Checked: x met the card on a screen; or, for another color, x (or a card of its color x is above, by
-        that color's screens) beat a card of the other color that is above it or is it, by that color's screens; or
-        cards of two or more other colors sit between them (Black Lotus over Minsc & Boo through blue and black cards
-        needs no screen of its own)."""
-        rest = U & ~(1 << x)
+    def unchecked(self, K, x, P):
+        """x is known to beat every other card still in the running. P is the final's cards not placed yet, in the
+        running or not (2026-11-13: in Daniel Shea's Lindmark Cube top 50 every white, red and green card had been
+        pushed out of the running by answers nothing checked, so places 35-46 were twelve black cards checked only
+        against each other). The cards x still needs a screen with, one per color at most: each other color's best card
+        in P (fewest known above it in P, then index) unless x met it on a screen or two chains of screens that share no
+        card put x above it (one chain is one answer away from wrong: Duress over Wheel of Fortune carried the twelve
+        black cards, all through Urza's Saga over Path to Exile); and x's own color's best card when only the color's own
+        screens put x above it (a color sorted wrong holds its better cards back, then lets them out in a run)."""
+        rest = P & ~(1 << x)
         best = {}
         for y in bits(rest):
             g = self.groups[y]
-            k = (pop(K.below[y] & U), y)
+            k = (pop(K.below[y] & P), y)
             if g not in best or k < best[g][0]:
                 best[g] = (k, y)
-        C = self.color
-        reach = C.beats[x] | self.met[x]
-        for a in [x] + list(bits(C.beats[x])):
-            for b in bits(self.won[a]):
-                reach |= 1 << b | C.beats[b]
         miss = 0
         for g, (_, y) in best.items():
             if g == self.groups[x]:
                 if self.sorted.known(x, y) and not self.met_final[x] >> y & 1:
                     miss |= 1 << y
-            elif not reach >> y & 1 and len({self.groups[m] for m in bits(K.beats[x] & K.below[y])} - {self.groups[x], g}) < 2:
+            elif not self.met[x] >> y & 1 and chains(self.won, x, y) < 2:
                 miss |= 1 << y
         return miss
 
 
-def checked(K, U, T, sup):
-    """ranked() for the final: a card known to beat every other card still in is placed only once its order against
-    them has been checked (Support.unchecked). Returns (places, what's left, (the card, its unchecked cards) or None)."""
+def checked(K, U, P, T, sup):
+    """ranked() for the final: a card known to beat every other card still in (U) is placed only once its order against
+    the cards not yet placed (P) has been checked (Support.unchecked). Returns (places, what's left in the running,
+    what's left unplaced, (the card, its unchecked cards) or None)."""
     top = []
     while len(top) < T:
         found = None
@@ -220,18 +263,20 @@ def checked(K, U, T, sup):
                 break
         if found is None:
             break
-        miss = sup.unchecked(K, found, U)
+        miss = sup.unchecked(K, found, P)
         if miss:
-            return top, U, (found, miss)
+            return top, U, P, (found, miss)
         top.append(found)
         U &= ~(1 << found)
-    return top, U, None
+        P &= ~(1 << found)
+    return top, U, P, None
 
 
-def check_screen(K, U, x, miss, groups, h):
+def check_screen(K, P, x, miss, groups, h):
     """The check: x with up to three of the cards it hasn't been checked against: its own color's next card first,
-    then other colors' cards nearest the top, one per color first. Nothing is locked: the answer is new and wins."""
-    ys = sorted(bits(miss), key=lambda y: (pop(K.below[y] & U), h(y), y))
+    then other colors' cards nearest the top (fewest known above them among the cards not yet placed), one per color
+    first. Nothing is locked: the answer is new and wins."""
+    ys = sorted(bits(miss), key=lambda y: (pop(K.below[y] & P), h(y), y))
     picked = [x] + [y for y in ys if groups[y] == groups[x]][:1]
     for y in ys:
         if len(picked) < 4 and y not in picked and groups[y] not in {groups[p] for p in picked}:
@@ -257,7 +302,7 @@ def session(K, scope, target, seed, groups=None, new=0):
     top, U = ranked(K, live, T)
     sure, stuck = len(top), None
     if groups is not None:
-        good, left, stuck = checked(K, live, T, Support(K, groups))
+        good, left, unplaced, stuck = checked(K, live, scope, T, Support(K, groups))
         sure = len(good)
     done = sure >= T
     waiting = [x for x in bits(new & live) if x not in top]
@@ -267,7 +312,7 @@ def session(K, scope, target, seed, groups=None, new=0):
     question, pinned = None, []
     h = lambda x: fnv1a(seed + ":" + K.ids[x])
     if not done and stuck:
-        question = check_screen(K, left, stuck[0], stuck[1], groups, h)
+        question = check_screen(K, unplaced, stuck[0], stuck[1], groups, h)
     elif not done:
         cands = [x for x in bits(U) if K.below[x] & U == 0]
         cands.sort(key=lambda x: (pop(K.beats[x] & U), h(x), x))
@@ -414,7 +459,7 @@ def expected_merge(sizes, top):
             for k in range(0, min(s, t) + 1):
                 g[t] += f[t - k] * C[t][k]
         f = g
-    return math.ceil(4.9 * math.log2(f[T]) / LOG2_24)  # 1.78 before the final's checks (2026-11-07)
+    return math.ceil(6.0 * math.log2(f[T]) / LOG2_24)  # 1.78 before the final's checks (2026-11-07), 4.9 before 2026-11-13
 
 
 # ---- explaining a place ----
@@ -780,6 +825,7 @@ def main():
                  "sorted Oracle id. Replay each run's steps: before each step the engine's next screen for that session, "
                  "from the log so far, must equal `question` (same cards, same order); then append `answer`. Estimates may "
                  "differ by 1 (floating point).",
+        "rules": RULES,
         "cube": {"cards": cards, "category": cats},
         "runs": [
             {"id": a_id, "depth": "half", "top": top, "steps": steps_a, "summary": sum_a},

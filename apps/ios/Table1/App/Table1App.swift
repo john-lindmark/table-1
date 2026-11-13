@@ -117,6 +117,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         PushController.shared.start()
+        // The kept ranking engine file, when its rules are newer than this build's (RankEngine).
+        Task.detached(priority: .utility) { RankEngine.shared.start() }
         return true
     }
 

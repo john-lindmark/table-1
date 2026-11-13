@@ -399,6 +399,8 @@ class RankingModel(val id: String) {
         val l = log
         val fresh = cubeChange.added.toSet()
         val jobs = resolved.filterKeys { it in inCube }.mapValues { it.value.second }
+        // A newer engine file from the server is used from the next ranking opened (RankEngine; at most hourly).
+        Thread({ RankEngine.refresh(site.table1.events.T1App.instance) }, "rank-engine-refresh").start()
         state = withContext(Dispatchers.Default) { RankingState(id, jobs, l, r.depth, r.top, fresh) }
         maybeCatchUp()
     }

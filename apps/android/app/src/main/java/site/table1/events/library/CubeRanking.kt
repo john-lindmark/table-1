@@ -20,8 +20,9 @@ import kotlin.math.ln
 // - The next screen: the cards nothing still in is known to beat (fewest known below, then a seeded hash), filled to
 //   four with cards unordered against the screen, nearest the top first; in the final, new colors first. When only two
 //   qualify it's a placement screen: one free card against up to three locked cards in known order.
-// - The final places a card only once its order against the rest is checked (RankSupport); until then the next screen
-//   is that check, and its answer wins over what the colors or a detour through another color had settled.
+// - The final places a card only once its order against the rest is checked (RankSupport): against each other color's
+//   best card not yet placed, asked on a screen or backed by two chains of screens that share no card (2026-11-13).
+//   Until then the next screen is that check, and its answer wins over what the colors or a detour had settled.
 
 /** A ranking job: a color of the cube (Group by color) or the final. [Pick] isn't a job: its screens are P1P1 picks. */
 enum class RankJob(val key: String, val title: String) {
@@ -225,19 +226,20 @@ class RankSession(val top: List<Int>, val done: Boolean, val target: Int, val si
 
 /** What the final needs before it places a card (2026-11-07): which orders a screen asked about directly. `met[x]` the
  *  cards x was ordered against on any screen (a pick: the picked card and the rest), `metFinal[x]` on a final screen,
- *  `won[x]` the cards x beat on a screen (and still beats); `color` the same-color order screens set directly (no detour
- *  through another color), `sorted` the order the color's own screens set. */
+ *  `won[x]` the cards x beat on a screen (and still beats); `sorted` the same-color order the color's own screens set.
+ *  `backed` remembers pairs with two chains: screens only add wins, and a final screen that overturns an order builds the
+ *  knowledge (and this) again, so a backed pair stays backed. */
 class RankSupport private constructor(
     val groups: IntArray, private val met: Array<RankBits>, private val metFinal: Array<RankBits>, private val won: Array<RankBits>,
-    private val color: RankKnowledge, private val sorted: RankKnowledge,
+    private val sorted: RankKnowledge, private val backed: HashSet<Int>,
 ) {
     constructor(K: RankKnowledge, groups: IntArray) : this(groups, Array(K.size) { RankBits(K.size) }, Array(K.size) { RankBits(K.size) },
-                                                          Array(K.size) { RankBits(K.size) }, K.blank(), K.blank()) {
+                                                          Array(K.size) { RankBits(K.size) }, K.blank(), HashSet()) {
         for (sc in K.log) addScreen(K, sc)
     }
 
     fun copy(): RankSupport = RankSupport(groups, Array(met.size) { met[it].copy() }, Array(met.size) { metFinal[it].copy() }, Array(met.size) { won[it].copy() },
-                             color.copy(), sorted.copy())
+                             sorted.copy(), HashSet(backed))
 
     /** One more screen of K's log (K already knows it). */
     fun addScreen(K: RankKnowledge, sc: RankScreen) {
@@ -247,54 +249,103 @@ class RankSupport private constructor(
             if (sc.s == f) { metFinal[w].add(l); metFinal[l].add(w) }
             if (K.known(w, l)) {
                 won[w].add(l)
-                if (groups[w] == groups[l]) {
-                    color.add(w, l)
-                    if (sc.s != f && sc.s != p) sorted.add(w, l)
-                }
+                if (groups[w] == groups[l] && sc.s != f && sc.s != p) sorted.add(w, l)
             }
         }
     }
 
-    /** How many colors other than x's and y's have cards known between them. */
-    private fun thirdColors(K: RankKnowledge, x: Int, y: Int): Int {
-        val gs = HashSet<Int>()
-        for (m in K.beatsSet(x).members) if (m in K.belowSet(y) && groups[m] != groups[x] && groups[m] != groups[y]) gs += groups[m]
-        return gs.size
-    }
-
-    /** x is known to beat every other card in [u]. The cards it still needs a screen with, one per color at most: each
-     *  other color's best card still in (fewest known above it in u, then index) when its order against x went through a
-     *  third color (Novice Inspector over Colossal Dreadmask over Counterspell put 13 white cards above Counterspell in a
-     *  Pauper top 50 that never showed them together), and x's own color's best card when only the color's own screens
-     *  put x above it (a color sorted wrong holds its better cards back, then lets them out in a run). Checked: x met the
-     *  card on a screen; or, for another color, x (or a card of its color x is above, by that color's screens) beat a
-     *  card of the other color that is above it or is it, by that color's screens; or cards of two or more other colors
-     *  sit between them (Black Lotus over Minsc & Boo through blue and black cards needs no screen of its own). */
-    fun unchecked(K: RankKnowledge, x: Int, u: RankBits): RankBits {
+    /** x is known to beat every other card still in the running; [p] is the final's cards not placed yet, in the running
+     *  or not (2026-11-13: in Daniel Shea's Lindmark Cube top 50 every white, red and green card had been pushed out of the
+     *  running by answers nothing checked, so places 35-46 were twelve black cards checked only against each other). The
+     *  cards x still needs a screen with, one per color at most: each other color's best card in p (fewest known above it
+     *  in p, then index) unless x met it on a screen or two chains of screens that share no card put x above it (one
+     *  chain is one answer away from wrong: Duress over Wheel of Fortune carried those twelve, all through Urza's Saga
+     *  over Path to Exile); and x's own color's best card when only the color's own screens put x above it (a color sorted
+     *  wrong holds its better cards back, then lets them out in a run). */
+    fun unchecked(K: RankKnowledge, x: Int, p: RankBits): RankBits {
         val best = HashMap<Int, Pair<Int, Int>>()
-        for (y in u.members) {
+        for (y in p.members) {
             if (y == x) continue
-            val g = groups[y]; val k = K.belowSet(y).andCount(u)
+            val g = groups[y]; val k = K.belowSet(y).andCount(p)
             val cur = best[g]
             if (cur == null || k < cur.first || (k == cur.first && y < cur.second)) best[g] = k to y
-        }
-        val reach by lazy { // worked out only when a card x never met needs it
-            val r = color.beatsSet(x).copy()
-            for (a in listOf(x) + color.beatsSet(x).members) for (c in won[a].members) { r.add(c); r.union(color.beatsSet(c)) }
-            r
         }
         val miss = RankBits(K.size)
         for ((g, ky) in best) {
             val y = ky.second
-            if (g == groups[x]) { if (sorted.known(x, y) && y !in metFinal[x]) miss.add(y) }
-            else if (y !in met[x] && y !in reach && thirdColors(K, x, y) < 2) miss.add(y)
+            if (g == groups[x]) { if (sorted.known(x, y) && y !in metFinal[x]) miss.add(y); continue }
+            if (y in met[x]) continue
+            val key = x * K.size + y
+            if (key in backed) continue
+            if (chains(won, x, y) >= 2) backed += key else miss.add(y)
         }
         return miss
+    }
+
+    companion object {
+        /** How many chains of screens that share no card lead from x down to y, at most [limit] (2026-11-13): vertex-disjoint
+         *  paths in the graph of screen wins (`won[a]`: the cards a beat on a screen and still beats), found by augmenting
+         *  paths over split vertices (in(v) = 2v, out(v) = 2v + 1). Only the count matters, so the search order doesn't. */
+        fun chains(won: Array<RankBits>, x: Int, y: Int, limit: Int = 2): Int {
+            val n = won.size
+            val usedV = BooleanArray(n)                      // vertices carrying a chain (x and y never count)
+            val usedIn = HashMap<Int, HashSet<Int>>()        // b -> the a's whose edge a -> b carries a chain
+            val usedOut = HashMap<Int, HashSet<Int>>()       // a -> the b's of those edges
+            var flow = 0
+            while (flow < limit) {
+                val start = 2 * x + 1; val goal = 2 * y
+                val from = IntArray(2 * n) { -1 }
+                from[start] = start
+                val queue = IntArray(2 * n); var tail = 0; var head = 0
+                queue[tail++] = start
+                var found = false
+                fun go(t: Int, st: Int) { if (from[t] < 0) { from[t] = st; queue[tail++] = t; if (t == goal) found = true } }
+                while (head < tail && !found) {
+                    val st = queue[head++]; val v = st shr 1
+                    if (st and 1 == 1) {
+                        val out = usedOut[v]
+                        val ws = won[v].words
+                        var k = 0
+                        while (k < ws.size && !found) {
+                            var m = ws[k]
+                            while (m != 0L && !found) {
+                                val b = k * 64 + java.lang.Long.numberOfTrailingZeros(m)
+                                m = m and (m - 1)
+                                if (out == null || b !in out) go(2 * b, st)
+                            }
+                            k++
+                        }
+                        if (usedV[v] && v != x) go(2 * v, st)
+                    } else {
+                        if (v != y && !usedV[v]) go(2 * v + 1, st)
+                        usedIn[v]?.let { for (a in it) go(2 * a + 1, st) }
+                    }
+                }
+                if (!found) break
+                var t = goal
+                while (t != start) {
+                    val f = from[t]; val fv = f shr 1; val tv = t shr 1
+                    if (f and 1 == 1 && t and 1 == 0) {        // out(fv) -> in(tv): along an edge, or back across a used vertex
+                        if (fv == tv) usedV[fv] = false
+                        else { usedIn.getOrPut(tv) { HashSet() } += fv; usedOut.getOrPut(fv) { HashSet() } += tv }
+                    } else if (f and 1 == 0 && t and 1 == 1) { // in(fv) -> out(tv): across a vertex, or back along a used edge
+                        if (fv == tv) usedV[fv] = true
+                        else { usedIn[fv]?.remove(tv); usedOut[tv]?.remove(fv) }
+                    }
+                    t = f
+                }
+                flow++
+            }
+            return flow
+        }
     }
 }
 
 object CubeRanking {
     const val PACK_SIZE = 15
+    /** The rules this engine implements, by the date they changed; the same in every engine and in cases.json (`rules`).
+     *  [RankEngine] runs the server's engine file instead when its manifest names newer rules. */
+    const val RULES = "2026-11-13"
 
     fun fnv1a(s: String): Long {
         var h = 0x811C9DC5L
@@ -339,10 +390,9 @@ object CubeRanking {
         val full = ranked(K, u, T)
         var sure = full.size
         var stuck: Pair<Int, RankBits>? = null
-        var left = u
+        val unplaced = scope.copy()
         if (groups != null) {
-            left = live.copy()
-            val (good, why) = checked(K, left, T, K.supportFor(groups))
+            val (good, why) = checked(K, live.copy(), unplaced, T, K.supportFor(groups))
             sure = good.size; stuck = why
         }
         val placed = full.toSet()
@@ -359,7 +409,7 @@ object CubeRanking {
 
         val hashes = HashMap<Int, Long>()
         fun h(x: Int) = hashes.getOrPut(x) { fnv1a("$seed:${K.ids[x]}") }
-        if (stuck != null && groups != null) return RankSession(top, false, T, n, checkScreen(K, left, stuck.first, stuck.second, groups, ::h), emptyList(), u, waiting, true, sure)
+        if (stuck != null && groups != null) return RankSession(top, false, T, n, checkScreen(K, unplaced, stuck.first, stuck.second, groups, ::h), emptyList(), u, waiting, true, sure)
         val open = u.members
         val cands = open.filter { !K.belowSet(it).intersects(u) }
         val sortedCands = cands.sortedWith(compareBy<Int>({ K.beatsSet(it).andCount(u) }, { h(it) }, { it }))
@@ -375,24 +425,27 @@ object CubeRanking {
         return RankSession(top, false, T, n, picked, pinned, u, waiting, checked = sure)
     }
 
-    /** ranked() for the final: a card known to beat every other card still in is placed only once its order against them
-     *  is checked (RankSupport.unchecked). Returns the places and, when it stops at one, the card and its unchecked cards. */
-    private fun checked(K: RankKnowledge, u: RankBits, T: Int, support: RankSupport): Pair<List<Int>, Pair<Int, RankBits>?> {
+    /** ranked() for the final: a card known to beat every other card still in ([u]) is placed only once its order against
+     *  the cards not placed yet ([p]) is checked (RankSupport.unchecked); u and p lose the placed cards. Returns the places
+     *  and, when it stops at one, the card and its unchecked cards. */
+    private fun checked(K: RankKnowledge, u: RankBits, p: RankBits, T: Int, support: RankSupport): Pair<List<Int>, Pair<Int, RankBits>?> {
         val top = ArrayList<Int>()
         while (top.size < T) {
             val x = ranked(K, u.copy(), 1).firstOrNull() ?: break
-            val miss = support.unchecked(K, x, u)
+            val miss = support.unchecked(K, x, p)
             if (miss.members.isNotEmpty()) return top to (x to miss)
             top += x
             u.remove(x)
+            p.remove(x)
         }
         return top to null
     }
 
     /** The check: x with up to three of the cards it hasn't been checked against: its own color's next card first, then
-     *  other colors' cards nearest the top, one per color first. Nothing is locked: the answer is new and wins. */
-    private fun checkScreen(K: RankKnowledge, u: RankBits, x: Int, miss: RankBits, groups: IntArray, h: (Int) -> Long): List<Int> {
-        val ys = miss.members.sortedWith(compareBy<Int>({ K.belowSet(it).andCount(u) }, { h(it) }, { it }))
+     *  other colors' cards nearest the top (fewest known above them among the cards not placed yet, [p]), one per color
+     *  first. Nothing is locked: the answer is new and wins. */
+    private fun checkScreen(K: RankKnowledge, p: RankBits, x: Int, miss: RankBits, groups: IntArray, h: (Int) -> Long): List<Int> {
+        val ys = miss.members.sortedWith(compareBy<Int>({ K.belowSet(it).andCount(p) }, { h(it) }, { it }))
         val picked = mutableListOf(x)
         picked += ys.filter { groups[it] == groups[x] }.take(1)
         for (y in ys) if (picked.size < 4 && y !in picked && picked.none { groups[it] == groups[y] }) picked += y
@@ -461,7 +514,7 @@ object CubeRanking {
             for (t in 0..T) for (k in 0..minOf(s, t)) g[t] += f[t - k] * C[t][k]
             f = g
         }
-        return ceil(4.9 * log2(f[T]) / log2(24.0)).toInt()
+        return ceil(6.0 * log2(f[T]) / log2(24.0)).toInt() // 1.78 before the final's checks, 4.9 before 2026-11-13
     }
 
     data class Link(val winner: String, val loser: String, val screen: Int)
@@ -551,15 +604,21 @@ object CubeRanking {
 /** A whole ranking worked out from its log: the cube's cards and colors, depth and final size. */
 class RankingState private constructor(val rankingId: String, val category: Map<String, RankJob>, val knowledge: RankKnowledge, val depth: String, val top: Int,
                                        /** The cube's cards added since the ranking last caught up: they wait outside the lists until placed. */
-                                       val fresh: Set<String>) {
+                                       val fresh: Set<String>,
+                                       /** The same ranking in the server's engine file when it has newer rules than this build ([RankEngine]); null = ours. */
+                                       val js: RankEngineState?) {
     /** [cards] are the cube's cards now (a card in the log but not here has left the cube); [fresh] its new cards. */
     constructor(rankingId: String, cards: Map<String, RankJob>, log: List<RankScreen>, depth: String, top: Int, fresh: Set<String> = emptySet()) : this(
         rankingId.lowercase(), cards.mapKeys { it.key.lowercase() }, RankKnowledge.of(cards.keys, log), depth, top,
-        fresh.map { it.lowercase() }.filter { f -> cards.keys.any { it.lowercase() == f } }.toSet())
+        fresh.map { it.lowercase() }.filter { f -> cards.keys.any { it.lowercase() == f } }.toSet(), null, log)
+
+    private constructor(rankingId: String, category: Map<String, RankJob>, knowledge: RankKnowledge, depth: String, top: Int, fresh: Set<String>,
+                        js: RankEngineState?, log: List<RankScreen>) :
+        this(rankingId, category, knowledge, depth, top, fresh, js ?: RankEngine.open(rankingId, category, log, depth, top, fresh))
 
     private val cache = HashMap<RankJob, RankSession>()
 
-    fun appending(screen: RankScreen) = RankingState(rankingId, category, knowledge.copy().also { it.apply(screen) }, depth, top, fresh)
+    fun appending(screen: RankScreen) = RankingState(rankingId, category, knowledge.copy().also { it.apply(screen) }, depth, top, fresh, js?.appending(screen))
     fun id(x: Int) = knowledge.ids[x]
 
     /** New cards not placed yet in any list: a re-rank is due. */
@@ -576,12 +635,13 @@ class RankingState private constructor(val rankingId: String, val category: Map<
     val jobs: List<RankJob> get() = RankJob.colors.filter { size(it) > 0 }
 
     fun session(job: RankJob): RankSession = cache.getOrPut(job) {
+        js?.session(job, knowledge)?.let { return@getOrPut it }
         val groups = if (job == RankJob.Final) IntArray(knowledge.size) { maxOf(0, RankJob.colors.indexOf(category[knowledge.ids[it]] ?: RankJob.C)) } else null
         val freshBits = if (fresh.isEmpty()) null else RankBits(knowledge.size).also { b -> fresh.forEach { c -> knowledge.indexOf(c)?.let(b::add) } }
         CubeRanking.session(knowledge, scope(job), target(job), "$rankingId:${job.key}:${knowledge.screens}", groups, freshBits)
     }
 
-    fun expected(job: RankJob) =
+    fun expected(job: RankJob) = js?.expected(job) ?:
         if (job == RankJob.Final) CubeRanking.expectedMerge(jobs.map { size(it) }, top) else CubeRanking.expectedSort(size(job), target(job))
 
     /** Every list's places (or some: a color's screen can only move that color and the final). */

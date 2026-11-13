@@ -24,6 +24,8 @@ class T1App : Application() {
         Telemetry.start(this)
         Push.start(this)
         TestLab.start(this)
+        // The kept ranking engine file, when its rules are newer than this build's (library/RankEngine.kt).
+        Thread({ site.table1.events.library.RankEngine.start(this) }, "rank-engine-start").start()
     }
 
     companion object {
