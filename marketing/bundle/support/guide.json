@@ -2885,7 +2885,7 @@
    "id": "rankings-25",
    "s": "rankings",
    "h": "Checks in the final",
-   "x": "Before the final places a card, it looks at each other color's best card still in. If no screen ever put your card's color and that color side by side, and the order came only from a third color between them, the next screen is a check: your card with those cards (and its own color's next card when only the color's sort put it above), nothing locked, read \"Final · checking #31 of the top 50\". An order that cards of two or more other colors already back up isn't checked."
+   "x": "Before the final places a card, it looks at each other color's best card still to be placed, whether that card is in the running for the top or not. Unless a screen showed the two together, or two separate chains of screens with no card in common both put one above the other, the next screen is a check: your card with those cards (and its own color's next card when only the color's sort put it above), nothing locked, read \"Final · checking #31 of the top 50\". One answer on its own can no longer settle a whole run of cards."
   },
   {
    "id": "rankings-26",
@@ -2914,98 +2914,112 @@
   {
    "id": "rankings-30",
    "s": "rankings",
+   "h": "Checks in the final",
+   "t": "What the tighter checks cost",
+   "x": "Sorting each color deeper made no difference to the final, so the depth you pick only changes how many screens it takes."
+  },
+  {
+   "id": "rankings-31",
+   "s": "rankings",
+   "h": "Checks in the final",
+   "t": "Rule fixes without an app update",
+   "x": "Table 1 can send phones a newer copy of how rankings decide. The app uses it only when it's newer than its own and ranks a set of known rankings exactly right first; otherwise, or with no signal, the app's own copy decides. Your screens are never changed by it: only which screen comes next and how the lists read. This comes with the next iPhone and Android builds."
+  },
+  {
+   "id": "rankings-32",
+   "s": "rankings",
    "h": "Refine with first picks",
    "x": "Once the final is done, Open a pack: 15 cards from the cube. Pick the one you'd take first. The pick refines your ranking like any screen."
   },
   {
-   "id": "rankings-31",
+   "id": "rankings-33",
    "s": "rankings",
    "h": "Refine with first picks",
    "x": "When your ranking already puts a card in the pack above your pick, it says so, for example \"You ranked Mana Drain #3 and Fury #20, but picked Fury\". Keep my ranking, or Let the pick win: the screens behind the disagreement come out and those cards are asked again."
   },
   {
-   "id": "rankings-32",
+   "id": "rankings-34",
    "s": "rankings",
    "h": "Refine with first picks",
    "t": "Pick history",
    "x": "lists every pick, the pack's best card by your ranking, and whether it disagreed."
   },
   {
-   "id": "rankings-33",
+   "id": "rankings-35",
    "s": "rankings",
    "h": "Change log",
    "x": "Every place change is kept, newest first by day, and filterable by list: \"Mana Drain · Final: #5 (new)\", \"Fury · Final: #4 → #9 (redo screen 12)\". A card's history shows its own changes."
   },
   {
-   "id": "rankings-34",
+   "id": "rankings-36",
    "s": "rankings",
    "h": "Compare, with a brief",
    "t": "Compare with another ranking",
    "x": "on any list: how many cards both have placed, how far apart they sit on average, the ten biggest differences, and the cards in one top half but not the other."
   },
   {
-   "id": "rankings-35",
+   "id": "rankings-37",
    "s": "rankings",
    "h": "Compare, with a brief",
    "t": "In brief",
    "x": "comes first: two to four short sentences written by Claude on where the two of you agree and the one or two clearest differences (colors, mana fixing, aggro or control, cheap interaction or big threats, the curve), naming a few cards. It knows which lands fix your mana and which are utility lands like Strip Mine or Karakas, and it gives each card's color as the card has it. It's written from both rankings' places, kept until either ranking changes, and refers to people only by name."
   },
   {
-   "id": "rankings-36",
+   "id": "rankings-38",
    "s": "rankings",
    "h": "When the cube changes",
    "x": "Cards that leave the cube drop out of your lists; what they told the ranking still counts, so your order stays. If one left your top 100 (or a color's top half), that list asks a screen or two to fill the place."
   },
   {
-   "id": "rankings-37",
+   "id": "rankings-39",
    "s": "rankings",
    "h": "When the cube changes",
    "x": "Cards that join wait under New in the cube, not placed yet, and the list keeps showing your order around them."
   },
   {
-   "id": "rankings-38",
+   "id": "rankings-40",
    "s": "rankings",
    "h": "When the cube changes",
    "x": "The ranking says what changed (\"3 cards joined … and 2 cards left …\"). Re-rank asks only about the new cards, mostly one new card against cards you've already ordered, then Next moves on to the next list that has one. Once every new card has a place, the note goes away."
   },
   {
-   "id": "rankings-39",
+   "id": "rankings-41",
    "s": "rankings",
    "h": "When the cube changes",
    "x": "When someone else starts a ranking of your cube that you can see, you get a notification (at most one a week per person). Tapping it opens their ranking on iPhone."
   },
   {
-   "id": "rankings-40",
+   "id": "rankings-42",
    "s": "rankings",
    "h": "Saving",
    "x": "Each screen saves as you lock it in, one at a time. Undo and Redo take out only the screen you chose."
   },
   {
-   "id": "rankings-41",
+   "id": "rankings-43",
    "s": "rankings",
    "h": "Saving",
    "x": "What isn't saved yet stays on your phone (or in your browser) through a crash, a force-quit, a closed tab or no signal, and is sent again until it's saved. A ranking with screens still to save says so, and tries again after a few seconds, then every minute."
   },
   {
-   "id": "rankings-42",
+   "id": "rankings-44",
    "s": "rankings",
    "h": "Saving",
    "x": "If the ranking changed on another device, the app reads it again and adds your screens on top, rather than throwing them away."
   },
   {
-   "id": "rankings-43",
+   "id": "rankings-45",
    "s": "rankings",
    "h": "Saving",
    "x": "A second tap on Lock in, or Enter pressed before the next screen draws, is ignored rather than locking the old order in again."
   },
   {
-   "id": "rankings-44",
+   "id": "rankings-46",
    "s": "rankings",
    "h": "Saving",
    "x": "The server refuses any save that would take out screens you didn't take out, from any version of the app, and keeps every screen that leaves a ranking, so one can always be put back."
   },
   {
-   "id": "rankings-45",
+   "id": "rankings-47",
    "s": "rankings",
    "h": "Who sees a ranking",
    "x": "Your rankings show on your profile, under Rankings, to whoever your Rankings setting in Sharing reaches (Friends to start; see Sharing); a shared set ranking reaches those people too, not only your friends. A ranking starts Shared with the cube: everyone who can see the cube can see it, so a cube's owner sees every ranking of it. Switch to Only me in Settings, where you can also give it a Label (optional) or remove one, change its depth or size, or delete it. Labels others can see are checked like deck names."
