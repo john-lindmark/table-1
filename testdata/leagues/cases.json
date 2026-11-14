@@ -1,0 +1,1074 @@
+{
+ "format_keys": [
+  {
+   "key": "standard",
+   "label": "Standard"
+  },
+  {
+   "key": "pioneer",
+   "label": "Pioneer"
+  },
+  {
+   "key": "modern",
+   "label": "Modern"
+  },
+  {
+   "key": "legacy",
+   "label": "Legacy"
+  },
+  {
+   "key": "vintage",
+   "label": "Vintage"
+  },
+  {
+   "key": "pauper",
+   "label": "Pauper"
+  },
+  {
+   "key": "premodern",
+   "label": "Premodern"
+  },
+  {
+   "key": "canadian_highlander",
+   "label": "Canadian Highlander"
+  },
+  {
+   "key": "limited",
+   "label": "Limited"
+  },
+  {
+   "key": "cube",
+   "label": "Cube"
+  },
+  {
+   "key": "other",
+   "label": "Other"
+  }
+ ],
+ "presets": {
+  "places": {
+   "places": [
+    {
+     "through": 1,
+     "points": 12
+    },
+    {
+     "through": 2,
+     "points": 10
+    },
+    {
+     "through": 4,
+     "points": 8
+    },
+    {
+     "through": 8,
+     "points": 6
+    },
+    {
+     "through": 16,
+     "points": 3
+    }
+   ],
+   "participation": 1,
+   "match_win": 0
+  },
+  "match_wins": {
+   "places": [],
+   "participation": 1,
+   "match_win": 1
+  }
+ },
+ "points_words": [
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 1,
+      "points": 12
+     },
+     {
+      "through": 2,
+      "points": 10
+     },
+     {
+      "through": 4,
+      "points": 8
+     },
+     {
+      "through": 8,
+      "points": 6
+     },
+     {
+      "through": 16,
+      "points": 3
+     }
+    ],
+    "participation": 1,
+    "match_win": 0
+   },
+   "want": "1st 12 · 2nd 10 · Top 4 8 · Top 8 6 · Top 16 3 · Others 1"
+  },
+  {
+   "rule": {
+    "places": [],
+    "participation": 1,
+    "match_win": 1
+   },
+   "want": "Playing 1 · Match win 1"
+  },
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 1,
+      "points": 5
+     },
+     {
+      "through": 2,
+      "points": 3
+     },
+     {
+      "through": 3,
+      "points": 2
+     },
+     {
+      "through": 8,
+      "points": 1
+     }
+    ],
+    "participation": 0,
+    "match_win": 2
+   },
+   "want": "1st 5 · 2nd 3 · 3rd 2 · Top 8 1 · Match win 2"
+  },
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 4,
+      "points": 4
+     }
+    ],
+    "participation": 0,
+    "match_win": 0
+   },
+   "want": "Top 4 4"
+  },
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 11,
+      "points": 1
+     },
+     {
+      "through": 12,
+      "points": 0
+     },
+     {
+      "through": 13,
+      "points": 0
+     }
+    ],
+    "participation": 0,
+    "match_win": 0
+   },
+   "want": "Top 11 1 · 12th 0 · 13th 0"
+  }
+ ],
+ "place_points": [
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 1,
+      "points": 12
+     },
+     {
+      "through": 2,
+      "points": 10
+     },
+     {
+      "through": 4,
+      "points": 8
+     },
+     {
+      "through": 8,
+      "points": 6
+     },
+     {
+      "through": 16,
+      "points": 3
+     }
+    ],
+    "participation": 1,
+    "match_win": 0
+   },
+   "place": 1,
+   "want": 12
+  },
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 1,
+      "points": 12
+     },
+     {
+      "through": 2,
+      "points": 10
+     },
+     {
+      "through": 4,
+      "points": 8
+     },
+     {
+      "through": 8,
+      "points": 6
+     },
+     {
+      "through": 16,
+      "points": 3
+     }
+    ],
+    "participation": 1,
+    "match_win": 0
+   },
+   "place": 2,
+   "want": 10
+  },
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 1,
+      "points": 12
+     },
+     {
+      "through": 2,
+      "points": 10
+     },
+     {
+      "through": 4,
+      "points": 8
+     },
+     {
+      "through": 8,
+      "points": 6
+     },
+     {
+      "through": 16,
+      "points": 3
+     }
+    ],
+    "participation": 1,
+    "match_win": 0
+   },
+   "place": 3,
+   "want": 8
+  },
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 1,
+      "points": 12
+     },
+     {
+      "through": 2,
+      "points": 10
+     },
+     {
+      "through": 4,
+      "points": 8
+     },
+     {
+      "through": 8,
+      "points": 6
+     },
+     {
+      "through": 16,
+      "points": 3
+     }
+    ],
+    "participation": 1,
+    "match_win": 0
+   },
+   "place": 4,
+   "want": 8
+  },
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 1,
+      "points": 12
+     },
+     {
+      "through": 2,
+      "points": 10
+     },
+     {
+      "through": 4,
+      "points": 8
+     },
+     {
+      "through": 8,
+      "points": 6
+     },
+     {
+      "through": 16,
+      "points": 3
+     }
+    ],
+    "participation": 1,
+    "match_win": 0
+   },
+   "place": 5,
+   "want": 6
+  },
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 1,
+      "points": 12
+     },
+     {
+      "through": 2,
+      "points": 10
+     },
+     {
+      "through": 4,
+      "points": 8
+     },
+     {
+      "through": 8,
+      "points": 6
+     },
+     {
+      "through": 16,
+      "points": 3
+     }
+    ],
+    "participation": 1,
+    "match_win": 0
+   },
+   "place": 8,
+   "want": 6
+  },
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 1,
+      "points": 12
+     },
+     {
+      "through": 2,
+      "points": 10
+     },
+     {
+      "through": 4,
+      "points": 8
+     },
+     {
+      "through": 8,
+      "points": 6
+     },
+     {
+      "through": 16,
+      "points": 3
+     }
+    ],
+    "participation": 1,
+    "match_win": 0
+   },
+   "place": 9,
+   "want": 3
+  },
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 1,
+      "points": 12
+     },
+     {
+      "through": 2,
+      "points": 10
+     },
+     {
+      "through": 4,
+      "points": 8
+     },
+     {
+      "through": 8,
+      "points": 6
+     },
+     {
+      "through": 16,
+      "points": 3
+     }
+    ],
+    "participation": 1,
+    "match_win": 0
+   },
+   "place": 16,
+   "want": 3
+  },
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 1,
+      "points": 12
+     },
+     {
+      "through": 2,
+      "points": 10
+     },
+     {
+      "through": 4,
+      "points": 8
+     },
+     {
+      "through": 8,
+      "points": 6
+     },
+     {
+      "through": 16,
+      "points": 3
+     }
+    ],
+    "participation": 1,
+    "match_win": 0
+   },
+   "place": 17,
+   "want": 1
+  },
+  {
+   "rule": {
+    "places": [
+     {
+      "through": 1,
+      "points": 12
+     },
+     {
+      "through": 2,
+      "points": 10
+     },
+     {
+      "through": 4,
+      "points": 8
+     },
+     {
+      "through": 8,
+      "points": 6
+     },
+     {
+      "through": 16,
+      "points": 3
+     }
+    ],
+    "participation": 1,
+    "match_win": 0
+   },
+   "place": 200,
+   "want": 1
+  }
+ ],
+ "qualify_words": [
+  {
+   "qualify": {
+    "winners": true,
+    "pass_down": true,
+    "top": 10
+   },
+   "want": "Event winners and the top 10 on points"
+  },
+  {
+   "qualify": {
+    "winners": true,
+    "pass_down": false,
+    "top": 0
+   },
+   "want": "Event winners"
+  },
+  {
+   "qualify": {
+    "winners": false,
+    "pass_down": true,
+    "top": 8
+   },
+   "want": "The top 8 on points"
+  },
+  {
+   "qualify": {
+    "winners": false,
+    "pass_down": true,
+    "top": 0
+   },
+   "want": ""
+  }
+ ],
+ "row_label": [
+  {
+   "event": {
+    "name": "Modern Open",
+    "status": "setup",
+    "current_round": 0,
+    "format_label": "Modern",
+    "venue_name": "MeH Games",
+    "capacity": null,
+    "players": 12,
+    "km": 19,
+    "visibility": "public",
+    "league": {
+     "name": "The Mountain Magic Series"
+    }
+   },
+   "want": "THE MOUNTAIN MAGIC SERIES"
+  },
+  {
+   "event": {
+    "name": "Friday draft",
+    "status": "setup",
+    "current_round": 0,
+    "format_label": "Draft",
+    "venue_name": null,
+    "capacity": 8,
+    "players": 5,
+    "km": null,
+    "visibility": "friends",
+    "league": null
+   },
+   "want": "FRIENDS"
+  },
+  {
+   "event": {
+    "name": "Legacy Open",
+    "status": "in_progress",
+    "current_round": 3,
+    "format_label": "Legacy",
+    "venue_name": "Mythic Games",
+    "capacity": 32,
+    "players": 30,
+    "km": 4,
+    "visibility": "public",
+    "league": null
+   },
+   "want": null
+  },
+  {
+   "event": {
+    "name": "Seated draft",
+    "status": "seated",
+    "current_round": 0,
+    "format_label": "Draft",
+    "venue_name": "Level 7",
+    "capacity": null,
+    "players": 8,
+    "km": null,
+    "visibility": "public",
+    "league": null
+   },
+   "want": null
+  }
+ ],
+ "event_line": [
+  {
+   "event": {
+    "name": "Modern Open",
+    "status": "setup",
+    "current_round": 0,
+    "format_label": "Modern",
+    "venue_name": "MeH Games",
+    "capacity": null,
+    "players": 12,
+    "km": 19,
+    "visibility": "public",
+    "league": {
+     "name": "The Mountain Magic Series"
+    }
+   },
+   "when": "SUN 29 MAR · 10:00",
+   "want": "SUN 29 MAR · 10:00 · MODERN · MEH GAMES · 19 KM"
+  },
+  {
+   "event": {
+    "name": "Friday draft",
+    "status": "setup",
+    "current_round": 0,
+    "format_label": "Draft",
+    "venue_name": null,
+    "capacity": 8,
+    "players": 5,
+    "km": null,
+    "visibility": "friends",
+    "league": null
+   },
+   "when": "SUN 29 MAR · 10:00",
+   "want": "SUN 29 MAR · 10:00 · DRAFT · 5/8"
+  },
+  {
+   "event": {
+    "name": "Legacy Open",
+    "status": "in_progress",
+    "current_round": 3,
+    "format_label": "Legacy",
+    "venue_name": "Mythic Games",
+    "capacity": 32,
+    "players": 30,
+    "km": 4,
+    "visibility": "public",
+    "league": null
+   },
+   "when": "SUN 29 MAR · 10:00",
+   "want": "NOW · ROUND 3 · LEGACY · MYTHIC GAMES · 30/32 · 4 KM"
+  },
+  {
+   "event": {
+    "name": "Seated draft",
+    "status": "seated",
+    "current_round": 0,
+    "format_label": "Draft",
+    "venue_name": "Level 7",
+    "capacity": null,
+    "players": 8,
+    "km": null,
+    "visibility": "public",
+    "league": null
+   },
+   "when": "SUN 29 MAR · 10:00",
+   "want": "SUN 29 MAR · 10:00 · DRAFT · LEVEL 7"
+  },
+  {
+   "event": {
+    "name": "Friday draft",
+    "status": "setup",
+    "current_round": 0,
+    "format_label": "Draft",
+    "venue_name": null,
+    "capacity": 8,
+    "players": 5,
+    "km": null,
+    "visibility": "friends",
+    "league": null
+   },
+   "when": null,
+   "want": "DRAFT · 5/8"
+  }
+ ],
+ "when_window": [
+  {
+   "pick": "today",
+   "now": "2026-11-13T18:30:00-07:00",
+   "zone": "America/Denver",
+   "want": [
+    "2026-11-13T07:00:00Z",
+    "2026-11-14T07:00:00Z"
+   ]
+  },
+  {
+   "pick": "weekend",
+   "now": "2026-11-13T18:30:00-07:00",
+   "zone": "America/Denver",
+   "want": [
+    "2026-11-14T07:00:00Z",
+    "2026-11-16T07:00:00Z"
+   ]
+  },
+  {
+   "pick": "weekend",
+   "now": "2026-11-14T09:00:00-07:00",
+   "zone": "America/Denver",
+   "want": [
+    "2026-11-14T07:00:00Z",
+    "2026-11-16T07:00:00Z"
+   ]
+  },
+  {
+   "pick": "weekend",
+   "now": "2026-11-15T23:30:00-07:00",
+   "zone": "America/Denver",
+   "want": [
+    "2026-11-15T07:00:00Z",
+    "2026-11-16T07:00:00Z"
+   ]
+  },
+  {
+   "pick": "week",
+   "now": "2026-11-13T18:30:00-07:00",
+   "zone": "America/Denver",
+   "want": [
+    "2026-11-13T07:00:00Z",
+    "2026-11-16T07:00:00Z"
+   ]
+  },
+  {
+   "pick": "week",
+   "now": "2026-11-16T00:10:00-07:00",
+   "zone": "America/Denver",
+   "want": [
+    "2026-11-16T07:00:00Z",
+    "2026-11-23T07:00:00Z"
+   ]
+  },
+  {
+   "pick": "month",
+   "now": "2026-11-13T18:30:00-07:00",
+   "zone": "America/Denver",
+   "want": [
+    "2026-11-13T07:00:00Z",
+    "2026-12-01T07:00:00Z"
+   ]
+  },
+  {
+   "pick": "month",
+   "now": "2026-12-31T23:59:00+01:00",
+   "zone": "Europe/Stockholm",
+   "want": [
+    "2026-12-30T23:00:00Z",
+    "2026-12-31T23:00:00Z"
+   ]
+  },
+  {
+   "pick": "today",
+   "now": "2026-03-29T01:30:00+01:00",
+   "zone": "Europe/Stockholm",
+   "want": [
+    "2026-03-28T23:00:00Z",
+    "2026-03-29T22:00:00Z"
+   ]
+  },
+  {
+   "pick": "week",
+   "now": "2026-10-31T12:00:00-06:00",
+   "zone": "America/Denver",
+   "want": [
+    "2026-10-31T06:00:00Z",
+    "2026-11-02T07:00:00Z"
+   ]
+  },
+  {
+   "pick": "any",
+   "now": "2026-11-13T18:30:00-07:00",
+   "zone": "America/Denver",
+   "want": null
+  }
+ ],
+ "filter_labels": [
+  {
+   "filters": {},
+   "want": {
+    "format": "Any format",
+    "where": "Everywhere",
+    "when": "Any time",
+    "more": "More"
+   }
+  },
+  {
+   "filters": {
+    "formats": [
+     "modern"
+    ]
+   },
+   "want": {
+    "format": "Modern",
+    "where": "Everywhere",
+    "when": "Any time",
+    "more": "More"
+   }
+  },
+  {
+   "filters": {
+    "formats": [
+     "modern",
+     "limited",
+     "cube"
+    ],
+    "km": 50,
+    "when": "weekend"
+   },
+   "want": {
+    "format": "3 formats",
+    "where": "50 km",
+    "when": "This weekend",
+    "more": "More"
+   }
+  },
+  {
+   "filters": {
+    "team": true,
+    "open": true
+   },
+   "want": {
+    "format": "Any format",
+    "where": "Everywhere",
+    "when": "Any time",
+    "more": "More · 2"
+   }
+  },
+  {
+   "filters": {
+    "scope": "friends",
+    "league": true,
+    "when": "month"
+   },
+   "want": {
+    "format": "Any format",
+    "where": "Everywhere",
+    "when": "This month",
+    "more": "More · 2"
+   }
+  },
+  {
+   "filters": {
+    "km": 250,
+    "scope": "all"
+   },
+   "want": {
+    "format": "Any format",
+    "where": "250 km",
+    "when": "Any time",
+    "more": "More"
+   }
+  }
+ ],
+ "board_line": [
+  {
+   "board": {
+    "players": 124,
+    "me": {
+     "rating": 1612,
+     "rank": 14,
+     "to_go": 0
+    }
+   },
+   "want": "124 LISTED · YOU 1612 · #14"
+  },
+  {
+   "board": {
+    "players": 124,
+    "me": {
+     "rating": 1540,
+     "rank": null,
+     "to_go": 4
+    }
+   },
+   "want": "124 LISTED · YOU 1540 · 4 TO GO"
+  },
+  {
+   "board": {
+    "players": 0,
+    "me": null
+   },
+   "want": "0 LISTED"
+  },
+  {
+   "board": {
+    "players": 9,
+    "me": {
+     "rating": 1580,
+     "rank": null,
+     "to_go": 0
+    }
+   },
+   "want": "9 LISTED · YOU 1580 · NOT LISTED"
+  }
+ ],
+ "league_line": [
+  {
+   "card": {
+    "season": "2026",
+    "region": "Denver, Colorado",
+    "next_event": {
+     "name": "Modern Open"
+    }
+   },
+   "want": "2026 · DENVER, COLORADO · NEXT MODERN OPEN"
+  },
+  {
+   "card": {
+    "season": null,
+    "region": null,
+    "next_event": null
+   },
+   "want": ""
+  },
+  {
+   "card": {
+    "season": "Spring",
+    "region": null,
+    "next_event": {
+     "name": "Week 6"
+    }
+   },
+   "want": "SPRING · NEXT WEEK 6"
+  }
+ ],
+ "display_auto": [
+  {
+   "status": "setup",
+   "round": 0,
+   "elapsed": 0,
+   "results_in": 0,
+   "matches": 0,
+   "t": 10,
+   "want": "welcome"
+  },
+  {
+   "status": "in_progress",
+   "round": 1,
+   "elapsed": 60,
+   "results_in": 0,
+   "matches": 8,
+   "t": 10,
+   "want": "pairings"
+  },
+  {
+   "status": "in_progress",
+   "round": 1,
+   "elapsed": 299,
+   "results_in": 3,
+   "matches": 8,
+   "t": 110,
+   "want": "pairings"
+  },
+  {
+   "status": "in_progress",
+   "round": 2,
+   "elapsed": 300,
+   "results_in": 0,
+   "matches": 8,
+   "t": 110,
+   "want": "clock"
+  },
+  {
+   "status": "in_progress",
+   "round": 2,
+   "elapsed": 900,
+   "results_in": 3,
+   "matches": 8,
+   "t": 99,
+   "want": "clock"
+  },
+  {
+   "status": "in_progress",
+   "round": 2,
+   "elapsed": 900,
+   "results_in": 3,
+   "matches": 8,
+   "t": 100,
+   "want": "standings"
+  },
+  {
+   "status": "in_progress",
+   "round": 2,
+   "elapsed": 900,
+   "results_in": 3,
+   "matches": 8,
+   "t": 119,
+   "want": "standings"
+  },
+  {
+   "status": "in_progress",
+   "round": 2,
+   "elapsed": 900,
+   "results_in": 3,
+   "matches": 8,
+   "t": 120,
+   "want": "clock"
+  },
+  {
+   "status": "in_progress",
+   "round": 3,
+   "elapsed": 2000,
+   "results_in": 8,
+   "matches": 8,
+   "t": 30,
+   "want": "standings"
+  },
+  {
+   "status": "completed",
+   "round": 3,
+   "elapsed": 9000,
+   "results_in": 8,
+   "matches": 8,
+   "t": 30,
+   "want": "standings"
+  },
+  {
+   "status": "seated",
+   "round": 0,
+   "elapsed": 0,
+   "results_in": 0,
+   "matches": 0,
+   "t": 500,
+   "want": "welcome"
+  }
+ ],
+ "display_pages": [
+  {
+   "rows": 8,
+   "height": 1080,
+   "row_height": 72,
+   "header": 240,
+   "want": {
+    "per_page": 11,
+    "pages": 1
+   }
+  },
+  {
+   "rows": 64,
+   "height": 1080,
+   "row_height": 72,
+   "header": 240,
+   "want": {
+    "per_page": 11,
+    "pages": 6
+   }
+  },
+  {
+   "rows": 65,
+   "height": 1080,
+   "row_height": 72,
+   "header": 240,
+   "want": {
+    "per_page": 11,
+    "pages": 6
+   }
+  },
+  {
+   "rows": 0,
+   "height": 1080,
+   "row_height": 72,
+   "header": 240,
+   "want": {
+    "per_page": 11,
+    "pages": 1
+   }
+  },
+  {
+   "rows": 200,
+   "height": 720,
+   "row_height": 60,
+   "header": 180,
+   "want": {
+    "per_page": 9,
+    "pages": 23
+   }
+  },
+  {
+   "rows": 5,
+   "height": 200,
+   "row_height": 72,
+   "header": 240,
+   "want": {
+    "per_page": 1,
+    "pages": 5
+   }
+  }
+ ]
+}

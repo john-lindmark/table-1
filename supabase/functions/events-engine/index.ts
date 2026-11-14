@@ -8,6 +8,9 @@
 //   POST { action: "repair_round", event_id, round_id, clear_results?, reason? }
 //                                              -> pairs the latest, still active round again from the results as they
 //                                                  are now (organizers only; contract/repair-round-2026-11-09.md)
+//   POST { action: "placements", event_id } + x-t1-secret
+//                                              -> writes a finished event's final places (public.event_placements);
+//                                                  the database asks (contract/public-events-leagues-2026-11-13.md)
 // Rules are the same files the web app ships (standings, pairings, seating, teams), so web and server agree.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { pairRound, type ProposedMatch } from "./pairings.ts";
@@ -18,6 +21,7 @@ import {
 import {
   computeTeamStandings, membersOf, pairTeamDraftRound, pairTeamSwissRound, teamClinch, teamProblems, type Team,
 } from "./teams.ts";
+import { placementRows } from "./placements.ts";
 import type { Match, MatchSide, Participant } from "./types.ts";
 
 const cors = {
@@ -203,6 +207,19 @@ async function standings(eventId: string, authHeader: string, token: string | nu
     seating: isDraft(event) ? seatingView(participants, pods, teams) : null,
     pod_pairing: event.format_name === "draft" ? event.pod_pairing ?? "cross" : null,
   });
+}
+
+/** Final places for a finished event, asked for by the database (x-t1-secret) when it completes or a result is
+ * corrected afterwards. Written through public.event_placements_put, which ignores events that aren't over. */
+async function placements(eventId: string, secret: string) {
+  const { data: ok } = await admin.rpc("live_push_secret_ok", { p_secret: secret });
+  if (ok !== true) return json({ error: "Not allowed" }, 403);
+  const { event, participants, rounds, teams } = await loadEvent(eventId);
+  if (!event) return json({ error: "That event isn't available" }, 404);
+  const rows = placementRows(participants, rounds, teams, isTeamEvent(event));
+  const { data, error } = await admin.rpc("event_placements_put", { p_event_id: eventId, p_rows: rows });
+  if (error) return json({ error: error.message }, 500);
+  return json(data);
 }
 
 /** Re-pair: the latest round, still active, taken back (public.withdraw_round) once its new pairings are known. */
@@ -402,6 +419,9 @@ Deno.serve(async (req) => {
     if (body.action === "standings") {
       const token = typeof body.token === "string" && body.token ? body.token : null;
       return await standings(eventId, req.headers.get("Authorization") ?? "", token);
+    }
+    if (body.action === "placements") {
+      return await placements(eventId, req.headers.get("x-t1-secret") ?? "");
     }
     if (body.action === "pair_round" || body.action === "seat_players" || body.action === "repair_round") {
       const auth = req.headers.get("Authorization") ?? "";

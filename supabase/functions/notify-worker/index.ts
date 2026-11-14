@@ -15,6 +15,7 @@ import { signUpCopy, type SignUpCount } from "./sign-up.ts";
 import { deckFoundCopy } from "./deck-found.ts";
 import { eventFollowCopy } from "./event-follow.ts";
 import { deckPhotoCopy } from "./deck-photo.ts";
+import { leagueCopy } from "./league.ts";
 
 const url = Deno.env.get("SUPABASE_URL")!;
 const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
@@ -64,6 +65,12 @@ function copy(m: Message, eventName: string, mine?: { table: number | null; oppo
     case "event.follow_round":
     case "event.follow_done":
       return { ...eventFollowCopy(m.kind, { ...d, event_name: name }), priority: 5 };
+    // contract/public-events-leagues-2026-11-13.md § Notifications: a league you follow or play in; the app opens it.
+    case "league.event":
+    case "league.results":
+    case "league.qualified":
+    case "league.season":
+      return { ...leagueCopy(m.kind, { ...d, event_name: d.event_name ?? name }), priority: 5 };
     // contract/event-night-2026-10-16.md § 7: your last match is in and no deck photo yet; the app opens Take a photo.
     case "event.deck_photo":
       return { ...deckPhotoCopy({ ...d, event_name: name }), priority: 5 };
@@ -218,8 +225,9 @@ async function run() {
     const mine = await matchesFor(m);
     const count = await signUpCount(m);
     // The same for every recipient: what a tap opens (the apps route by these keys), the collapse key and the group.
-    const collapseId = `${m.kind}:${m.event_id ?? m.data?.ranking_id ?? m.data?.item_id ?? m.data?.user_id ?? m.data?.bug_id ?? m.data?.insights_key ?? m.data?.job_id ?? ""}`.slice(0, 64);
-    const thread = m.event_id ?? (m.kind.startsWith("ops.") ? "ops" : m.kind.startsWith("ranking.") ? "rankings"
+    const collapseId = `${m.kind}:${m.event_id ?? m.data?.ranking_id ?? m.data?.item_id ?? m.data?.user_id ?? m.data?.bug_id ?? m.data?.insights_key ?? m.data?.job_id ?? m.data?.season_id ?? m.data?.league_id ?? ""}`.slice(0, 64);
+    const thread = (m.kind.startsWith("league.") && typeof m.data?.league_id === "string" ? m.data.league_id : null) ?? m.event_id
+      ?? (m.kind.startsWith("ops.") ? "ops" : m.kind.startsWith("ranking.") ? "rankings"
       : m.kind.startsWith("follow.") ? "following" : m.kind.startsWith("trade.") ? "trades"
       : m.kind.startsWith("want.") ? "wants" : m.kind.startsWith("insights.") ? "insights" : m.kind.startsWith("deck.") ? "decks" : "friends");
     const info = {
@@ -229,6 +237,7 @@ async function run() {
       ...(m.kind === "insights.new"
         ? { insights_section: m.data?.insights_section ?? null, insights_key: m.data?.insights_key ?? null, what: m.data?.what ?? null } : {}),
       ...(m.kind === "deck.found" ? { job_id: m.data?.job_id ?? null, status: m.data?.status ?? null } : {}),
+      ...(m.kind.startsWith("league.") ? { league_id: m.data?.league_id ?? null, league_slug: m.data?.league_slug ?? null } : {}),
     };
     const alerts: Alert[] = [];
     const androidAlerts: fcm.AndroidAlert[] = [];
