@@ -496,7 +496,7 @@ keep / pick_wins, `removed`: screens), `ranking_changes_opened`, `ranking_job_do
 
 ## Status
 
-- **Tighter checks and the engine as a file (2026-11-13; committed, not published, deployed or shipped yet):** reference, web, iOS and Android
+- **Tighter checks and the engine as a file (2026-11-13; committed; the engine file published and `ranking-brief` v21 / `discord-bot` v17 deployed 2026-11-13; web and app builds not yet):** reference, web, iOS and Android
   engines pass the regenerated cases (web 39 + `rankEngine.test.ts` 5, lock-in p95 2.2 ms; iOS `CubeRankingTests` 10,
   `RankEngineTests` 5; Android `CubeRankingTest` 7, `RankEngineTest` 4, the last through Node). The built file replays
   every shared case in a bare context, in JavaScriptCore on iOS (Simulator) and in QuickJS on the Android emulator
