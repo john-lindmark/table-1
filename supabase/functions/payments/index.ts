@@ -12,7 +12,7 @@
 //   POST /payments/webhook                           -> Stripe's events from connected accounts (signature checked)
 //
 // Deploy with --no-verify-jwt: the webhook carries no JWT, and every other action checks the caller's token itself.
-// Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET. Without them the function answers 503 and the clients show
+// Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET; STRIPE_SECRET_KEY_TEST + STRIPE_WEBHOOK_SECRET_TEST win while set. Without them the function answers 503 and the clients show
 // "Payments aren't set up yet". All state changes go through the service-only RPCs in 20261113160000_entry_fees.sql.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
@@ -22,8 +22,12 @@ import {
 const url = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
-const STRIPE_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
-const WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
+// While STRIPE_SECRET_KEY_TEST is set the function runs on Stripe's sandbox and never touches the live key (John,
+// 2026-11-14: testing first). Going live for real money = unset STRIPE_SECRET_KEY_TEST and STRIPE_WEBHOOK_SECRET_TEST.
+const TEST_KEY = Deno.env.get("STRIPE_SECRET_KEY_TEST") ?? "";
+const TESTING = TEST_KEY !== "";
+const STRIPE_KEY = TESTING ? TEST_KEY : Deno.env.get("STRIPE_SECRET_KEY") ?? "";
+const WEBHOOK_SECRET = TESTING ? Deno.env.get("STRIPE_WEBHOOK_SECRET_TEST") ?? "" : Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
 const SITE = (Deno.env.get("PUBLIC_SITE_URL") ?? "https://table-1.site").replace(/\/$/, "");
 
 const cors = {
@@ -160,6 +164,8 @@ async function webhook(req: Request) {
   // deno-lint-ignore no-explicit-any
   let ev: any;
   try { ev = JSON.parse(raw); } catch { return json({ error: "Not JSON" }, 400); }
+  // A sandbox function ignores live events and the other way round, whatever endpoint they were sent to.
+  if (typeof ev?.livemode === "boolean" && ev.livemode === TESTING) return json({ received: true, ignored: "mode" });
   const act = eventAction(ev);
   if (act?.do === "settle") {
     const out = await rpc("payment_settle", { p_session_id: act.session, p_payment_intent: act.intent, p_status: act.status });
