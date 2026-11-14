@@ -26,10 +26,19 @@ import SwiftUI
 /// sample data, and nothing here asks for location or notifications.
 struct EventsDemoRoot: View {
     static let switcherModes = ["create", "setup", "seating", "results", "photo"]
-    static let fullModes = ["pods", "podslive", "home", "homeorg", "account", "live", "player", "playerdone"]
+    static let fullModes = ["pods", "podslive", "home", "homeorg", "account", "live", "player", "playerdone"] + leagueModes
+    /// Finding events, leagues and boards on stand-in data (LeaguesDemo.swift): each opens over the demo home.
+    /// - `find` | `findleagues` | `boards`: Find on its Events, Leagues or Boards tab.
+    /// - `board`: the Modern board. `league`: a league's page (you follow it); `leaguedetails`, `leaguestandings`,
+    ///   `leagueplayer`: its details, whole table and your season.
+    /// - `leagueorg`: the same league as its owner, on the organizer's tools; `leagueseason`: a season being edited.
+    /// - `about`: an event's About and league rows.
+    /// `home` shows Find events under your own events.
+    static let leagueModes = ["find", "findleagues", "boards", "board", "league", "leaguedetails", "leaguestandings", "leagueplayer",
+                              "leagueorg", "leagueseason", "about"]
 
     @State private var screen: String
-    @State private var path: [Route] = []
+    @State private var path: [Route]
     @State private var accountPath: [LibraryRoute] = []
     private let full: Bool
     private let startTab: String?
@@ -41,8 +50,27 @@ struct EventsDemoRoot: View {
         full = Self.fullModes.contains(mode)
         startTab = Self.arg("-T1Tab")
         Repo.demoUserId = DemoData.me
-        DemoScreens.home = mode == "home" ? DemoData.playerHome : mode == "homeorg" ? DemoData.organizerHome : nil
-        DemoScreens.snapshots = mode == "home" ? [DemoData.playSnapshot] : []
+        let leagues = Self.leagueModes.contains(mode)
+        DemoScreens.home = mode == "home" || leagues ? DemoData.playerHome : mode == "homeorg" ? DemoData.organizerHome : nil
+        DemoScreens.snapshots = mode == "home" || leagues ? [DemoData.playSnapshot] : []
+        LeaguesDemo.on = true
+        LeaguesDemo.role = ["leagueorg", "leagueseason", "setup"].contains(mode) ? "owner" : nil
+        let league = Route.league(LeaguesDemo.slug)
+        let start: [Route] = switch mode {
+        case "find": [.find("events")]
+        case "findleagues": [.find("leagues")]
+        case "boards": [.find("boards")]
+        case "board": [.find("boards"), .board("modern")]
+        case "league": [league]
+        case "leaguedetails": [league, .leagueDetails(LeaguesDemo.leagueId)]
+        case "leaguestandings": [league, .leagueStandings(LeaguesDemo.seasonId, "\(LeaguesDemo.league) · 2026")]
+        case "leagueplayer": [league, .leaguePlayer(LeaguesDemo.seasonId, "u:\(LeaguesDemo.me)", "Ann Ito")]
+        case "leagueorg": [league, .leagueTools(LeaguesDemo.leagueId)]
+        case "leagueseason": [league, .leagueTools(LeaguesDemo.leagueId), .leagueSeason(LeaguesDemo.leagueId, LeaguesDemo.seasonId)]
+        case "about": [.eventPage("about", signUp: false)]
+        default: []
+        }
+        _path = State(initialValue: start)
         DemoScreens.account = mode == "account" ? DemoData.account : nil
         DemoScreens.deckPhotos = mode == "account" ? DemoData.myDeckPhotos : nil
     }
@@ -77,13 +105,14 @@ struct EventsDemoRoot: View {
                 PlayerView(b: DemoData.live.asPlayer, engine: DemoData.liveStandings, refresh: {}, open: { _ in })
             case "playerdone":
                 PlayerView(b: DemoData.finished.asPlayer, engine: DemoData.finalStandings, refresh: {}, open: { _ in })
-            case "home", "homeorg":
+            case let mode where mode == "home" || mode == "homeorg" || Self.leagueModes.contains(mode):
                 NavigationStack(path: $path) {
                     EventsHomeView(path: $path, isFront: true)
                         .navigationDestination(for: Route.self) { destination($0) }
                 }
                 .environment(\.openProfile) { path.append(.library(.social(.profile($0)))) }
-                T1TabBar(items: SignedInView.tabs, selection: .events) { _ in }
+                // As in the app: only a tab's root draws the tab bar.
+                if path.isEmpty { T1TabBar(items: SignedInView.tabs, selection: .events) { _ in } }
             case "account":
                 NavigationStack(path: $accountPath) {
                     AccountView(path: $accountPath)
@@ -139,6 +168,14 @@ struct EventsDemoRoot: View {
             CreateEventView(path: $path)
         case .library(let r):
             LibraryDestination(route: r, path: Route.library($path))
+        case .find, .league, .leagueOn, .leagueStandings, .leaguePlayer, .leagueDetails, .leagueTools, .leagueSeason, .board:
+            LeaguesDestination(route: route, path: $path)
+        case .eventPage("about", _):
+            // An event's About and league rows, as its page and the player screen draw them.
+            T1Screen {
+                Bar(title: "Modern Open", back: { path.removeLast() })
+                HairlineList { EventAboutRows(eventId: "about", open: { path.append($0) }) }
+            }
         default:
             T1Screen {
                 Bar(title: "Demo", back: { path.removeLast() })

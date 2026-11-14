@@ -2,7 +2,7 @@
 import SwiftUI
 import WidgetKit
 
-/// Design QA for the widgets batch without a home screen: `-T1WidgetsDemo [player|organizer|next|value|meta|grid|archetype|limited|icon|tinted]`
+/// Design QA for the widgets batch without a home screen: `-T1WidgetsDemo [player|organizer|next|value|meta|grid|archetype|limited|upcoming|icon|tinted]`
 /// draws every family on sample data at its real size (iPhone 17 points); the Insights widgets on the live Modern pack
 /// of 2026-11-02 (DebugResources/insights-demo-widget-modern.json). Debug only.
 struct WidgetsDemoRoot: View {
@@ -23,6 +23,7 @@ struct WidgetsDemoRoot: View {
                 if only == nil || only == "grid" { grid }
                 if only == nil || only == "archetype" { archetype }
                 if only == nil || only == "limited" { limited }
+                if only == nil || only == "upcoming" { upcoming }
                 if only == nil || only == "icon" { IconDemo() }
                 if only == "limitedlarge" { limitedLarge }
                 if only == "tinted" { tintedAll }
@@ -157,6 +158,26 @@ struct WidgetsDemoRoot: View {
         }
         tile(.systemLarge) { LimitedCardsWidgetView(family: .systemLarge, pack: Self.limitedPack, picks: LimitedPicks(set: "FRA", sort: "ata", color: ["R", "M"])) }
         tinted(.systemMedium) { LimitedCardsWidgetView(family: .systemMedium, pack: Self.limitedPack, picks: picks, tintedPreview: true) }
+    }
+
+    /// Upcoming events (contract/public-events-leagues-2026-11-13.md § 6) on LeaguesDemo's sample events.
+    @ViewBuilder private var upcoming: some View {
+        let events = LeaguesDemo.events
+        let all = UpcomingPicks()
+        let modern = UpcomingPicks(formats: ["modern", "legacy"], nearMe: false)
+        caption("Upcoming events · small (next, running), medium, large; two formats; none found; nothing read")
+        HStack(spacing: 16) {
+            tile(.systemSmall) { UpcomingEventsView(family: .systemSmall, events: Array(events.dropFirst()), picks: all) }
+            tile(.systemSmall) { UpcomingEventsView(family: .systemSmall, events: events, picks: all) }
+        }
+        tile(.systemMedium) { UpcomingEventsView(family: .systemMedium, events: events, picks: all) }
+        tile(.systemLarge) { UpcomingEventsView(family: .systemLarge, events: events, picks: all) }
+        tile(.systemMedium) { UpcomingEventsView(family: .systemMedium, events: events.filter { ["modern", "legacy"].contains($0.formatKey ?? "") }, picks: modern) }
+        HStack(spacing: 16) {
+            tile(.systemSmall) { UpcomingEventsView(family: .systemSmall, events: [], picks: UpcomingPicks(formats: ["vintage"])) }
+            tile(.systemSmall) { UpcomingEventsView(family: .systemSmall, events: nil, picks: all) }
+        }
+        tile(.systemMedium) { UpcomingEventsView(family: .systemMedium, events: [], picks: UpcomingPicks(formats: ["vintage", "premodern", "pauper"])) }
     }
 
     /// The Limited cards widget's longest button words (large) and its tinted look.

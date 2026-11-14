@@ -637,6 +637,10 @@ private struct EventDetailsEditor: View {
     /// The last state the server accepted (or the state loaded from the event).
     @State private var lastSaved: NewEventDraft
     @State private var visibility: String
+    /// The event's description and address (event_listing_set): the text on Done, the address after a pause.
+    @State private var about: String
+    @State private var address: String
+    @State private var addressTask: Task<Void, Never>?
     @State private var schedule: EventSchedule
     @State private var savedSchedule: EventSchedule
     @State private var scheduleTask: Task<Void, Never>?
@@ -652,6 +656,8 @@ private struct EventDetailsEditor: View {
         _form = State(initialValue: form)
         _lastSaved = State(initialValue: form.draft)
         _visibility = State(initialValue: b.event.visibility ?? "link_only")
+        _about = State(initialValue: b.event.description ?? "")
+        _address = State(initialValue: b.event.venueAddress ?? "")
         let s = EventSchedule(startsAt: b.event.startsAt.flatMap(T1Date.parse), venue: b.event.venueName ?? "", capacity: b.event.capacity)
         _schedule = State(initialValue: s)
         _savedSchedule = State(initialValue: s)
@@ -690,6 +696,10 @@ private struct EventDetailsEditor: View {
                 }
 
                 ScheduleFields(schedule: $schedule)
+                if !LeaguesServer.missing {
+                    ListingFields(description: about, address: $address) { saveAbout($0) }
+                        .onChange(of: address) { _, v in addressChanged(v) }
+                }
 
                 Section1("Rounds")
                 if !(form.format == .roto && form.pairing == "round_robin") {
@@ -704,10 +714,20 @@ private struct EventDetailsEditor: View {
                 if form.kind == .constructed { DecklistsFields(mode: $form.decklists) }
 
                 Section1("Who can find it")
-                T1Segmented(options: visibilityOptions, selection: Binding(
-                    get: { visibility },
-                    set: { next in setVisibility(next) }
-                ))
+                if LeaguesServer.missing {
+                    T1Segmented(options: visibilityOptions, selection: Binding(
+                        get: { visibility },
+                        set: { next in setVisibility(next) }
+                    ))
+                } else {
+                    // Public | Friends | Private (link_only), then the two older choices for events that use them.
+                    T1Segmented(options: [(value: "public", label: "Public"), (value: "friends", label: "Friends"), (value: "link_only", label: "Private")],
+                                selection: Binding(get: { visibility }, set: { next in setFind(next) }))
+                    Color.clear.frame(height: 7)
+                    T1Segmented(options: [(value: "nearby", label: "Nearby + QR"), (value: "private", label: "Invitation only")],
+                                selection: Binding(get: { visibility }, set: { next in setVisibility(next) }))
+                    EventLeagueRow(eventId: b.event.id)
+                }
 
                 if let error { Notice(error, error: true) }
                 Notice("Details lock when round 1 is paired. Changes save as you make them.")
@@ -794,6 +814,60 @@ private struct EventDetailsEditor: View {
         }
     }
 
+    /// Public or Friends lists the event (event_listing_set, with the venue pin when location is already shared);
+    /// Private unlists it. An event on one of the older choices goes Private through set_event_location, as before.
+    @MainActor
+    private func setFind(_ next: String) {
+        guard next != visibility else { return }
+        if next == "link_only", visibility != "public", visibility != "friends" { setVisibility(next); return }
+        let previous = visibility
+        visibility = next
+        let eventId = b.event.id
+        Task { @MainActor in
+            do {
+                let fix = next == "link_only" ? nil : await LocationFix.shared.currentIfAllowed()
+                let r = try await Repo.setEventListing(eventId, find: next == "link_only" ? "private" : next, here: fix)
+                visibility = r.visibility ?? next
+                error = nil
+                await refresh()
+            } catch {
+                visibility = previous
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
+    @MainActor
+    private func saveAbout(_ text: String) {
+        let previous = about
+        about = text
+        let eventId = b.event.id
+        Task { @MainActor in
+            do {
+                about = try await Repo.setEventListing(eventId, description: text).description ?? ""
+                error = nil
+            } catch {
+                about = previous
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
+    /// The address saves 600 ms after the last key.
+    @MainActor
+    private func addressChanged(_ v: String) {
+        if v.count > 200 { address = String(v.prefix(200)); return }
+        addressTask?.cancel()
+        let eventId = b.event.id
+        addressTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(600))
+            if Task.isCancelled { return }
+            do { _ = try await Repo.setEventListing(eventId, address: v); error = nil } catch {
+                if !Task.isCancelled { self.error = error.localizedDescription }
+            }
+        }
+    }
+
     /// set_event_location pins the event where the organizer stands, with the chosen visibility.
     @MainActor
     private func setVisibility(_ next: String) {
@@ -808,6 +882,8 @@ private struct EventDetailsEditor: View {
                 return
             }
             do {
+                // A listed event is unlisted first, so the older choice sticks.
+                if previous == "public" || previous == "friends" { try await Repo.setEventListing(event.id, find: "private") }
                 try await Repo.setEventLocation(eventId: event.id, lat: fix.lat, lng: fix.lng, venue: event.venueName, visibility: next)
                 error = nil
                 await refresh()

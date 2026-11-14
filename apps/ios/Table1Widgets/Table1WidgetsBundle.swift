@@ -11,6 +11,7 @@ struct Table1WidgetsBundle: WidgetBundle {
         MatchupGridWidget()
         ArchetypeMatchupsWidget()
         LimitedCardsWidget()
+        UpcomingEventsWidget()
         IconWidget()
         PlayerLiveActivity()
         OrganizerLiveActivity()

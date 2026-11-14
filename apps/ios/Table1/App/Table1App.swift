@@ -28,12 +28,13 @@ struct Table1App: App {
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1LibraryDemo") { LibraryDemoRoot() }
                 }
-                // `-T1EventsDemo [create|setup|seating|results|photo|home|homeorg|account|live|player|playerdone|pods]`
+                // `-T1EventsDemo [create|setup|seating|results|photo|home|homeorg|account|live|player|playerdone|pods|find|
+                // findleagues|boards|board|league|leaguedetails|leaguestandings|leagueplayer|leagueorg|leagueseason|about]`
                 // [-T1Tab <tab>]: event screens on sample data (modes in EventsDemo.swift).
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1EventsDemo") { EventsDemoRoot() }
                 }
-                // `-T1WidgetsDemo [organizer|next|value]`: the widgets batch drawn on sample data.
+                // `-T1WidgetsDemo [organizer|next|value|…|upcoming]`: the widgets drawn on sample data.
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1WidgetsDemo") { WidgetsDemoRoot() }
                 }
@@ -71,7 +72,7 @@ struct Table1App: App {
                 // Owner's QR from the camera (universal link) or a shared link; Google's sign-in return.
                 .onOpenURL { url in
                     if GIDSignIn.sharedInstance.handle(url) { return }
-                    // Widget, Live Activity and control taps: table1://event/<id>, events, collection, tracker, scan
+                    // Widget, Live Activity and control taps: table1://event/<id>, events, find, collection, tracker, scan
                     if url.scheme == "table1" {
                         session.openAppLink(url)
                         return
@@ -88,6 +89,7 @@ struct Table1App: App {
                     PushController.shared.openDeckPhoto = { session.pendingEventAddsPhoto = true; session.pendingEvent = $0 }
                     PushController.shared.openLibrary = { session.pendingLibrary = $0 }
                     PushController.shared.openInsights = { session.pendingInsightsPush = $0 }
+                    PushController.shared.openLeague = { session.pendingEventsPath = [.league($0)] }
                     AppIntentRouter.handler = { session.openAppLink($0) }
                 }
                 // Apple ID access can be withdrawn from Settings at any time.
@@ -177,6 +179,11 @@ final class SessionModel {
     var pendingInsightsPush: InsightsPush?
     /// The Next event widget with nothing to open: the Events tab's root.
     var pendingEventsTab = false
+    /// A tapped league push, or the Upcoming events widget's header: screens on the Events tab.
+    var pendingEventsPath: [Route]?
+    /// A league or board opened from another screen (a profile's achievement): pushed on the Events tab, over
+    /// whatever is there when that's the tab in front.
+    var pendingEventsRoute: Route?
     /// The Life tracker control: a local tracker once signed in (a cold launch is still loading the session).
     var pendingTracker = false
     /// While a round you're playing is running, the app opens straight into it — once per launch or
@@ -200,6 +207,8 @@ final class SessionModel {
             if let id = url.pathComponents.dropFirst().first { pendingEvent = id }
         case "events":
             pendingEventsTab = true
+        case "find":
+            pendingEventsPath = [.find("events")]
         case "collection":
             pendingLibrary = []
         case "tracker":
@@ -342,6 +351,23 @@ enum Route: Hashable {
     case addDeckPhoto(String)
     /// A Library screen on the Events tab: a player's profile (PersonLink.swift) and whatever it opens.
     case library(LibraryRoute)
+    /// Find (contract/public-events-leagues-2026-11-13.md): its tab, events | leagues | boards.
+    case find(String)
+    /// A league's page, by id or slug.
+    case league(String)
+    /// A league's page on one season (a profile's achievement): league id or slug, season id.
+    case leagueOn(String, String)
+    /// The whole table: season id, the bar's title.
+    case leagueStandings(String, String)
+    /// A player's season: season id, the player's key, their name.
+    case leaguePlayer(String, String, String)
+    case leagueDetails(String)
+    /// The organizer's tools for a league (id).
+    case leagueTools(String)
+    /// A season being added (nil) or changed: league id, season id.
+    case leagueSeason(String, String?)
+    /// A format board, by its key.
+    case board(String)
 
     /// The Library routes on top of an Events path, so a profile's screens push and pop in the Events tab.
     static func library(_ path: Binding<[Route]>) -> Binding<[LibraryRoute]> {
@@ -402,6 +428,8 @@ struct SignedInView: View {
                             case .deckPhotos(let id): DeckPhotosView(eventId: id).screen("deck_photos")
                             case .addDeckPhoto(let id): DeckPhotosView(eventId: id, startAdding: true).screen("deck_photos")
                             case .library(let r): LibraryDestination(route: r, path: Route.library($path))
+                            case .find, .league, .leagueOn, .leagueStandings, .leaguePlayer, .leagueDetails, .leagueTools, .leagueSeason, .board:
+                                LeaguesDestination(route: route, path: $path)
                             }
                         }
                 }
@@ -481,6 +509,7 @@ struct SignedInView: View {
             FollowsStore.shared.stop()
             ModerationStore.shared.stop()
             BugsStore.shared.stop()
+            FindStore.shared.stop()
         }
         // The life tracker covers the tabs (no tab bar) until it's closed.
         .overlay {
@@ -555,6 +584,22 @@ struct SignedInView: View {
                 session.tracker = nil
                 select(.events)
                 path = []
+            }
+        }
+        .task(id: session.pendingEventsPath) {
+            if let p = session.pendingEventsPath {
+                session.pendingEventsPath = nil
+                session.autoOpenArmed = false
+                session.tracker = nil
+                T1Overlays.shared.dismissAll()
+                select(.events)
+                path = p
+            }
+        }
+        .task(id: session.pendingEventsRoute) {
+            if let r = session.pendingEventsRoute {
+                session.pendingEventsRoute = nil
+                if tab == .events { path.append(r) } else { select(.events); path = [r] }
             }
         }
         .task(id: session.pendingSocial) {

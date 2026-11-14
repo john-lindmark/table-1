@@ -125,39 +125,47 @@ struct FilterCell {
     /// A filter that takes several picks (Rarity, Color): what's picked, empty = the Any option. Its picker stays open,
     /// each tap puts an option in or out, and Any clears the picks and closes it.
     var picked: [String]? = nil
+    /// A cell that opens its own panel instead of a picker of options (Find events' More).
+    var open: (() -> Void)? = nil
     let pick: (String) -> Void
 }
 
 /// Insights' filters: one row of equal cells, 50 pt tall and 1 px apart, each a dropdown that opens its picker.
 struct FilterRow: View {
     let cells: [FilterCell]
+    /// The telemetry event a pick sends (nil: the cells' own `pick` reports it) and the picker's screen name.
+    var event: String? = "insights_filter_changed"
+    var screen = "insights_filter_picker"
+    /// Four cells on a phone (Find events): a size down, so the usual values all draw at one size.
+    var compact = false
     var body: some View {
         HStack(spacing: 1) {
             ForEach(cells, id: \.name) { c in
                 Button {
+                    if let open = c.open { open(); return }
                     T1Overlays.shared.present {
                         if let picked = c.picked {
                             MultiSelectorPanel(title: c.name, options: c.options, picked: picked) { v, on in
                                 if v == LimitedFilter.any { T1Overlays.shared.dismissPanel() }
-                                Telemetry.capture("insights_filter_changed", ["filter": c.name.lowercased(), "value": v, "on": on])
+                                if let event { Telemetry.capture(event, ["filter": c.name.lowercased(), "value": v, "on": on]) }
                                 c.pick(v)
                             }
-                            .screen("insights_filter_picker")
+                            .screen(screen)
                         } else {
                             SelectorPanel(title: c.name, options: c.options, current: c.current) { v in
                                 T1Overlays.shared.dismissPanel()
-                                if v != c.current { Telemetry.capture("insights_filter_changed", ["filter": c.name.lowercased(), "value": v]) }
+                                if v != c.current, let event { Telemetry.capture(event, ["filter": c.name.lowercased(), "value": v]) }
                                 c.pick(v)
                             }
-                            .screen("insights_filter_picker")
+                            .screen(screen)
                         }
                     }
                 } label: {
                     HStack(spacing: 2) {
-                        Text(c.value.uppercased()).font(T1.mono(11)).tracking(1.5).lineLimit(1).minimumScaleFactor(0.7)
-                        T1Icon.arrowDropDown.fill(T1.muted).frame(width: 16, height: 16)
+                        Text(c.value.uppercased()).font(T1.mono(compact ? 10 : 11)).tracking(compact ? 1 : 1.5).lineLimit(1).minimumScaleFactor(0.7)
+                        T1Icon.arrowDropDown.fill(T1.muted).frame(width: compact ? 14 : 16, height: compact ? 14 : 16)
                     }
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, compact ? 4 : 6)
                     .frame(maxWidth: .infinity).frame(height: 50).background(T1.surface).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)

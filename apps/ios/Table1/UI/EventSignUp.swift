@@ -240,6 +240,8 @@ struct EventPageView: View {
     @State private var matchups = false
     /// Following it when you're not in it (contract/event-follows-2026-11-09.md).
     @State private var follow: EventFollow?
+    /// The description, address and league (contract/public-events-leagues-2026-11-13.md § 1).
+    @State private var about: EventAbout?
 
     private var state: EventRules.PageButton {
         EventRules.button(signedIn: true, signUp: page?.signUp, me: page?.me)
@@ -280,6 +282,7 @@ struct EventPageView: View {
     @ViewBuilder
     private func results(_ page: EventPage) -> some View {
         if page.me == "waitlisted" { Notice("Sign-ups are closed: you didn't get in this time.") }
+        EventAboutRows(eventId: eventId, open: { path.append($0) })
         followRow
         T1Segmented(options: [(value: false, label: "Standings"), (value: true, label: "Matchups")], selection: $matchups)
         HairlineList {
@@ -340,7 +343,12 @@ struct EventPageView: View {
                         }
                         .padding(20).frame(maxWidth: .infinity, alignment: .leading).background(T1.surface)
                         ListRow(title: page.signUpLine)
+                        EventAboutRows(eventId: eventId, open: { path.append($0) }, loaded: { about = $0 })
                         followRow
+                        // Once per device, before signing up for a public or league event.
+                        if about?.resultsPublic == true, !PublicResultsNotice.seen, state == .signUp || state == .waitlist || state == .signIn {
+                            Notice(PublicResultsNotice.text)
+                        }
                         if let message { Notice(message) }
                         if let error { Notice(error, error: true) }
                         status
@@ -438,6 +446,7 @@ struct EventPageView: View {
             defer { busy = false }
             do {
                 let r = try await Repo.signUp(id, signedInNow: now)
+                if about?.resultsPublic == true { PublicResultsNotice.markSeen() }
                 message = r.status == "waitlisted" || r.status == "already_waitlisted"
                     ? "It's full, so you're on the waitlist (number \(r.position ?? 1))." : "You're signed up."
                 await load(signUp: false)

@@ -365,6 +365,8 @@ struct ProfileScreen: View {
     @State private var viewAs = 3
     /// Your own profile ends its Rankings with the popular cubes (contract/cube-rankings-2026-10-21.md § Popular cubes).
     @State private var popular: [PopularCube] = []
+    /// League finishes and board ranks (contract/public-events-leagues-2026-11-13.md § 7); nil: none, or no answer.
+    @State private var achievements: ProfileAchievements?
 
     var body: some View {
         T1Screen {
@@ -382,6 +384,8 @@ struct ProfileScreen: View {
                     }
                     let shown = displayed(data)
                     header(shown)
+                    let tiles = AchievementsRow.shown(achievements, viewAs: asOther ? viewAs : nil, profile: store.sharing?.profile)
+                    if shown.visible, !tiles.isEmpty { AchievementsRow(items: tiles) }
                     relationActions(shown)
                     sections(shown)
                 } else if error == nil {
@@ -391,12 +395,22 @@ struct ProfileScreen: View {
         }
         .task {
             await load()
+            await loadAchievements()
             if data?.relation == .me {
                 if store.sharing == nil { await store.loadSharing() }
                 popular = (try? await RankingsStore.shared.popularCubes()) ?? []
             }
         }
         .refreshable { await load() }
+    }
+
+    /// A failed or missing call (the server part may not be live) draws no section.
+    private func loadAchievements() async {
+        guard data != nil, data?.relation != .blocked else { return }
+        #if DEBUG
+        if store.demo != nil { achievements = LeaguesDemo.achievements(own: data?.relation == .me); return }
+        #endif
+        achievements = try? await Repo.profileAchievements(userId)
     }
 
     /// What this screen shows: your profile as you picked to view it, anyone else's as it came back.
@@ -944,6 +958,8 @@ struct SharingView: View {
                     part(.profile, s)
                     part(.record, s)
                     part(.rankings, s)
+                    AchievementsSharing(settings: s)
+                    LeaderboardsSharing()
                     Section1("Friends")
                     part(.friends, s)
                     part(.listed, s)

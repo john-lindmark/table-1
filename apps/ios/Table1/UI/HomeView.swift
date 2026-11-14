@@ -32,6 +32,9 @@ struct EventsHomeView: View {
     var body: some View {
         T1Screen {
             Bar(title: "Events", subtitle: live.isEmpty ? nil : "\(live.count) live") {
+                // Find: every event you can find, leagues and boards (contract/public-events-leagues-2026-11-13.md § 1).
+                T1IconButton(icon: .search, label: "Find") { path.append(.find("events")) }
+                    .padding(.vertical, -16).padding(.horizontal, -8)
                 BarButton("Life") { session.openTracker(matchId: liveMatchId, source: "home_life") }
                 BarButton("+ New") { path.append(.create) }
             }
@@ -43,6 +46,7 @@ struct EventsHomeView: View {
                 } else if isEmpty {
                     if error != nil { Ghost(text: "Try again") { Task { await load() } } }
                     EmptyEvents(path: $path)
+                    FindEventsSection(path: $path)
                 } else {
                     ForEach(live) { e in
                         Button { path.append(.event(e.id)) } label: {
@@ -92,6 +96,7 @@ struct EventsHomeView: View {
                             .buttonStyle(.plain)
                         }
                     }
+                    FindEventsSection(path: $path)
                     if !past.isEmpty {
                         Button { withAnimation(.snappy) { showPast.toggle() } } label: {
                             Section1(showPast ? "Past · hide" : "Past · \(past.count)")
@@ -120,7 +125,11 @@ struct EventsHomeView: View {
             #endif
             // Keep this account's area cell fresh for nearby alerts (opt-in on the Nearby screen). Never prompts: the
             // permissions step after sign-in asks, or Nearby / Create when they need a fix.
-            if let fix = await LocationFix.shared.currentIfAllowed() { try? await Repo.updatePresence(lat: fix.lat, lng: fix.lng) }
+            if let fix = await LocationFix.shared.currentIfAllowed() {
+                // The Upcoming events widget's Near me reads this rough place (0.1°) from the App Group.
+                UpcomingPlace.save(lat: fix.lat, lng: fix.lng)
+                try? await Repo.updatePresence(lat: fix.lat, lng: fix.lng)
+            }
         }
     }
 
@@ -138,6 +147,7 @@ struct EventsHomeView: View {
         if let demo = DemoScreens.home {
             data = demo
             snapshots = Dictionary(DemoScreens.snapshots.map { ($0.eventId, $0) }, uniquingKeysWith: { a, _ in a })
+            await FindStore.shared.load()
             return
         }
         #endif
@@ -152,6 +162,8 @@ struct EventsHomeView: View {
             data = home
             // A server without event follows (or a failed read) just shows no Following section.
             followed = (try? await Repo.eventsFollowed()) ?? followed
+            // The events you can find, under your own (hidden on a server without it).
+            Task { await FindStore.shared.load() }
             error = nil
             stale = nil
             savedAt = .now

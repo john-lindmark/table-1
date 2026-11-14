@@ -250,6 +250,7 @@ struct PlayerView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                EventAboutRows(eventId: b.event.id, open: open)
                 if me != nil && !b.event.isFinished {
                     trackerToggle
                     if doneWhy == nil { Ghost(text: "Deck photo") { open(.deckPhotos(b.event.id)) } }

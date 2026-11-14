@@ -27,7 +27,7 @@ struct EventRow: Decodable, Identifiable, Hashable {
     var cubeName: String?
     var cubeUrl: String?
     var formatOther: String?
-    /// nearby | link_only | private
+    /// public | friends | link_only (Private) | nearby | private (invitation only)
     var visibility: String?
     var startsAt: String?
     var cancelledAt: String?
@@ -52,6 +52,9 @@ struct EventRow: Decodable, Identifiable, Hashable {
     /// "pod" inside each pod, "cross" Swiss across every pod (contract/draft-pods-2026-11-09.md).
     var pods: Int?
     var podPairing = "cross"
+    /// What the event says about itself, and where (contract/public-events-leagues-2026-11-13.md § 1).
+    var description: String?
+    var venueAddress: String?
 
     var isCancelled: Bool { status == "cancelled" }
     var isFinished: Bool { ["completed", "archived", "cancelled"].contains(status) }
@@ -69,7 +72,7 @@ struct EventRow: Decodable, Identifiable, Hashable {
              allowPlayerReporting, venueName, createdAt, cancelReason, isDemo,
              formatName, formatLabel, eventType, teamSize, setCode, setName, cubeName, cubeUrl,
              formatOther, visibility, startsAt, cancelledAt, updatedAt, showClock, autoName, seatEnds, pairing,
-             topCut, autoRounds, capacity, decklists, pods, podPairing
+             topCut, autoRounds, capacity, decklists, pods, podPairing, description, venueAddress
     }
 
     init(from decoder: Decoder) throws {
@@ -110,6 +113,8 @@ struct EventRow: Decodable, Identifiable, Hashable {
         decklists = try c.decodeIfPresent(String.self, forKey: .decklists) ?? "off"
         pods = try c.decodeIfPresent(Int.self, forKey: .pods)
         podPairing = try c.decodeIfPresent(String.self, forKey: .podPairing) ?? "cross"
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        venueAddress = try c.decodeIfPresent(String.self, forKey: .venueAddress)
     }
 }
 

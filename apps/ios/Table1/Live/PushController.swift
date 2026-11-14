@@ -86,6 +86,12 @@ final class PushController {
         didSet { if let p = pendingInsights, let openInsights { pendingInsights = nil; openInsights(p) } }
     }
 
+    /// A tapped league push (results, qualified, season over): that league's page.
+    private var pendingLeague: String?
+    var openLeague: ((String) -> Void)? {
+        didSet { if let l = pendingLeague, let openLeague { pendingLeague = nil; openLeague(l) } }
+    }
+
     /// The deck finder job the Find a deck screen is showing: its own `deck.found` push needs no banner.
     var watchingDeckJob: String?
 
@@ -99,6 +105,12 @@ final class PushController {
         if let id = PushRoutes.deckPhoto(userInfo) {
             Telemetry.capture("push_opened", ["kind": "event.deck_photo"])
             if let openDeckPhoto { openDeckPhoto(id) } else { pendingDeckPhoto = id }
+            return
+        }
+        if let league = PushRoutes.league(userInfo) {
+            Telemetry.capture("push_opened", ["kind": userInfo["kind"] as? String ?? "unknown"])
+            Telemetry.capture("league_opened", ["from": "push"])
+            if let openLeague { openLeague(league) } else { pendingLeague = league }
             return
         }
         if let p = PushRoutes.insights(userInfo) {

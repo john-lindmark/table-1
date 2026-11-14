@@ -213,6 +213,14 @@ enum PushRoutes {
         return id
     }
 
+    /// A league push that opens the league (contract/public-events-leagues-2026-11-13.md § Notifications): results,
+    /// qualified and season over, by `league_id` (else its slug). `league.event` carries an event and opens that.
+    static func league(_ info: [AnyHashable: Any]) -> String? {
+        guard let kind = info["kind"] as? String, ["league.results", "league.qualified", "league.season"].contains(kind) else { return nil }
+        let id = (info["league_id"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        return id ?? (info["league_slug"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
     /// A tapped Insights widget: `table1://insights/<format>[/matchups | /archetype/<id>]?tier=big&days=30`.
     static func insightsWidget(_ url: URL) -> InsightsPush? {
         guard url.scheme == "table1", url.host() == "insights" else { return nil }

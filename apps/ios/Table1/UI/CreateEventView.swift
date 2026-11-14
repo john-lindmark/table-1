@@ -36,6 +36,10 @@ struct CreateEventView: View {
     @State private var myName: String?
     @State private var guests: [String] = []
     @State private var nearby = true
+    /// Who can find it: public | friends | private (contract/public-events-leagues-2026-11-13.md § 1).
+    @State private var find = "private"
+    @State private var about = ""
+    @State private var address = ""
     @State private var busy = false
     @State private var error: String?
 
@@ -122,6 +126,10 @@ struct CreateEventView: View {
                     }
 
                     ScheduleFields(schedule: $schedule)
+                    if !LeaguesServer.missing {
+                        ListingFields(description: about, address: $address) { about = $0 }
+                            .onChange(of: address) { _, v in if v.count > 200 { address = String(v.prefix(200)) } }
+                    }
 
                     Section1("Rounds")
                     if !(isRoto && pairing == "round_robin") {
@@ -139,10 +147,15 @@ struct CreateEventView: View {
                     PlayersFields(includeMe: $includeMe, myName: myName, guests: $guests)
 
                     Section1("Who can find it")
-                    T1Segmented(options: [(value: true, label: "Nearby + QR"), (value: false, label: "QR only")], selection: $nearby)
-                    Notice(nearby
-                        ? "Players within 150 m can find and join it, and players nearby who turned on alerts get a Join / Decline notification."
-                        : "Only people who scan your QR code can join.")
+                    if LeaguesServer.missing {
+                        T1Segmented(options: [(value: true, label: "Nearby + QR"), (value: false, label: "QR only")], selection: $nearby)
+                        Notice(nearby
+                            ? "Players within 150 m can find and join it, and players nearby who turned on alerts get a Join / Decline notification."
+                            : "Only people who scan your QR code can join.")
+                    } else {
+                        T1Segmented(options: [(value: "public", label: "Public"), (value: "friends", label: "Friends"), (value: "private", label: "Private")],
+                                    selection: $find)
+                    }
                     if let error { Notice(error, error: true) }
                 }
             }
@@ -186,6 +199,12 @@ struct CreateEventView: View {
         let pods = hasPods ? (podsPick, podPairing) : nil
         let guests = guests
         let includeMe = includeMe
+        // Listed events and Private ones are joined by QR, code or link; Nearby is only the older choice.
+        let listing = !LeaguesServer.missing
+        let nearby = listing ? false : nearby
+        let find = find
+        let about = about.trimmingCharacters(in: .whitespacesAndNewlines)
+        let address = address.trimmingCharacters(in: .whitespacesAndNewlines)
         Task {
             defer { busy = false }
             do {
@@ -196,11 +215,20 @@ struct CreateEventView: View {
                 }
                 // Pin it where the organizer stands; for nearby events this also alerts opted-in players around.
                 // A scheduled event is usually made away from the venue: no pin then (Details can set it there).
+                var here: Fix?
                 if schedule.startsAt == nil, let fix = await LocationFix.shared.current() {
+                    here = fix
                     try? await Repo.setEventLocation(
                         eventId: created.eventId, lat: fix.lat, lng: fix.lng,
                         venue: venue.isEmpty ? nil : venue, nearby: nearby
                     )
+                }
+                // Who can find it, the description and the address, when any was set (after the pin, which would
+                // otherwise set it back to Private).
+                if listing, find != "private" || !about.isEmpty || !address.isEmpty {
+                    _ = try? await Repo.setEventListing(created.eventId, find: find == "private" ? nil : find,
+                                                        description: about.isEmpty ? nil : about,
+                                                        address: address.isEmpty ? nil : address, here: here)
                 }
                 // Straight to inviting people; Back lands on the new event.
                 path = [.event(created.eventId), .addPlayers(created.eventId)]
