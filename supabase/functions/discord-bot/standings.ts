@@ -31,6 +31,8 @@ const toRound = (r: any): StagedRound => ({
 });
 
 export interface ResultRow {
+  /** The participant (deck photos are matched to their place by it). */
+  participantId: string;
   rank: number;
   name: string;
   wins: number;
@@ -44,7 +46,7 @@ export interface ResultRow {
 
 export function toRows(standings: PlayoffStanding[], podOf: Map<string, string> = new Map()): ResultRow[] {
   return standings.map((s) => ({
-    rank: s.rank, name: s.displayName, wins: s.matchWins + s.byes, losses: s.matchLosses, draws: s.matchDraws,
+    participantId: s.participantId, rank: s.rank, name: s.displayName, wins: s.matchWins + s.byes, losses: s.matchLosses, draws: s.matchDraws,
     points: s.matchPoints, dropped: s.status === "dropped", pod: podOf.get(s.participantId) ?? null,
   }));
 }

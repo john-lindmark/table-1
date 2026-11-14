@@ -236,7 +236,7 @@ Deno.test("team results: each team on its own, members best first under it", () 
     { ...base, teamId: "t2", name: "Team Blue", rank: 2, points: 3, wins: 1, losses: 2, matchWins: 4, members: [member("Dee", 2, 1), member("Eli", 1, 2), member("Fay", 1, 2, "dropped")] },
   ]);
   const done = { ...card, format_name: "team_draft", status: "completed", sign_up: "closed" as const };
-  const players = toRows([]).concat(Array.from({ length: 6 }, (_, i) => ({ rank: i + 1, name: `P${i}`, wins: 0, losses: 0, draws: 0, points: 0, dropped: false })));
+  const players = toRows([]).concat(Array.from({ length: 6 }, (_, i) => ({ participantId: `p${i}`, rank: i + 1, name: `P${i}`, wins: 0, losses: 0, draws: 0, points: 0, dropped: false })));
   const e = resultsEmbed(done, players, true, teams);
   assertEquals(e.title, "Results · Friday \\*\\*Modern\\*\\*");
   assertEquals(e.description, undefined, "no player list for a team event");

@@ -18,7 +18,8 @@ import {
 import {
   emptyText, RANKING_FILE, rankingChoice, rankingComponents, rankingEmbed, rankingImageAsk, type RankingPost, type RankingRow, rankingView, rankShow,
 } from "./ranking.ts";
-import { isTeamFormat, loadStandings } from "./standings.ts";
+import { batches, type PhotoPick, type PhotoRow, photoEmbed, photoFile, photosHeader, pickPhotos, uprightJpeg } from "./photos.ts";
+import { isTeamFormat, loadStandings, type ResultRow } from "./standings.ts";
 import { hashId, Telemetry } from "./telemetry.ts";
 import { verifyInteraction } from "./verify.ts";
 
@@ -173,10 +174,55 @@ async function signUpOrDrop(ctx: Ctx, action: "up" | "down", eventId: string, vi
 
 async function results(ctx: Ctx, eventId: string): Promise<Response> {
   const r = await rpc<Card & { final: boolean; organizer: boolean }>("discord_event_results", { p_discord_id: ctx.discordId, p_guild_id: ctx.guildId, p_event_id: eventId, p_channel_id: ctx.channelId });
-  const { rows, teams } = await loadStandings(admin, eventId, isTeamFormat(r.format_name), r.format_name === "draft");
-  ctx.telemetry.push({ event: "discord_results_posted", final: r.final, players: rows.length, teams: teams?.length ?? 0 });
+  const [{ rows, teams }, photos] = await Promise.all([
+    loadStandings(admin, eventId, isTeamFormat(r.format_name), r.format_name === "draft"),
+    r.final ? deckPhotos(eventId) : Promise.resolve([] as PhotoRow[]),
+  ]);
+  const picks = pickPhotos(photos, rows);
+  const players = new Set(picks.map((p) => p.photo.participant_id)).size;
+  ctx.telemetry.push({ event: "discord_results_posted", final: r.final, players: rows.length, teams: teams?.length ?? 0, photos: picks.length, photo_players: players });
   rememberPost(ctx, eventId, "results");
+  if (picks.length) later(ctx, () => postPhotos(ctx, r.name, picks, players, rows));
   return reply({ embeds: [resultsEmbed(r, rows, r.final, teams)], components: resultsComponents(r) });
+}
+
+/** The event's deck photos as players and organizers see them once it's over: hidden ones (moderation) left out. */
+async function deckPhotos(eventId: string): Promise<PhotoRow[]> {
+  const { data, error } = await admin.from("event_deck_photos").select("participant_id, path, note, turns, created_at")
+    .eq("event_id", eventId).is("hidden_at", null);
+  if (error) {
+    console.error("discord-bot: deck photos", error.message);
+    return [];
+  }
+  return (data ?? []) as PhotoRow[];
+}
+
+/** Each player's deck photo under the results, in standings order, as files on follow-up messages. A photo that
+ *  can't be read from storage is left out (logged); nothing is posted when none can. */
+async function postPhotos(ctx: Ctx, eventName: string, picks: PhotoPick[], players: number, rows: ResultRow[]) {
+  const names = new Map(rows.map((r) => [r.participantId, r.name]));
+  const read: { pick: PhotoPick; bytes: Uint8Array<ArrayBuffer>; size: number }[] = [];
+  for (let i = 0; i < picks.length; i += 4) {
+    const got = await Promise.all(picks.slice(i, i + 4).map(async (pick) => {
+      const { data, error } = await admin.storage.from("deck-photos").download(pick.photo.path);
+      if (error || !data) {
+        console.error("discord-bot: deck photo download failed", error?.message ?? "");
+        return null;
+      }
+      const bytes = uprightJpeg(new Uint8Array(await data.arrayBuffer()), pick.photo.turns);
+      return { pick, bytes, size: bytes.length };
+    }));
+    for (const g of got) if (g) read.push(g);
+  }
+  let n = 0;
+  for (const [m, batch] of batches(read).entries()) {
+    const files = batch.map((b, i) => ({ name: photoFile(i), bytes: b.bytes, type: "image/jpeg" }));
+    const embeds = batch.map((b, i) => photoEmbed(b.pick, files[i].name, names.get(b.pick.photo.participant_id) ?? null));
+    const r = await rest.followUpFiles(ctx.ix, { ...(m === 0 ? { content: photosHeader(eventName, read.length, players) } : {}), embeds }, files);
+    if (!r.ok) break;
+    n += batch.length;
+  }
+  console.log(`discord-bot: deck photos posted ${n}/${picks.length}`);
 }
 
 async function deck(ctx: Ctx, listId: string, confirm: boolean): Promise<Response> {
