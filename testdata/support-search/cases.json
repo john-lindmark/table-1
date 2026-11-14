@@ -259,7 +259,7 @@
    "top": [
     "faq:trades-price-alerts:23",
     "guide:binders-27:18",
-    "guide:push-7:18",
+    "guide:push-8:18",
     "guide:binders-24:14",
     "guide:binders-28:14",
     "guide:binders-26:10",
@@ -365,7 +365,7 @@
     "decklist"
    ],
    "partial": false,
-   "count": 12,
+   "count": 24,
    "top": [
     "faq:play-decklist:9",
     "faq:play-deck-photo-list:9",
@@ -373,8 +373,8 @@
     "guide:create-12:6",
     "guide:run-10:6",
     "guide:play-5:6",
-    "faq:decks-image:3",
-    "guide:run-6:2"
+    "guide:after-6:6",
+    "guide:after-7:6"
    ]
   },
   {
@@ -662,11 +662,11 @@
     "faq:start-platforms:11",
     "faq:notifications-on:11",
     "guide:widgets-40:10",
-    "guide:push-11:10",
+    "guide:push-12:10",
     "guide:account-8:8",
     "guide:widgets-41:6",
     "guide:widgets-44:6",
-    "guide:push-6:6"
+    "guide:push-7:6"
    ]
   },
   {

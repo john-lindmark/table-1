@@ -696,7 +696,7 @@
    "id": "play-18",
    "s": "play",
    "t": "Deck photo",
-   "x": "photograph your own deck (or pick a photo) with a note. Before saving, Rotate left or Rotate right turns it upright. Only you and the organizer see it until the event is over. On iPhone, Android and the website, when you're signed in; a guest's deck can be added by the organizer."
+   "x": "photograph your own deck (or pick a photo) with a note. Before saving, Rotate left or Rotate right turns it upright. Only you and the organizer see it until the event is over. On iPhone, Android and the website, when you're signed in; a guest's deck can be added by the organizer. The photo is read into a decklist within about half a minute: the Decklist row under the photo opens it, to correct and to add to your decks (see After the event)."
   },
   {
    "id": "play-19",
@@ -1084,6 +1084,59 @@
    "s": "after",
    "t": "Redraft",
    "x": "(finished set drafts, iPhone, Android and the website ): everyone in the event scans their cards into one pile, most valuable first, with who added each card and its market price, and the pile's total. Tap a card to take it out. The website has no camera scanner, so there cards are added by search, in the drafted set's printing when the card is in it, with a Foil switch."
+  },
+  {
+   "id": "after-4",
+   "s": "after",
+   "h": "Decklists from deck photos",
+   "x": "Every deck photo is read into a decklist, kept beside the photo. Whoever sees the photo sees its list."
+  },
+  {
+   "id": "after-5",
+   "s": "after",
+   "h": "Decklists from deck photos",
+   "t": "The read",
+   "x": "a new photo is read by itself, usually within half a minute. The event's set or cube helps name the cards, as a hint and not a filter: a title read whole is kept even when it's outside the set. A die on a pile of basic lands is that land's count; a squared pile without one is counted by its edges and marked to check. Cards lying sideways to the rest, off the mat or cut off at the edge are left out of the deck, and so are tokens, dice and face-down cards."
+  },
+  {
+   "id": "after-6",
+   "s": "after",
+   "h": "Decklists from deck photos",
+   "t": "The Decklist row",
+   "x": "under each photo, on the event's Deck photos and on Account → Deck photos: \"Reading the decklist…\", then \"Decklist · 40 cards\", \"Decklist · 40 cards · 2 to check\" or \"Decklist · 40 cards · checked\" once someone has corrected it. \"Read decklist\" asks for a read when a photo has none, and \"couldn't read · try again\" asks again."
+  },
+  {
+   "id": "after-7",
+   "s": "after",
+   "h": "Decklists from deck photos",
+   "t": "The decklist",
+   "x": "the photo, whole and upright (tap to zoom: it's what you correct against); the count against the deck's size, large (\"40 cards\", \"38 cards · 2 short of 40\", \"101 cards · 1 over 100\"; 40 for Limited, 60 for Constructed, 100 for Commander and Canadian Highlander), with the set or cube it was read against under it; then Main deck, Sideboard (when there is one) and Left out (the sideways and stray cards, never counted). A line the reader wasn't sure of is marked Check, with what it saw (\"pile of about 7, no die\")."
+  },
+  {
+   "id": "after-8",
+   "s": "after",
+   "h": "Decklists from deck photos",
+   "t": "Correcting it",
+   "x": "(the photo's player, whoever took it, and the organizer): − and + on every line; tap a line for Change card (a search of every card), Looks right, Move to main deck, sideboard or left out, and Remove; Add a card at the end of the list. Changes save as you go (\"Saved\"). Read the photo again under the list starts over from the photo (it asks first, since it replaces the list); a photo can be read five times in all."
+  },
+  {
+   "id": "after-9",
+   "s": "after",
+   "h": "Decklists from deck photos",
+   "t": "Add to my decks",
+   "x": "(anyone who sees the photo): makes a private deck from the main deck and sideboard, named after the event (\"Ana Lind · Friday draft\" for someone else's deck), in the event's format when it's a Constructed one. Lines with no card are left out and counted (\"2 lines without a card were left out\"), then Open deck. Someone who can't correct the list can still change counts and cards before adding: those changes go into their own deck, not the photo's list."
+  },
+  {
+   "id": "after-10",
+   "s": "after",
+   "h": "Decklists from deck photos",
+   "x": "The player gets one notification when a new photo's list is ready (see Notifications)."
+  },
+  {
+   "id": "after-11",
+   "s": "after",
+   "h": "Decklists from deck photos",
+   "x": "Not yet: one list across several photos of a deck, picking the set by hand when the event recorded none, and the decklist on Discord's results post."
   },
   {
    "id": "tracker-1",
@@ -2179,7 +2232,7 @@
    "s": "decks",
    "h": "Building and editing",
    "t": "New deck / New cube",
-   "x": "name it, pick a format, then add cards. Or import a list, or (decks) find one online."
+   "x": "name it, pick a format, then add cards. Or import a list, or (decks) find one online. A deck can also be made from a deck photo's decklist: Add to my decks on the decklist saves it as a private deck (see After the event)."
   },
   {
    "id": "decks-5",
@@ -2923,7 +2976,7 @@
    "s": "rankings",
    "h": "Checks in the final",
    "t": "Rule fixes without an app update",
-   "x": "Table 1 can send phones a newer copy of how rankings decide. The app uses it only when it's newer than its own and ranks a set of known rankings exactly right first; otherwise, or with no signal, the app's own copy decides. Your screens are never changed by it: only which screen comes next and how the lists read. This comes with the next iPhone and Android builds."
+   "x": "Table 1 can send phones a newer copy of how rankings decide. The app uses it only when it's newer than its own and ranks a set of known rankings exactly right first; otherwise, or with no signal, the app's own copy decides. Your screens are never changed by it: only which screen comes next and how the lists read."
   },
   {
    "id": "rankings-32",
@@ -3616,51 +3669,57 @@
   {
    "id": "push-4",
    "s": "push",
-   "t": "You're in",
-   "x": "when a place opens in an event you're waiting for. A top 8 round's alert says \"Quarterfinals is up\", \"Semifinals is up\" or \"The final is up\"."
+   "t": "Your decklist is ready",
+   "x": "when a deck photo of your deck has been read into a decklist: \"40 cards read from your deck photo from Friday draft, 2 to check. Tap to correct it and add it to your decks.\" Once per photo, to the photo's player; never for a guest. A tap opens the photo's decklist. Turn it off like any other notification."
   },
   {
    "id": "push-5",
    "s": "push",
-   "x": "Alerts arrive within seconds: invitations, a new round's pairing, results reported, disputed or changed, a cancelled event, a new event from an organizer you've played with in the last 90 days (never for private events), friend requests and accepts, and notices from Table 1."
+   "t": "You're in",
+   "x": "when a place opens in an event you're waiting for. A top 8 round's alert says \"Quarterfinals is up\", \"Semifinals is up\" or \"The final is up\"."
   },
   {
    "id": "push-6",
+   "s": "push",
+   "x": "Alerts arrive within seconds: invitations, a new round's pairing, results reported, disputed or changed, a cancelled event, a new event from an organizer you've played with in the last 90 days (never for private events), friend requests and accepts, and notices from Table 1."
+  },
+  {
+   "id": "push-7",
    "s": "push",
    "t": "New in Insights",
    "x": "a new format, set data, Arena cube run or set to rank, once each, for people who've opened Insights in the last 60 days. A tap opens Insights on it (or the set's Rankings). Off with the switch at the bottom of Insights → Limited; on Android it has its own group, New in Insights."
   },
   {
-   "id": "push-7",
+   "id": "push-8",
    "s": "push",
    "t": "Price alerts",
    "x": "one a day at most, when wants got meaningfully cheaper or reached your max (see Binders and wants). Off with the Price alerts switch on Wants."
   },
   {
-   "id": "push-8",
+   "id": "push-9",
    "s": "push",
    "t": "Deck found",
    "x": "a deck finder search you started has finished (\"Boros Energy · 1st · Modern Challenge 32 · 2026-10-30. Tap to create it.\", \"Which deck?\", \"No list found\"). A tap opens Find a deck on that search; on Android it's in the Collection group."
   },
   {
-   "id": "push-9",
+   "id": "push-10",
    "s": "push",
    "t": "Grouped alerts",
    "x": "a round of changes to a deck, cube or binder you follow, and a friend putting up cards you want, come as one alert each, not one per card. Tapping opens the Changes or the trade match."
   },
   {
-   "id": "push-10",
+   "id": "push-11",
    "s": "push",
    "x": "Tapping an alert opens the event, Friends or Notices. Alerts older than 30 minutes are dropped rather than arriving late."
   },
   {
-   "id": "push-11",
+   "id": "push-12",
    "s": "push",
    "t": "On Android",
    "x": "the same notifications with the same wording, in four groups you can turn off one by one in Android's settings: Events (pairings, results, invitations, sign-ups; shown at the top of the screen), Collection (follows, trade wants, price alerts, cube rankings), Friends and From Table 1. A newer one about the same thing replaces the older, and a tap opens the same screen as on iPhone; notices from Table 1 open From Table 1 and a moderator's review alert opens Review. The phone is signed up for notifications while you're signed in and taken off at sign-out."
   },
   {
-   "id": "push-12",
+   "id": "push-13",
    "s": "push",
    "x": "The web has no notifications."
   },
@@ -3808,7 +3867,7 @@
    "id": "account-11",
    "s": "account",
    "t": "Deck photos",
-   "x": "under your lifetime record, every photo of a deck you played, by event (see After the event)."
+   "x": "under your lifetime record, every photo of a deck you played, by event, each with its Decklist row (see After the event)."
   },
   {
    "id": "account-12",
