@@ -108,7 +108,12 @@ data class DeckPhoto(
     @SerialName("event_status") val eventStatus: String = "",
     @SerialName("format_label") val formatLabel: String = "",
     @SerialName("event_at") val eventAt: String = "",
-)
+    /** May turn it upright: editable, or the event's organizer (2026-11-13; older servers leave it out). */
+    val turnable: Boolean? = null,
+) {
+    /** Rotate is offered: to whoever may edit it and to the event's organizer. */
+    val canTurn: Boolean get() = turnable ?: editable
+}
 
 @Serializable
 data class DeckPhotos(val shared: Boolean = false, val photos: List<DeckPhoto> = emptyList())
@@ -358,7 +363,7 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit, startAdding: Boolean =
             }
             items(photos.photos, key = { it.id }) { photo ->
                 DeckPhotoCard(photo, urls[photo.path], turning[photo.id] ?: photo.turns,
-                    onClick = if (photo.editable) ({ editMenu = photo }) else null)
+                    onClick = if (photo.canTurn || photo.editable) ({ editMenu = photo }) else null)
             }
         }
     }
@@ -429,6 +434,8 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit, startAdding: Boolean =
         T1Menu(photo.player, listOf(
             T1MenuItem("Rotate right ↻") { turn(photo, 1) },
             T1MenuItem("Rotate left ↺") { turn(photo, -1) },
+        ) + if (!photo.editable) emptyList() else listOf(
+            // The organizer turns anyone's photo; the note and removal stay with the player and whoever took it.
             T1MenuItem(if (photo.note.isEmpty()) "Add a note" else "Edit note") { note = photo.note; editing = photo },
             T1MenuItem("Remove photo", danger = true) {
                 scope.launch {
@@ -497,7 +504,7 @@ fun DeckPhotoCard(photo: DeckPhoto, url: String?, turns: Int, onClick: (() -> Un
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Label(if (photo.mine) "${photo.player} · you" else photo.player, Modifier.weight(1f), color = T1.text)
                 val shown = said
-                if (shown != null) Label(shown, color = T1.accent) else if (onClick != null) Label("Edit")
+                if (shown != null) Label(shown, color = T1.accent) else if (onClick != null) Label(if (photo.editable) "Edit" else "Rotate")
             }
             if (photo.note.isNotEmpty()) Text(photo.note, color = T1.text, fontFamily = T1.mono, fontSize = 13.sp)
         }

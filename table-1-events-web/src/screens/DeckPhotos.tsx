@@ -169,14 +169,17 @@ export function DeckPhotosScreen({ eventId, organizer, onBack, startAdding = fal
   }
 
   function edit(photo: DeckPhoto) {
-    if (!photo.editable) return;
+    if (!photo.turnable && !photo.editable) return;
     setMenu({
       title: photo.player,
       items: [
         { title: "Rotate right ↻", onClick: () => void turn(photo, 1) },
         { title: "Rotate left ↺", onClick: () => void turn(photo, -1) },
-        { title: photo.note ? "Edit note" : "Add a note", onClick: () => { setNote(photo.note); setEditing(photo); } },
-        { title: "Remove photo", onClick: () => void remove(photo) },
+        // The organizer turns anyone's photo; the note and removal stay with the player and whoever took it.
+        ...(photo.editable ? [
+          { title: photo.note ? "Edit note" : "Add a note", onClick: () => { setNote(photo.note); setEditing(photo); } },
+          { title: "Remove photo", onClick: () => void remove(photo) },
+        ] : []),
       ],
     });
   }
@@ -255,7 +258,8 @@ export function DeckPhotosScreen({ eventId, organizer, onBack, startAdding = fal
           alt={`${photo.player}'s deck`}
           note={photo.note}
           turns={turning[photo.id] ?? photo.turns}
-          onEdit={photo.editable ? () => edit(photo) : undefined}
+          onEdit={photo.turnable || photo.editable ? () => edit(photo) : undefined}
+          editLabel={photo.editable ? "Edit" : "Rotate"}
         />
       ))}
 
@@ -468,7 +472,7 @@ const DEMO_PHOTO = "data:image/svg+xml," + encodeURIComponent(
 const demoRow = (id: string, eventId: string, eventName: string, eventStatus: string, formatLabel: string, eventAt: string,
                  note: string, turns: number): MyDeckPhoto => ({
   id, participantId: `p-${eventId}`, player: "Ann Ito", path: `demo/${id}.jpg`, note, createdAt: eventAt, mine: true,
-  editable: true, turns, eventId, eventName, eventStatus, formatLabel, eventAt,
+  editable: true, turnable: true, turns, eventId, eventName, eventStatus, formatLabel, eventAt,
 });
 const DEMO_MINE: MyDeckPhotos = {
   total: 3, events: 2, photos: [
@@ -480,9 +484,9 @@ const DEMO_MINE: MyDeckPhotos = {
 
 /** A deck photo with its player and note. The picture is a plain image, not inside a button, so a long press on a
     phone or a right-click gets the browser's own image menu (copy, save, share; contract/event-night-2026-10-16.md § 7
-    "Long press"); a tap on it or on Edit opens the photo's menu when you may edit it. */
-function PhotoCard({ src, player, alt, note, turns, onEdit }: {
-  src?: string; player: string; alt: string; note: string; turns: number; onEdit?: () => void;
+    "Long press"); a tap on it or on Edit opens the photo's menu when you may edit or turn it. */
+function PhotoCard({ src, player, alt, note, turns, onEdit, editLabel = "Edit" }: {
+  src?: string; player: string; alt: string; note: string; turns: number; onEdit?: () => void; editLabel?: string;
 }) {
   const upright = useUprightPhoto(src, turns);
   return (
@@ -499,7 +503,7 @@ function PhotoCard({ src, player, alt, note, turns, onEdit }: {
       <button type="button" onClick={onEdit} disabled={!onEdit} className="px-4 py-3 flex flex-col gap-1.5 w-full text-left">
         <div className="flex items-center gap-3 w-full">
           <span className="t1-label !text-t1-text flex-1 truncate">{player}</span>
-          {onEdit && <span className="t1-label">Edit</span>}
+          {onEdit && <span className="t1-label">{editLabel}</span>}
         </div>
         {note && <p className="text-[13px] whitespace-pre-wrap">{note}</p>}
       </button>
