@@ -17,3 +17,5 @@ On top of 29910583 (everything in its notes, plus):
 
 ---
 Build notes: built 2026-11-14 at 9d4c472 from a clean worktree (`.claude/worktrees/ship-android-9d4c472`) with `tools/bundle-release.sh`; the full Android unit suite (599) passed on 9d4c472 in the main checkout; jar verified; R8's widget check passed. Copied to `apps/android/app/build/outputs/bundle/release/table1-29911357.aab`. Contract for the fixes: `contract/android-errors-2026-11-14.md`.
+
+Promoted to closed testing (alpha) 2026-11-14 with `tools/play-upload.mjs --promote 29911357 --track alpha`; `--check` then listed 29911357 on both internal and alpha.
