@@ -1,0 +1,224 @@
+{
+ "photo_id": "127bfd16-774f-48e1-8e2e-3020b69f956d",
+ "event_id": "9410ec21-ef5e-47ca-8fac-4e7c7995eef2",
+ "format_label": "Team draft · Lindmark Cube",
+ "event_type": "limited",
+ "pool": "lindmark",
+ "cards": [
+  {
+   "name": "Elegant Parlor",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Urza's Saga",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sink into Stupor // Soporific Springs",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Meticulous Archive",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Polluted Delta",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Otawara, Soaring City",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tolarian Academy",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Lutri, the Spellchaser",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Stingcaster Mage",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title reads 'Stingcaster Mage', not in the pool; red 1R Human Wizard 2/1, haste, gives an instant or sorcery in the graveyard flashback"
+  },
+  {
+   "name": "Death-Greeter's Champion",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Wurmcoil Engine",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Myr Battlesphere",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Etali, Primal Conqueror // Etali, Primal Sickness",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Occult Epiphany",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mox Ruby",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Galvanic Discharge",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Brainstorm",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Aether Spellbomb",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ponder",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Soul-Guide Lantern",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Chromatic Star",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Dismember",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Enlightened Tutor",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Pentad Prism",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Talisman of Progress",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sword of the Meek",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Thopter Foundry",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "The Ooze",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Dack Fayden",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Invert Polarity",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Chandra, Torch of Defiance",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mystic Confluence",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Island",
+   "qty": 4,
+   "board": "main",
+   "sure": false,
+   "read": "fanned row of 4, two titled Island, two in between with titles hidden"
+  },
+  {
+   "name": "Mountain",
+   "qty": 3,
+   "board": "main",
+   "sure": false,
+   "read": "three overlapped Mountains, more could be underneath"
+  },
+  {
+   "name": "Plains",
+   "qty": 2,
+   "board": "main",
+   "sure": false,
+   "read": "two overlapped Plains (one Japanese), more could be underneath"
+  }
+ ],
+ "notes": "Basic lands overlap heavily at the lower left; a Construct token off the mat was left out."
+}

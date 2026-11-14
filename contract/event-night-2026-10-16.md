@@ -85,6 +85,13 @@ still to do. Wire names are in `rpc.schema.json`.
   rows carry `turns`; migration `20261030060000_deck_photo_turns.sql`, applied to live 2026-10-30). Clients draw the photo turned, fitted into the
   4:3 box's swapped sides for odd turns, and show a tap at once (kept until the server answers). Photos in the list are
   shown whole (fit) rather than cropped. Older servers send no `turns`: read as 0.
+- **The organizer turns any photo** (2026-11-13; John: "event organizer should be able to reorient the deck photos"):
+  `deck_photo_turn` also lets the event's organizer turn a player's own photo; the note and Remove stay with the player
+  and whoever took it. `deck_photos` rows gain `turnable` (editable, or the organizer; older servers leave it out and
+  clients read it as `editable`). A photo the viewer may turn but not edit opens a menu of just Rotate right / Rotate
+  left, and its card says "Rotate" where an editable one says "Edit". Migration
+  `20261113120000_deck_photo_turn_organizer.sql`, tests in `63_deck_photos_test.sql`, `DeckPhotoTests` /
+  `deckPhotos.test.ts` / `DeckPhotosTest`. Older builds keep hiding the menu on players' photos.
 - Rule (cases `testdata/deck-photos/cases.json`, tests `DeckPhotoTests` / `deckPhotos.test.ts` / `DeckPhotosTest`):
   turn = (turns + by) mod 4; the uploaded size is the 2048 px size with the sides swapped for odd turns.
 - Telemetry: `deck_photo_added` gains `turns`; `deck_photo_turned` {turns}.

@@ -31,6 +31,8 @@ object PushRoutes {
             // (by event_id, below); results, qualifying and the season's end open the league, by its id.
             kind == "league.results" || kind == "league.qualified" || kind == "league.season" ->
                 id("league_id")?.let { WebLink.Screens("events", listOf("league/$it?from=push")) }
+            // "Your decklist is ready" (contract/deck-photo-lists-2026-11-13.md): Account's deck photos, then that photo's decklist.
+            kind == "deck.read" -> id("photo_id")?.let { WebLink.Screens("account", listOf("mydeckphotos", "photolist/$it")) }
             kind == "insights.new" -> insights(data)?.let { WebLink.Screens("insights", if (it.what == "rank") listOf(rankSetRoute(it.key)) else emptyList()) }
             kind == "want.price" -> collection("collection/wants")
             // A deck search finished (contract/deck-finder-2026-10-15.md § Jobs): Find a deck on that job.
@@ -64,8 +66,8 @@ object PushRoutes {
     }
 
     fun channel(kind: String): Channel = when {
-        // A judge call (contract/room-tools-2026-11-13.md § 3) rings like a pairing: Events, high importance.
-        kind.startsWith("event.") || kind.startsWith("round.") || kind.startsWith("result.") || kind.startsWith("judge.") -> Channel.Events
+        // A judge call (contract/room-tools-2026-11-13.md § 3) rings like a pairing; deck.read is about an event's deck photo.
+        kind.startsWith("event.") || kind.startsWith("round.") || kind.startsWith("result.") || kind.startsWith("judge.") || kind == "deck.read" -> Channel.Events
         kind.startsWith("follow.") || kind.startsWith("trade.") || kind.startsWith("want.") || kind.startsWith("ranking.") || kind.startsWith("deck.") -> Channel.Collection
         kind.startsWith("friend.") -> Channel.Friends
         kind.startsWith("insights.") -> Channel.Insights

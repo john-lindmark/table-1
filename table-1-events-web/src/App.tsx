@@ -99,6 +99,7 @@ const RankingChanges = lazyNamed(rankings, "RankingChangesScreen");
 const DeckFinderScreen = lazyNamed(() => import("./screens/DeckFinder"), "DeckFinderScreen");
 const DeckPhotosScreen = lazyNamed(() => import("./screens/DeckPhotos"), "DeckPhotosScreen");
 const MyDeckPhotosScreen = lazyNamed(() => import("./screens/DeckPhotos"), "MyDeckPhotosScreen");
+const DeckPhotoListScreen = lazyNamed(() => import("./screens/DeckPhotoList"), "DeckPhotoListScreen");
 const SupportHome = lazyNamed(() => import("./screens/Support"), "SupportHome");
 const SupportTopicScreen = lazyNamed(() => import("./screens/Support"), "SupportTopicScreen");
 const SupportFaqScreen = lazyNamed(() => import("./screens/Support"), "SupportFaqScreen");
@@ -197,8 +198,20 @@ function DeckPhotosRoute({ organizer }: { organizer: boolean }) {
   const { eventId } = useParams();
   const back = useBack(organizer ? `/e/${eventId}` : `/p/${eventId}`);
   const startAdding = new URLSearchParams(useLocation().search).get("add") === "1";
+  const navigate = useNavigate();
   if (!eventId) return <Navigate to="/" replace />;
-  return <DeckPhotosScreen eventId={eventId} organizer={organizer} onBack={back} startAdding={startAdding} />;
+  return <DeckPhotosScreen eventId={eventId} organizer={organizer} onBack={back} startAdding={startAdding}
+                           onOpenList={(id) => navigate(`/photo/${id}/list`, { state: { from: "event" } })} />;
+}
+
+/** /photo/:photoId/list: the decklist read from a deck photo (signed in; contract/deck-photo-lists-2026-11-13.md). */
+function DeckPhotoListRoute() {
+  const { photoId } = useParams();
+  const navigate = useNavigate();
+  const back = useBack("/me/deck-photos");
+  const from = (useLocation().state as { from?: string } | null)?.from ?? "link";
+  if (!photoId) return <Navigate to="/" replace />;
+  return <DeckPhotoListScreen photoId={photoId} from={from} onBack={back} onOpenDeck={(id) => navigate(`/library/list/${id}`)} />;
 }
 
 /** /e/:eventId/redraft and /p/:eventId/redraft: a finished set draft's redraft pile. */
@@ -279,7 +292,8 @@ function SupportGuideRoute() {
 function MyDeckPhotosRoute() {
   const navigate = useNavigate();
   return <MyDeckPhotosScreen onBack={useBack("/me")} onOpenEvent={(id) => navigate(`/p/${id}`)}
-                             onOpenEventPhotos={(id) => navigate(`/p/${id}/photos`)} />;
+                             onOpenEventPhotos={(id) => navigate(`/p/${id}/photos`)}
+                             onOpenList={(id) => navigate(`/photo/${id}/list`, { state: { from: "account" } })} />;
 }
 
 function NoticesRoute() {
@@ -728,6 +742,7 @@ export default function App() {
         <Route path="/delete-account" element={<DeleteAccountPage />} />
         <Route path="/p/:eventId" element={<PlayerRoute />} />
         <Route path="/p/:eventId/photos" element={<DeckPhotosRoute organizer={false} />} />
+        <Route path="/photo/:photoId/list" element={<DeckPhotoListRoute />} />
         <Route path="/s/:eventId" element={<StandingsRoute />} />
         <Route path="/d/:eventId" element={<DisplayRoute />} />
         <Route path="/find" element={<FindRoute />} />

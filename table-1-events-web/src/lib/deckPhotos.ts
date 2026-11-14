@@ -1,3 +1,4 @@
+import { toDeckListBrief, type DeckListBrief } from "./deckPhotoList";
 import { supabase } from "./supabaseClient";
 
 /* Deck photos (contract/event-night-2026-10-16.md § 7): players add their own, the organizer adds for anyone (guests
@@ -13,8 +14,12 @@ export interface DeckPhoto {
   createdAt: string;
   mine: boolean;
   editable: boolean;
+  /** May turn it upright: editable, or the event's organizer (servers before 2026-11-13: same as editable). */
+  turnable: boolean;
   /** Quarter turns clockwise to draw it upright, set after upload (0 from servers before 2026-10-30). */
   turns: number;
+  /** Where its decklist stands (contract/deck-photo-lists-2026-11-13.md); null when never queued. */
+  list: DeckListBrief | null;
 }
 
 export interface DeckPhotos {
@@ -23,13 +28,14 @@ export interface DeckPhotos {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function toPhotos(raw: any): DeckPhotos {
+export function toPhotos(raw: any): DeckPhotos {
   return {
     shared: !!raw?.shared,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     photos: (raw?.photos ?? []).map((p: any) => ({
       id: p.id, participantId: p.participant_id, player: p.player ?? "", path: p.path, note: p.note ?? "",
-      createdAt: p.created_at, mine: !!p.mine, editable: !!p.editable, turns: Number(p.turns ?? 0) || 0,
+      createdAt: p.created_at, mine: !!p.mine, editable: !!p.editable, turnable: !!(p.turnable ?? p.editable), turns: Number(p.turns ?? 0) || 0,
+      list: toDeckListBrief(p.list),
     })),
   };
 }

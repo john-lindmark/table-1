@@ -1,0 +1,149 @@
+{
+ "photo_id": "a5eec83b-754b-4c1a-b35e-db027a3930a7",
+ "event_id": "586d9049-9e76-462e-a9e6-37d9fd51e566",
+ "format_label": "Draft",
+ "event_type": "limited",
+ "pool": null,
+ "cards": [
+  {
+   "name": "Tetsuko Umezawa, Fugitive",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Geist of Saint Thalia",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fblthp, Impossibly Lost",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fatehold Chronologist",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Theoretical Necromancer",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Arni, Humble Scribe",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mindseeker Oculus",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sphinx of False Conclusions",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Undulating Witness",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Apex Witchstalker",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ghalta the Immovable",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Unsummon",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fatehold Charm",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Icy Reception",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Countersculpt",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Rewrite Regrets",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Way of the Healer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Protege's Awakening",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Recursive Recruitment",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Kindred Judgment",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Plains",
+   "qty": 5,
+   "board": "main",
+   "sure": false,
+   "read": "old-frame Plains fanned sideways, 5 edges counted, leftmost partly cut by the photo edge"
+  },
+  {
+   "name": "Island",
+   "qty": 8,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Swamp",
+   "qty": 4,
+   "board": "main",
+   "sure": true
+  }
+ ],
+ "notes": "Old-frame basic lands are fanned sideways with faint titles; the top Plains row runs to the photo edge."
+}

@@ -1,0 +1,219 @@
+{
+ "photo_id": "e310cfec-d50a-48f0-9c6f-05aa98dc32a0",
+ "event_id": "9410ec21-ef5e-47ca-8fac-4e7c7995eef2",
+ "format_label": "Team draft · Lindmark Cube",
+ "event_type": "limited",
+ "pool": "lindmark",
+ "cards": [
+  {
+   "name": "Library of Alexandria",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title not readable, old-frame land on top of the land pile with bookshelf art and a pale yellow text box"
+  },
+  {
+   "name": "Shifting Woodland",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Urborg, Tomb of Yawgmoth",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Creeping Tar Pit",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Darkslick Shores",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Underground Sea",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "white-bordered card in the land pile, title and art hidden under other lands"
+  },
+  {
+   "name": "Blooming Marsh",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Zagoth Triome",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title partly hidden, reads 'Zagoth...', land with three basic types"
+  },
+  {
+   "name": "Forest",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Island",
+   "qty": 5,
+   "board": "main",
+   "sure": false,
+   "read": "fanned row, five blue lands between the Forest and the Swamps, two titles readable"
+  },
+  {
+   "name": "Swamp",
+   "qty": 3,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Liliana of the Veil",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Toxic Deluge",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Remand",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Spell Pierce",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "blurred two-word title on a blue card with teal-green art, second word looks like 'Pierce'"
+  },
+  {
+   "name": "Sheoldred's Edict",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Counterspell",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Inquisition of Kozilek",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Thoughtseize",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Alpha Deathclaw",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Triplicate Titan",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Woodfall Primus",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Blightsteel Colossus",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Echo of Eons",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Relic of Sauron",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tamiyo, Collector of Tales",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Oath of Druids",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Flash",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Black Lotus",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mishra's Bauble",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Reanimate",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Dark Ritual",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Lotus Petal",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Vampiric Tutor",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  }
+ ],
+ "notes": "Photo is upside down, taken at an angle and soft; the nonbasic lands are in a messy pile, and two red cards cut off at the right edge (set apart, unreadable) were left out."
+}

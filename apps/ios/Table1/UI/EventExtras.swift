@@ -43,6 +43,13 @@ struct DeckPhoto: Decodable, Identifiable, Hashable {
     var eventStatus: String? = nil
     var formatLabel: String? = nil
     var eventAt: String? = nil
+    /// Where the photo's decklist stands (contract/deck-photo-lists-2026-11-13.md); nil = never read.
+    var list: DeckListBrief? = nil
+    /// May turn it upright: editable, or the event's organizer (2026-11-13; older servers leave it out).
+    var turnable: Bool? = nil
+
+    /// Rotate is offered: to whoever may edit it and to the event's organizer.
+    var canTurn: Bool { turnable ?? editable }
 }
 
 struct DeckPhotos: Decodable {
@@ -413,7 +420,7 @@ struct DeckPhotosView: View {
 
     @MainActor
     private func edit(_ photo: DeckPhoto) {
-        guard photo.editable else { return }
+        guard photo.canTurn || photo.editable else { return }
         DeckPhotoMenu.show(photo, title: photo.player, from: "event", turn: { turn(photo, by: $0) }) { call in
             Task { @MainActor in
                 do { await show(try await call()) } catch { self.error = error.localizedDescription }
@@ -422,7 +429,7 @@ struct DeckPhotosView: View {
     }
 }
 
-/// A photo's own actions (the player or whoever took it): Rotate, note, Remove. `extra` goes first (Account → Deck
+/// A photo's actions: Rotate (also the organizer), then note and Remove (the player or whoever took it). `extra` goes first (Account → Deck
 /// photos adds Open event). `run` performs a call that answers with the event's photos.
 @MainActor
 enum DeckPhotoMenu {
@@ -432,6 +439,8 @@ enum DeckPhotoMenu {
         T1Overlays.shared.showMenu(title, extra + [
             T1MenuItem(title: "Rotate right ↻") { turn(1) },
             T1MenuItem(title: "Rotate left ↺") { turn(-1) },
+        ] + (photo.editable ? [
+            // The organizer turns anyone's photo; the note and removal stay with the player and whoever took it.
             T1MenuItem(title: photo.note.isEmpty ? "Add a note" : "Edit note") {
                 T1Overlays.shared.present {
                     DeckNotePanel(title: title, image: nil, note: photo.note, saveLabel: "Save note") { note, _ in
@@ -451,7 +460,7 @@ enum DeckPhotoMenu {
                     return out
                 }
             },
-        ])
+        ] : []))
     }
 }
 
@@ -459,6 +468,9 @@ struct DeckPhotoCard: View {
     let photo: DeckPhoto
     let url: URL?
     let turns: Int
+    /// The Decklist row under the photo (off in the add panel's demo).
+    var showsList = true
+    var from = "event"
     let onTap: () -> Void
     @State private var loaded: UIImage?
     /// The photo upright as its player turned it: what Copy, Save to Photos and Share hand over.
@@ -468,6 +480,7 @@ struct DeckPhotoCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+          VStack(alignment: .leading, spacing: 0) {
             Rectangle().fill(T1.bg)
                 .aspectRatio(4 / 3, contentMode: .fit)
                 .overlay {
@@ -491,15 +504,20 @@ struct DeckPhotoCard: View {
                 HStack {
                     LabelText(photo.mine ? "\(photo.player) · you" : photo.player, color: T1.text)
                     Spacer()
-                    if let said { LabelText(said, color: T1.accent) } else if photo.editable { LabelText("Edit") }
+                    if let said { LabelText(said, color: T1.accent) } else if photo.editable { LabelText("Edit") } else if photo.canTurn { LabelText("Rotate") }
                 }
                 if !photo.note.isEmpty { Text(photo.note).font(T1.mono(13)).foregroundStyle(T1.text) }
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
+          }
+          .contentShape(Rectangle())
+          .onTapGesture(perform: onTap)
+            if showsList {
+                Rectangle().fill(T1.bg).frame(height: 1)
+                DeckListRow(photo: photo, from: from)
+            }
         }
         .background(T1.surface)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onTap)
         .accessibilityActions {
             if turned != nil {
                 Button("Copy") { said = actions.copy() }
@@ -721,7 +739,7 @@ struct ImagePicker: UIViewControllerRepresentable {
     }
 }
 
-private extension UIImage {
+extension UIImage {
     /// Longest side 2048 px, JPEG 0.8: a deck spread stays legible at a few hundred KB.
     func deckJPEG(turns: Int = 0) -> Data? {
         deckRendered(turns: turns, longest: 2048).jpegData(compressionQuality: 0.8)
@@ -755,7 +773,7 @@ struct DeckPhotoDemo: View {
                     DeckPhotoCard(photo: DeckPhoto(id: "demo\(turns)", participantId: "p1", player: "Ann Ito", path: "",
                                                    note: "Saved with \(turns) turn\(turns == 1 ? "" : "s")", createdAt: "",
                                                    mine: true, editable: true, turns: turns),
-                                  url: Self.sampleFile, turns: turns) {}
+                                  url: Self.sampleFile, turns: turns, showsList: false) {}
                 }
             }
         }

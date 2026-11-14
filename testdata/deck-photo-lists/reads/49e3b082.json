@@ -1,0 +1,182 @@
+{
+ "photo_id": "49e3b082-9e31-45d4-aa95-790b4497f973",
+ "event_id": "4f68776f-b816-43db-94b9-5a3deedd15fc",
+ "format_label": "Team draft · Lindmark Cube",
+ "event_type": "limited",
+ "pool": "lindmark",
+ "cards": [
+  {
+   "name": "Fatal Push",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Figure of Fable",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sheoldred's Edict",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Hymn to Tourach",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Dismember",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Inti, Seneschal of the Sun",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Dauthi Voidwalker",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title mostly hidden behind Inti, ends in 'Voidwalker', cost two black"
+  },
+  {
+   "name": "Outland Liberator // Frenzied Trapbreaker",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sunset Saboteur",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Scythecat Cub",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fanatic of Rhonas",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sylvan Caryatid",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Bristly Bill, Spine Sower",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title partly hidden: '...Bill, Spine Sower', green two-drop"
+  },
+  {
+   "name": "Endurance",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Emeritus of Abundance // Regrowth",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tireless Tracker",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mox Diamond",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sheoldred, the Apocalypse",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Professor Dellian Fel",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ouroboroid",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Questing Beast",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ulvenwald Oddity // Ulvenwald Behemoth",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Alpha Deathclaw",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Stomping Ground",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Badlands",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "white-bordered old dual land, faint title reads Badlands"
+  },
+  {
+   "name": "Copperline Gorge",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ziatora's Proving Ground",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Forest",
+   "qty": 5,
+   "board": "main",
+   "sure": false,
+   "read": "fanned pile cut off at the bottom-left corner, about 5-6 sleeve edges, green art on top, no title visible"
+  }
+ ],
+ "notes": "Photo is turned a quarter turn; the land row and a pile at the left/bottom edge are cut off by the frame, and extra card edges show under several rows with no titles."
+}

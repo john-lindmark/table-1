@@ -108,6 +108,24 @@ Internal testing reaches up to 100 testers by email within minutes, with no revi
 6. **After the first upload**, Protected with Play → Play app signing (was App integrity → App signing): copy the **SHA-1** into a new Android OAuth client (Google step 3) and the **SHA-256** into `table-1-events-web/public/.well-known/assetlinks.json` (next to the debug one), so Google sign-in and the email/QR app links work for Play installs.
 7. **App content** (Policy → App content) before the first release can be published: privacy policy URL (needed for location and camera), app access (testers sign in with email codes; give review an email they can use, or mark "all functionality available without special access" is false), ads: none, content rating questionnaire, target audience (18+ / not for children), data safety (email, name, approximate and precise location, camera stays on device; account deletion URL). Privacy policy URL: `https://table-1.site/privacy`; account-deletion URL: `https://table-1.site/delete-account` (both public, signed out, in the web app: `src/screens/Legal.tsx`; the policy text is a draft to review, and the contact address `privacy@table-1.site` must exist). Use `/privacy` for the Google consent screen's privacy policy link too. They need table-1.site deployed first.
 
+
+### Uploads from the command line (Play Developer API)
+
+`apps/android/tools/play-upload.mjs` (Node, no dependencies) uploads a bundle and rolls it out to a track, so Play Console's web upload isn't needed. One-time setup:
+
+1. **Google Cloud** (console.cloud.google.com, the project that holds the Android OAuth clients, or any project): APIs & Services → Library → **Google Play Android Developer API** → Enable.
+2. IAM & Admin → Service accounts → Create: name `table1-play`, no roles. Open it → Keys → Add key → JSON. Move the download to `~/.playconsole/table1-play.json` and `chmod 600` it (never commit or paste it).
+3. **Play Console** → Users and permissions → Invite new users → the service account's email (`table1-play@<project>.iam.gserviceaccount.com`) → App permissions → Table 1 → **Release to testing tracks** (and Release to production if wanted) plus View app information → Invite. No email to accept; it's active at once (Google says it can take up to 24 h).
+4. Check: `node apps/android/tools/play-upload.mjs --check` signs in and lists each track's release; nothing changes.
+
+Then, after `tools/bundle-release.sh`:
+
+```
+node apps/android/tools/play-upload.mjs apps/android/app/build/outputs/bundle/release/app-release.aab \
+  --notes table-1-context/docs/android-release-<versionCode>.md
+```
+
+It uploads, checks Play's sha256 against the file, puts the versionCode on `--track` (default `internal`, also `alpha` = closed testing, `beta`, `production`) as the track's only release (`--status completed`, or `draft`), with the notes file's `<en-US>…</en-US>` block as What's new, validates and commits. `--dry-run` does everything but the commit. An app never published takes draft releases only; the script falls back to a draft and says so. `T1_PLAY_KEY` points at another key file.
 ## 5. Universal / app links
 
 Every table-1.site page the apps have a screen for opens in the app when it's installed and on the web when it isn't: the join QR (`/j/<code>?s=<secret>`), join links, events, standings, the life tracker, the whole Collection, Account, friends and profiles, and the sign-in email's `/auth/confirm`. The list and how each address maps to a screen are in `contract/universal-links-2026-10-22.md` (cases `testdata/universal-links/cases.json`). Both hosts, `table-1.site` and `www.table-1.site`, serve:

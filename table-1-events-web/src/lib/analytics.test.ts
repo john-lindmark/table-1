@@ -14,6 +14,7 @@ describe("redactPath", () => {
     expect(redactPath(`/e/${UUID}/add`)).toBe("/e/:id/add");
     expect(redactPath(`/p/${UUID}`)).toBe("/p/:id");
     expect(redactPath(`/s/${UUID}`)).toBe("/s/:id");
+    expect(redactPath(`/photo/${UUID}/list`)).toBe("/photo/:id/list");
     expect(redactPath(`/d/${UUID}`)).toBe("/d/:id");
   });
 
@@ -141,6 +142,7 @@ describe("screenName", () => {
     expect(screenName(`/e/${UUID}/photos`)).toBe("deck_photos");
     expect(screenName(`/p/${UUID}/photos`)).toBe("deck_photos");
     expect(screenName("/me/deck-photos")).toBe("my_deck_photos");
+    expect(screenName(`/photo/${UUID}/list`)).toBe("deck_photo_list");
     expect(screenName("/support")).toBe("support");
     expect(screenName("/support/guide")).toBe("support_guides");
     expect(screenName("/support/topic/play")).toBe("support_topic");

@@ -23,6 +23,14 @@ class PushRoutesTest {
         assertEquals(PushRoutes.Channel.Events, PushRoutes.channel("event.deck_photo"))
     }
 
+    /** "Your decklist is ready" opens Account's deck photos, then that photo's decklist (contract/deck-photo-lists-2026-11-13.md). */
+    @Test fun deckReadOpensThePhotosDecklist() {
+        assertEquals(screens("account", "mydeckphotos", "photolist/p1"), link("kind" to "deck.read", "photo_id" to "p1"))
+        assertNull(link("kind" to "deck.read"))
+        assertNull(link("kind" to "deck.read", "photo_id" to ""))
+        assertEquals(PushRoutes.Channel.Events, PushRoutes.channel("deck.read"))
+    }
+
     @Test fun collectionKinds() {
         assertEquals(screens("collection", "collection/wants"), link("kind" to "want.price"))
         assertEquals(screens("collection", "collection/matches", "collection/match/u1"), link("kind" to "trade.wants", "user_id" to "u1"))

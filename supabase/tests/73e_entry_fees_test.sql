@@ -34,6 +34,8 @@ values ('20000000-0000-0000-0000-000000007601', '10000000-0000-0000-0000-0000000
 \set SE '''20000000-0000-0000-0000-000000007601'''
 insert into public.league_events (event_id, season_id, league_id) values (:EV, :SE, '10000000-0000-0000-0000-000000007601');
 insert into t1_private.stripe_accounts (user_id, account_id, charges_enabled, payouts_enabled, details_submitted) values (:A, 'acct_ANA', true, true, true);
+-- Payments are open to listed testers only for now: Hoi is one from the start, Ana is added below.
+insert into t1_private.payment_testers (user_id) values (:H);
 
 create or replace function pg_temp.pid(p_event int, p_n int) returns uuid language sql immutable as $$ select md5('fe' || p_event || p_n)::uuid $$;
 create or replace function pg_temp.pool(p_event uuid) returns text language sql security definer as $$
@@ -51,6 +53,14 @@ select pg_temp.throws('paying in the app needs Stripe connected', format('select
 select pg_temp.eq('at the door needs nothing', public.event_fee_set(:EH, '{"amount_cents": 1500, "pay_mode": "door", "payout": [{"through": 1, "percent": 100}]}')->'fee'->>'pay_mode', 'door');
 select pg_temp.eq('Hoi''s own connection reads not connected', public.payments_account()->>'connected', 'false');
 select pg_temp.as_user(:A);
+select pg_temp.eq('payments are hidden from an account that isn''t a tester', public.payments_account()->>'enabled', 'false');
+select pg_temp.throws('and it can''t set a fee', format('select public.event_fee_set(%L, %L)', :EV, '{"amount_cents": 2500}'), '42501');
+reset role;
+insert into t1_private.payment_testers (user_id) values (:A);
+select pg_temp.eq('the payments function is told the same', public.payments_open(:A)::text || public.payments_open(:S)::text, 'truefalse');
+set role authenticated;
+select pg_temp.as_user(:A);
+select pg_temp.eq('a tester sees them', public.payments_account()->>'enabled', 'true');
 select pg_temp.eq('Ana''s reads ready', (select (v->>'connected') || (v->>'ready') from public.payments_account() v), 'truetrue');
 select pg_temp.throws('under 50 cents is refused', format('select public.event_fee_set(%L, %L)', :EV, '{"amount_cents": 20}'), '22023');
 select pg_temp.throws('prizes can''t pass the pool', format('select public.event_fee_set(%L, %L)', :EV, '{"amount_cents": 2500, "payout": [{"through": 1, "percent": 60}, {"through": 3, "percent": 25}]}'), '22023');

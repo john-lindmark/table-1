@@ -196,6 +196,11 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const user = await caller(req);
     if (!STRIPE_KEY) return json({ error: "Payments aren't set up yet" }, 503);
+    // Hidden for now: only listed testers until payments are opened (t1_private.payments_open_for). Paying an entry
+    // is gated by the event having a fee, which only a tester can set.
+    if (String(body.action).startsWith("connect_") && (await rpc("payments_open", { p_user_id: user.id })) !== true) {
+      return json({ error: "Payments aren't set up yet" }, 503);
+    }
     const uuid = (v: unknown) => (typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v) ? v : null);
     switch (body.action) {
       case "connect_start": return await connectStart(user);

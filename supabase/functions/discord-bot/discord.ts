@@ -102,6 +102,26 @@ export class DiscordRest {
     return await logFailure("PATCH", path, r);
   }
 
+  /** An extra message on the interaction carrying files (embeds show them as attachment://<name>). Valid for 15
+   *  minutes after the interaction; uploads get longer than a JSON call. */
+  async followUpFiles(ix: InteractionRef, message: Message, files: { name: string; bytes: Uint8Array<ArrayBuffer>; type: string }[]): Promise<Response> {
+    const path = `/webhooks/${ix.application_id}/${ix.token}`;
+    const send = () => {
+      const form = new FormData();
+      form.append("payload_json", JSON.stringify({ ...message, attachments: files.map((f, i) => ({ id: i, filename: f.name })), allowed_mentions: { parse: [] } }));
+      files.forEach((f, i) => form.append(`files[${i}]`, new Blob([f.bytes], { type: f.type }), f.name));
+      return fetch(`${API}${path}`, { method: "POST", body: form, signal: AbortSignal.timeout(60000) });
+    };
+    let r = await send();
+    // Our answer may still be on its way to Discord (as in afterAnswer): one more try.
+    if (r.status === 400 || r.status === 404) {
+      await r.body?.cancel();
+      await new Promise((ok) => setTimeout(ok, 1500));
+      r = await send();
+    }
+    return await logFailure("POST", path, r);
+  }
+
   /** Takes the interaction's first response down. */
   deleteOriginal(ix: InteractionRef) {
     return this.afterAnswer("DELETE", `/webhooks/${ix.application_id}/${ix.token}/messages/@original`);

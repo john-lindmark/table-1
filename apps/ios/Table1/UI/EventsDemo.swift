@@ -120,6 +120,7 @@ struct EventsDemoRoot: View {
         }
         DemoScreens.account = mode == "account" ? DemoData.account : nil
         DemoScreens.deckPhotos = mode == "account" ? DemoData.myDeckPhotos : nil
+        DemoScreens.deckList = mode == "account" ? DemoData.deckList : nil
     }
 
     static func arg(_ name: String) -> String? {
@@ -194,6 +195,7 @@ struct EventsDemoRoot: View {
                         .navigationDestination(for: Route.self) { destination($0) }
                 }
                 .environment(\.openProfile) { path.append(.library(.social(.profile($0)))) }
+                .environment(\.openLibrary) { path.append(.library($0)) }
                 // As in the app: only a tab's root draws the tab bar.
                 if path.isEmpty { T1TabBar(items: SignedInView.tabs, selection: .events) { _ in } }
             case "account":
@@ -205,6 +207,7 @@ struct EventsDemoRoot: View {
                         .task {
                             guard accountPath.isEmpty, let open = Self.arg("-T1Open") else { return }
                             if open == "deckphotos" { accountPath = [.myDeckPhotos] }
+                            if open == "decklist" { accountPath = [.myDeckPhotos, .deckPhotoList("dp2")] }
                             let parts = open.split(separator: ":").map(String.init)
                             if parts.first == "support" {
                                 accountPath = [.support] + (parts.count > 1 ? [.supportGuide(parts[1], parts.count > 2 ? parts[2] : nil, "demo")] : [])
@@ -212,6 +215,7 @@ struct EventsDemoRoot: View {
                         }
                 }
                 .environment(\.openProfile) { accountPath.append(.social(.profile($0))) }
+                .environment(\.openLibrary) { accountPath.append($0) }
                 T1TabBar(items: SignedInView.tabs, selection: .account) { _ in }
             case "photo":
                 DeckPhotoDemo()
@@ -276,6 +280,8 @@ enum DemoScreens {
     static var account: AccountOverview?
     /// Account → Deck photos (MyDeckPhotos.swift), drawn with DeckPhotoDemo's sample picture.
     static var deckPhotos: MyDeckPhotos?
+    /// The decklist screen (DeckPhotoList.swift) on a made-up read.
+    static var deckList: DeckPhotoListData?
 }
 
 private extension EventBundle {
@@ -659,10 +665,32 @@ private enum DemoData {
        "event_name": "Thursday Sealed", "event_status": "in_progress", "format_label": "Sealed", "event_at": "2026-11-05T18:30:00Z"},
       {"id": "dp2", "participant_id": "p2", "player": "\(names[0])", "path": "demo/2.jpg", "note": "Mono red, 17 lands",
        "created_at": "2026-10-29T19:40:00Z", "turns": 1, "mine": true, "editable": true, "event_id": "ev-draft",
-       "event_name": "Team Draft", "event_status": "completed", "format_label": "Team draft", "event_at": "2026-10-29T18:00:00Z"},
+       "event_name": "Team Draft", "event_status": "completed", "format_label": "Team draft", "event_at": "2026-10-29T18:00:00Z",
+       "list": {"status": "done", "cards": 38, "check": 3, "checked": false}},
       {"id": "dp3", "participant_id": "p2", "player": "\(names[0])", "path": "demo/3.jpg", "note": "",
        "created_at": "2026-10-29T22:10:00Z", "turns": 0, "mine": true, "editable": true, "event_id": "ev-draft",
-       "event_name": "Team Draft", "event_status": "completed", "format_label": "Team draft", "event_at": "2026-10-29T18:00:00Z"}]}
+       "event_name": "Team Draft", "event_status": "completed", "format_label": "Team draft", "event_at": "2026-10-29T18:00:00Z",
+       "list": {"status": "reading", "cards": 0, "check": 0, "checked": false}}]}
+    """)
+
+    /// A read of dp2 (made up): two lines to check, a title nobody matched, two cards left out.
+    static let deckList: DeckPhotoListData = decode(DeckPhotoListData.self, """
+    {"photo_id": "dp2", "event_id": "ev-draft", "participant_id": "p2", "player": "\(names[0])", "path": "demo/2.jpg", "turns": 0,
+     "status": "done", "steps": [], "notes": "Glare on the land row.", "pool": {"kind": "set", "label": "Reality Fracture", "size": 285},
+     "checked": false, "editable": true, "mine": true, "reads_left": 4,
+     "event": {"name": "Team Draft", "format": "team_draft", "event_type": "limited", "format_label": "Team draft · Reality Fracture"},
+     "entries": [
+      {"card_id": "d1", "name": "Blessed Ghoul", "qty": 2, "board": "main", "sure": true},
+      {"card_id": "d2", "name": "Germinate Recruits", "qty": 1, "board": "main", "sure": true},
+      {"card_id": "d3", "name": "Medic's Kitesail", "qty": 1, "board": "main", "sure": true},
+      {"card_id": "d4", "name": "Thalia, the Survivor", "qty": 1, "board": "main", "sure": true},
+      {"card_id": "d5", "name": "Archive Arbiter", "qty": 1, "board": "main", "sure": false, "read": "title under glare, artifact sphinx"},
+      {"card_id": null, "name": "Room of", "qty": 2, "board": "main", "sure": false},
+      {"card_id": "d6", "name": "Your Fate Ends Here", "qty": 1, "board": "main", "sure": true},
+      {"card_id": "d7", "name": "Plains", "qty": 9, "board": "main", "sure": true},
+      {"card_id": "d8", "name": "Swamp", "qty": 7, "board": "main", "sure": false, "read": "pile of about 7, no die"},
+      {"card_id": "d9", "name": "Warrior's Blades", "qty": 1, "board": "out", "sure": true},
+      {"card_id": "d10", "name": "Memory Trap", "qty": 1, "board": "out", "sure": true}]}
     """)
 
     static func decode<T: Decodable>(_ type: T.Type, _ json: String) -> T {

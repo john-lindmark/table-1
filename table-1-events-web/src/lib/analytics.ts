@@ -21,7 +21,7 @@
  */
 export function redactPath(pathname: string): string {
   return pathname
-    .replace(/^\/(join|j|e|p|s|d|l|life|u|league)\/[^/]+/, "/$1/:id")
+    .replace(/^\/(join|j|e|p|s|d|l|life|u|league|photo)\/[^/]+/, "/$1/:id")
     .replace(/^(\/u\/:id\/(?:binder|deck|cube))\/[^/]+/, "$1/:id")
     .replace(/^\/library\/(card|list|trade|match)\/(?!new(?:\/|$))[^/]+/, "/library/$1/:id")
     .replace(/^(\/library\/following\/(?:binder|deck|cube))\/[^/]+/, "$1/:id");
@@ -106,6 +106,7 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
   if (/^\/boards\/[^/]+$/.test(p)) return "board";
   if (/^\/e\/[^/]+\/add$/.test(p)) return "add_players";
   if (/^\/(e|p)\/[^/]+\/photos$/.test(p)) return "deck_photos";
+  if (/^\/photo\/[^/]+\/list$/.test(p)) return "deck_photo_list";
   if (/^\/life(\/[^/]+)?$/.test(p)) return "life_tracker";
   const fixed: Record<string, string> = {
     "/library": "library_home",

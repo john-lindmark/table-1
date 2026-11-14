@@ -1,0 +1,213 @@
+{
+ "photo_id": "6474cb3f-c07f-45fe-9413-07f10ab9e6b3",
+ "event_id": "4f68776f-b816-43db-94b9-5a3deedd15fc",
+ "format_label": "Team draft · Lindmark Cube",
+ "event_type": "limited",
+ "pool": "lindmark",
+ "cards": [
+  {
+   "name": "Treasure Cruise",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Force of Negation",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Force of Will",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Preordain",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Geist of Saint Thalia",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Gollum, Riddle Master",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Faerie Mastermind",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Brazen Borrower // Petty Theft",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Orcish Bowmasters",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Quantum Riddler",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Animate Dead",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "white-bordered old card, faint title looks like Animate Dead, cost 1B, red art"
+  },
+  {
+   "name": "Counterspell",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Remand",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "True-Name Nemesis",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tishana's Tidebinder",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Toxic Deluge",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Lingering Souls",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Subtlety",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "The Legend of Kuruk // Avatar Kuruk",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Teferi, Hero of Dominaria",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fractured Identity",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mystic Confluence",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Raffine's Tower",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Flooded Strand",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Darkslick Shores",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Strip Mine",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "old-frame land, faint title looks like Strip Mine, reddish terraced art"
+  },
+  {
+   "name": "Otawara, Soaring City",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Library of Alexandria",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "old-frame land, faint title reads Library of Alexandria"
+  },
+  {
+   "name": "Scrubland",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "white-bordered old dual land, title too faint to read, about nine letters"
+  },
+  {
+   "name": "Watery Grave",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Island",
+   "qty": 6,
+   "board": "main",
+   "sure": false,
+   "read": "squared pile with a full-art Island on top, about 5-7 edges"
+  },
+  {
+   "name": "Swamp",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Plains",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  }
+ ],
+ "notes": "Photo turned a quarter turn; old white-bordered and faded land titles are hard to read, the Island pile is squared, and a few card edges at the left of the Geist row run off the frame."
+}

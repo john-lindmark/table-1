@@ -1,0 +1,213 @@
+{
+ "photo_id": "dd496db0-230f-452e-8c1f-a0660b4d350c",
+ "event_id": "4f68776f-b816-43db-94b9-5a3deedd15fc",
+ "format_label": "Team draft · Lindmark Cube",
+ "event_type": "limited",
+ "pool": "lindmark",
+ "cards": [
+  {
+   "name": "Voldaren Epicure",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Dragon's Rage Channeler",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ragavan, Nimble Pilferer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Magda, Brazen Outlaw",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Bloodtithe Harvester",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Emberwilde Captain",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Pyrogoyf",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sneak Attack",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Chaos Defiler",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Bloodbraid Challenger",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Wurmcoil Engine",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Myr Battlesphere",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Etali, Primal Conqueror // Etali, Primal Sickness",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Woodfall Primus",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Cut Down",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mind Twist",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Duress",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mana Vault",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "white-bordered old artifact, faint title looks like Mana Vault, cost 1"
+  },
+  {
+   "name": "Black Lotus",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Collective Brutality",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Vraska's Final Mercy",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Recurring Nightmare",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Liliana of the Veil",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Kolaghan's Command",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Blood Crypt",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Llanowar Wastes",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Overgrown Tomb",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Multiversal Passage",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title partly covered: 'Multiversal Pa...', land"
+  },
+  {
+   "name": "Urborg, Tomb of Yawgmoth",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Swamp",
+   "qty": 5,
+   "board": "main",
+   "sure": false,
+   "read": "squared pile with a Swamp on top, about 4-6 edges"
+  },
+  {
+   "name": "Mountain",
+   "qty": 5,
+   "board": "main",
+   "sure": false,
+   "read": "squared pile with an old Mountain on top (title faint), about 4-6 edges"
+  },
+  {
+   "name": "Haywire Mite",
+   "qty": 1,
+   "board": "out",
+   "sure": true
+  },
+  {
+   "name": "Mine Collapse",
+   "qty": 1,
+   "board": "out",
+   "sure": false,
+   "read": "red card cut off at the top edge, no title; text 'may sacrifice ... rather than pay this ... deals 5 damage to ... creature or planeswalker'"
+  }
+ ],
+ "notes": "Two squared basic land piles had to be estimated; off-mat cards at the top edge are cut off and may belong to another player; a Treasure token was left out."
+}

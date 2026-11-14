@@ -48,6 +48,7 @@ enum LibraryRoute: Hashable {
     case rankingChanges(String) // ranking id: the change log
     case myDeckPhotos // Account → Deck photos: every photo of your decks (MyDeckPhotos.swift)
     case eventDeckPhotos(String) // event id: that event's Deck photos, opened from Account → Deck photos
+    case deckPhotoList(String) // photo id: the decklist read from a deck photo (UI/DeckPhotoList.swift)
     case support // Account → Support: questions and the guide (UI/Support.swift)
     case supportGuides // the guide's sections
     case supportTopic(String) // an FAQ topic key
@@ -122,6 +123,7 @@ struct LibraryDestination: View {
         case .rankingChanges: "ranking_changes"
         case .myDeckPhotos: "my_deck_photos"
         case .eventDeckPhotos: "deck_photos"
+        case .deckPhotoList: "deck_photo_list"
         case .support: "support"
         case .supportGuides: "support_guides"
         case .supportTopic: "support_topic"
@@ -177,6 +179,7 @@ struct LibraryDestination: View {
         case .rankingChanges(let id): RankingChangesView(rankingId: id, path: $path)
         case .myDeckPhotos: MyDeckPhotosView(path: $path)
         case .eventDeckPhotos(let id): DeckPhotosView(eventId: id)
+        case .deckPhotoList(let id): DeckPhotoListView(photoId: id, path: $path)
         case .support: SupportView(path: $path)
         case .supportGuides: SupportGuidesView(path: $path)
         case .supportTopic(let key): SupportTopicView(topic: key, path: $path)

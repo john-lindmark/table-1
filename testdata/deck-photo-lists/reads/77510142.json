@@ -1,0 +1,154 @@
+{
+ "photo_id": "77510142-0675-44e8-b675-5dad265f46a9",
+ "event_id": "586d9049-9e76-462e-a9e6-37d9fd51e566",
+ "format_label": "Draft",
+ "event_type": "limited",
+ "pool": null,
+ "cards": [
+  {
+   "name": "Blessed Ghoul",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Unflinching Hortimancer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Campus Crier",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "small title reads like 'Campus Crier', white Human Advisor 2/1"
+  },
+  {
+   "name": "Marwyn, the Preserver",
+   "qty": 2,
+   "board": "main",
+   "sure": false,
+   "read": "title reads 'Marwyn, the Preserver' on two stacked copies, green legendary Elf Druid; small print"
+  },
+  {
+   "name": "Repurposed Enforcer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Vigorbloom Vanguard",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title reads like 'Vigorbloom Vanguard', green-white Troll Druid 2/2 with a sorcery half"
+  },
+  {
+   "name": "Shatterwing Pegasus",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title reads like 'Shatterwing Pegasus', white foil Pegasus flier"
+  },
+  {
+   "name": "Thalia, the Survivor",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Bloombrute",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "gold green-white Plant Elemental 4/4, title starts 'Bloom', rest blurred"
+  },
+  {
+   "name": "Rurk Thar, Magecrusher",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "green legendary Ogre Warrior 7/7, title reads roughly 'Rurk Thar, Magecrusher'"
+  },
+  {
+   "name": "Vinelasher Adept",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title reads like 'Vinelasher Adept', green Rhino Soldier"
+  },
+  {
+   "name": "Unknown",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "last card of the middle column cut off by the photo edge, only the top sliver of a title starting 'Em' shows"
+  },
+  {
+   "name": "Medic's Kitesail",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Memory Trap",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Way of the Mentor",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Way of the Paradox",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Way of the Wildspeaker",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tam's Resistance",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title reads like 'Tam's Resistance', green sorcery; sits with one other card in a short separate column"
+  },
+  {
+   "name": "Your Fate Ends Here",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Forest",
+   "qty": 8,
+   "board": "main",
+   "sure": false,
+   "read": "squared pile with a die showing 8 on top"
+  },
+  {
+   "name": "Plains",
+   "qty": 8,
+   "board": "main",
+   "sure": false,
+   "read": "squared pile with a die showing 8 on top"
+  },
+  {
+   "name": "Hall of Echoes",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "single nonbasic land beside the basics, dark art, title starts 'Hall of', rest unreadable"
+  }
+ ],
+ "notes": "Photo is turned sideways and shot from far away so titles are small; the last card of the middle column is cut off by the edge and a card under dice at the bottom left (looks like a token) was left out."
+}

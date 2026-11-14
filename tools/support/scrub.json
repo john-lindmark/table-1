@@ -140,6 +140,21 @@
       "section": "push",
       "from": " Once per event, never for a drop (you get it when the event is finished), a guest or a demo event; checked again just before it goes, so a result undone or a round paired again sends nothing. A tap opens the event's Deck photos on Take a photo / Choose from photos (in builds before that, the event).",
       "to": " Once per event, never for a drop (you get it when the event is finished) or a guest; checked again just before it goes, so a result undone or a round paired again sends nothing. A tap opens the event's Deck photos on Take a photo / Choose from photos."
+    },
+    {
+      "section": "push",
+      "from": " Once per photo, to the photo's player; never for a guest or a demo event. A tap opens the photo's decklist (in builds before that, the event).",
+      "to": " Once per photo, to the photo's player; never for a guest. A tap opens the photo's decklist."
+    },
+    {
+      "section": "after",
+      "from": " (not in demo events)",
+      "to": ""
+    },
+    {
+      "section": "after",
+      "from": "The live reader read the 24 photos posted so far in 11 to 30 seconds each: 18 came to exactly 40 cards in the main deck, the others to 27 to 41 (photos cut off at the frame or shot from far away), and it agreed with an earlier independent read on about 95% of the cards. ",
+      "to": ""
     }
   ],
   "forbidden": [

@@ -20,8 +20,15 @@ The `payments` function (signed in; `supabase.functions.invoke("payments", {body
   account of their own).
 - 503 `{error: "Payments aren't set up yet"}` until Table 1's own Stripe keys are in place: show that line.
 
-`payments_account() → {connected, ready, payouts, details_submitted, disabled_reason}` reads the last known state
-without asking Stripe.
+`payments_account() → {connected, ready, payouts, details_submitted, disabled_reason, enabled}` reads the last known
+state without asking Stripe.
+
+**Hidden for now** (John, 2026-11-14): `enabled` is true only for accounts on the server's tester list until
+payments are opened. While it is false (or the call fails) a client shows **nothing** about payments that an
+organizer could act on: no Account → Payments row, no Entry fee row in Setup → Details, no Cut per entry in the
+season editor, no Dues tool. What players see needs no flag: an event has a fee only if a tester set one, so the fee
+line, Prize pool, Pay and prizes appear only on those events. The server refuses `event_fee_set` (42501) and the
+`payments` function's connect actions (503) for everyone else.
 
 Clients: **Account → Payments** (a row after Sharing): `NOT CONNECTED` / `FINISH SETTING UP` / `READY` (accent).
 Connect Stripe (or Finish setting up) opens onboarding; coming back to the app or page calls `connect_status`.

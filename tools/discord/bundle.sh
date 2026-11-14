@@ -10,7 +10,7 @@ src=$root/supabase/functions/discord-bot
 eng=$root/supabase/functions/events-engine
 out=${1:-$root/tools/discord/deploy}
 rm -rf "$out"; mkdir -p "$out/events-engine" "$out/ranking-brief"
-cp "$src"/index.ts "$src"/discord.ts "$src"/telemetry.ts "$src"/verify.ts "$src"/commands.json "$out/"
+cp "$src"/index.ts "$src"/discord.ts "$src"/photos.ts "$src"/telemetry.ts "$src"/verify.ts "$src"/commands.json "$out/"
 sed -e 's#"../events-engine/#"./events-engine/#' "$src/standings.ts" > "$out/standings.ts"
 sed -e 's#"../events-engine/#"./events-engine/#' "$src/embeds.ts" > "$out/embeds.ts"
 sed -e 's#"../ranking-brief/#"./ranking-brief/#' "$src/ranking.ts" > "$out/ranking.ts"

@@ -1,0 +1,217 @@
+{
+ "photo_id": "f4924863-6a84-4d21-ad50-a4a6ec1fe411",
+ "event_id": "4f68776f-b816-43db-94b9-5a3deedd15fc",
+ "format_label": "Team draft · Lindmark Cube",
+ "event_type": "limited",
+ "pool": "lindmark",
+ "cards": [
+  {
+   "name": "Thraben Inspector",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mother of Runes",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title glared out; white 1/1, 'Target creature you control gains protection from a color of your choice', flavor 'My family protects all families'"
+  },
+  {
+   "name": "Jace, Vryn's Prodigy // Jace, Telepath Unbound",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Black Widow, Super Spy",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Glimmer Lens",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Stoneforge Mystic",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Cathar Commando",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Psychic Frog",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Emperor of Bones",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Raffine, Scheming Seer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Enduring Innocence",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Lurrus of the Dream-Den",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Palace Jailer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Kaldra Compleat",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Troll of Khazad-dûm",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Snuff Out",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Unexpectedly Absent",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mana Drain",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "Italian title 'Risucchia Potere', blue card costing UU"
+  },
+  {
+   "name": "Winds of Abandon",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Council's Judgment",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Teferi, Time Raveler",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Stock Up",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Leyline Binding",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Kaito, Bane of Nightmares",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Arid Mesa",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Marsh Flats",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Undercity Sewers",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Meticulous Archive",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Underground Sea",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "white-bordered old dual land, faint title reads 'Underground Sea'"
+  },
+  {
+   "name": "Concealed Courtyard",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Karakas",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Plains",
+   "qty": 3,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Island",
+   "qty": 3,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Swamp",
+   "qty": 3,
+   "board": "main",
+   "sure": true
+  }
+ ],
+ "notes": "Glare on the second card of the first pile and faint old-frame titles; one basic and one spell are non-English printings."
+}

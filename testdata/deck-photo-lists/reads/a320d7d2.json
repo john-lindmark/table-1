@@ -1,0 +1,175 @@
+{
+ "photo_id": "a320d7d2-9df7-477d-babc-23040b87b6dc",
+ "event_id": "eb72dfaa-ee24-41fd-a647-747971c34320",
+ "format_label": "Draft · Mystery Booster 2",
+ "event_type": "limited",
+ "pool": "mb2",
+ "cards": [
+  {
+   "name": "Blight Mamba",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Skinthinner",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Undead Augur",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Nezumi Graverobber",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tourach, Dread Cantor",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fynn, the Fangbearer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Elvish Ranger",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Pinchy McStingbutt",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Skullport Merchant",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Evolution Sage",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Murderous Redcap",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Minsc & Boo, Timeless Heroes",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Trollbred Guardian",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Arrogant Wurm",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Dread Linnorm",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tail Swipe",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Dead Weight",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Utopia Sprawl",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sensei's Divining Top",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Thornbite Staff",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Blood Curdle",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Common Black Removal",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Incremental Blight",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Madlands",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Swamp",
+   "qty": 7,
+   "board": "main",
+   "sure": false,
+   "read": "squared pile, a few offset edges showing, about 6-8"
+  },
+  {
+   "name": "Forest",
+   "qty": 7,
+   "board": "main",
+   "sure": false,
+   "read": "squared pile, a few offset edges showing, about 6-8"
+  },
+  {
+   "name": "Mountain",
+   "qty": 2,
+   "board": "main",
+   "sure": false,
+   "read": "squared pile on top of Madlands, looks thin, about 2-3"
+  }
+ ],
+ "notes": "The three basic land piles are squared up, so their counts are estimates; many cards are not in the Mystery Booster 2 pool list but their titles read in full."
+}

@@ -92,6 +92,20 @@ create table if not exists public.league_dues (
   marked_by uuid
 );
 
+-- Payments are hidden for now (John, 2026-11-14: "make sure the payments content is hidden for now"): entry fees and
+-- Stripe are open only to the accounts listed here until `payments.open` is set to '1' in t1_private.settings.
+create table if not exists t1_private.payment_testers (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  added_at timestamptz not null default now()
+);
+alter table t1_private.payment_testers enable row level security;
+
+create or replace function t1_private.payments_open_for(p_user_id uuid)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select coalesce((select s.value = '1' from t1_private.settings s where s.name = 'payments.open'), false)
+      or exists (select 1 from t1_private.payment_testers t where t.user_id = p_user_id);
+$$;
+
 create table if not exists t1_private.stripe_events (
   id text primary key,
   at timestamptz not null default now()
@@ -157,6 +171,9 @@ begin
     raise exception 'Only organizers can set the entry fee' using errcode = '42501';
   end if;
   if e.is_demo then raise exception 'Demo events have no fees' using errcode = '22023'; end if;
+  if not t1_private.payments_open_for(v_uid) then
+    raise exception 'Entry fees aren''t available yet' using errcode = '42501';
+  end if;
   select * into f from public.event_fees where event_id = p_event_id;
   v_paid := exists (select 1 from public.event_payments p where p.event_id = p_event_id and p.status in ('pending', 'paid') and p.method <> 'comp');
   if p_fee is null or jsonb_typeof(p_fee) = 'null' then
@@ -482,7 +499,9 @@ returns jsonb language sql stable security definer set search_path = '' as $$
                                               'details_submitted', a.details_submitted, 'disabled_reason', a.disabled_reason)
                      from t1_private.stripe_accounts a where a.user_id = auth.uid()),
                   jsonb_build_object('connected', false, 'ready', false, 'payouts', false, 'details_submitted', false,
-                                     'disabled_reason', null));
+                                     'disabled_reason', null))
+         -- enabled: whether this account is shown payments at all (clients hide every payments screen without it).
+         || jsonb_build_object('enabled', t1_private.payments_open_for(auth.uid()));
 $$;
 
 -- ==================================================================== f_service
@@ -637,6 +656,12 @@ begin
   return jsonb_build_object('known', true, 'event_id', pay.event_id, 'participant_id', pay.participant_id);
 end $$;
 
+-- Whether an account may use payments yet (the payments function asks before talking to Stripe for them).
+create or replace function public.payments_open(p_user_id uuid)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select t1_private.payments_open_for(p_user_id);
+$$;
+
 -- True the first time a Stripe event id is seen.
 create or replace function public.stripe_event_seen(p_id text)
 returns boolean language plpgsql security definer set search_path = '' as $$
@@ -677,7 +702,7 @@ do $$
 declare f text;
 begin
   for f in select p.oid::regprocedure::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-            where n.nspname = 't1_private' and p.proname in ('payout_clean', 'fee_json', 'event_cut', 'event_pool',
+            where n.nspname = 't1_private' and p.proname in ('payments_open_for', 'payout_clean', 'fee_json', 'event_cut', 'event_pool',
                                                              'event_prize_rows', 'payment_state') loop
     execute format('revoke execute on function %s from public, anon, authenticated', f);
   end loop;
@@ -695,7 +720,7 @@ begin
     'public.stripe_account_get(uuid)', 'public.stripe_account_put(uuid, text, jsonb)', 'public.stripe_account_gone(text)',
     'public.payment_begin(uuid, uuid)', 'public.payment_session_put(uuid, text, text, timestamptz)',
     'public.payment_settle(text, text, text)', 'public.payment_refund_begin(uuid, uuid, uuid)',
-    'public.payment_refunded(text, text, uuid)', 'public.stripe_event_seen(text)'] loop
+    'public.payment_refunded(text, text, uuid)', 'public.stripe_event_seen(text)', 'public.payments_open(uuid)'] loop
     execute format('revoke execute on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);
   end loop;

@@ -1,0 +1,175 @@
+{
+ "photo_id": "8367e5b9-ff9b-44ad-8c2f-296d50117f4d",
+ "event_id": "586d9049-9e76-462e-a9e6-37d9fd51e566",
+ "format_label": "Draft",
+ "event_type": "limited",
+ "pool": null,
+ "cards": [
+  {
+   "name": "Carnivorous Cultivator",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fblthp, Impossibly Lost",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Marwyn, the Preserver",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sureshot Sower",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fblthp, Knows the Way",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Kiora of Salt and Sand",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Saheeli, Jewel of Avishkar",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Curse-Marred Demon",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Undulating Witness",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ruric Thar, Biomagus",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ginger, Queen of Sweets",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Craftwork Crusher",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Twinned Vision",
+   "qty": 3,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Compel Brutality",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Something Worth Saving",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Clash of Elements",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Murmuring Volume",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Infinite Coursework",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Violent Echoes",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Protege's Awakening",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Way of the Mind Sculptor",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mountain",
+   "qty": 4,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Forest",
+   "qty": 4,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Island",
+   "qty": 6,
+   "board": "main",
+   "sure": false,
+   "read": "fanned row of Island title bars, tightly overlapped at the left; counted 6"
+  },
+  {
+   "name": "Room of",
+   "qty": 2,
+   "board": "main",
+   "sure": false,
+   "read": "two copies of a nonbasic land whose title starts 'Room of', rest hidden under the next card; any-color land text"
+  },
+  {
+   "name": "Konstrari Annex",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Pia, Determined Rebuilder",
+   "qty": 1,
+   "board": "out",
+   "sure": false,
+   "read": "upside-down red card off the playmat at the top edge, only its title bar in frame; may belong to another deck"
+  }
+ ],
+ "notes": "Clear photo; one nonbasic land title is half covered, and cards at the very top edge off the mat (one red title readable, two cut off) may not belong to this deck."
+}

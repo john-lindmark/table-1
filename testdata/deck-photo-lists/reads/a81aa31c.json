@@ -1,0 +1,208 @@
+{
+ "photo_id": "a81aa31c-0194-4733-9e0d-d21f34776155",
+ "event_id": "9410ec21-ef5e-47ca-8fac-4e7c7995eef2",
+ "format_label": "Team draft · Lindmark Cube",
+ "event_type": "limited",
+ "pool": "lindmark",
+ "cards": [
+  {
+   "name": "Plains",
+   "qty": 4,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Forest",
+   "qty": 5,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Abandoned Air Temple",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Eldrazi Temple",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Bountiful Landscape",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Razorverge Thicket",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Karakas",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "City of Traitors",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mox Pearl",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mox Emerald",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Swift Reconfiguration",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ancient Stirrings",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Swords to Plowshares",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Path to Exile",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Grim Monolith",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Kozilek's Command",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Touch the Spirit Realm",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Guide of Souls",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Delighted Halfling",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Figure of Fable",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mother of Runes",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sylvan Caryatid",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Cathar Commando",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Wastescape Battlemage",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Scythecat Cub",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Phelia, Exuberant Shepherd",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Surrak, Elusive Hunter",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sanguine Evangelist",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ouroboroid",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Questing Beast",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ulvenwald Oddity // Ulvenwald Behemoth",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Nissa, Who Shakes the World",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Emrakul, the Promised End",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  }
+ ],
+ "notes": "Emrakul, the Promised End is read in full but is not in the pool; the Ancient Stirrings is a full-art printing with its title partway down the card."
+}

@@ -264,6 +264,10 @@ enum PushRoutes {
         // Wants got cheaper or fell to their max (contract/want-prices-2026-10-26.md): Wants.
         if info["kind"] as? String == "want.price" { return [.wants] }
         // A deck search finished (contract/deck-finder-2026-10-15.md § Jobs): Find a deck on that job.
+        // The decklist read from your deck photo (contract/deck-photo-lists-2026-11-13.md): Deck photos, then the list.
+        if info["kind"] as? String == "deck.read", let photo = info["photo_id"] as? String, !photo.isEmpty {
+            return [.myDeckPhotos, .deckPhotoList(photo)]
+        }
         if info["kind"] as? String == "deck.found", let job = info["job_id"] as? String, !job.isEmpty {
             return [.lists(.deck), .findDeck(job)]
         }

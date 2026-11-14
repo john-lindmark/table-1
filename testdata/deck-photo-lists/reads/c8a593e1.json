@@ -1,0 +1,204 @@
+{
+ "photo_id": "c8a593e1-0975-4b7c-b856-1560a0b04229",
+ "event_id": "9410ec21-ef5e-47ca-8fac-4e7c7995eef2",
+ "format_label": "Team draft · Lindmark Cube",
+ "event_type": "limited",
+ "pool": "lindmark",
+ "cards": [
+  {
+   "name": "Walking Ballista",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mox Sapphire",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ephemerate",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Portable Hole",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Unholy Heat",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Flashback",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Faithless Looting",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Chain Lightning",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "Italian title 'Fulmini a Catena', red one-mana card, only the title bar shows"
+  },
+  {
+   "name": "Dragon's Rage Channeler",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "The Wondrous Wasp",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Voice of Victory",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Stoneforge Mystic",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sear",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ivora, Insatiable Heir",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fear of Missing Out",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Phlage, Titan of Fire's Fury",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Spellseeker",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Loran of the Third Path",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Cosmogrand Zenith",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Clarion Conqueror",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Seasoned Pyromancer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Wheel of Fortune",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mine Collapse",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Anticausal Vestige",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Kaldra Compleat",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tundra",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "white-bordered old land, title glared, looks like 'Tundra', pale snowy art"
+  },
+  {
+   "name": "Sunbillow Verge",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Wasteland",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Celestial Colonnade",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mountain",
+   "qty": 6,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Plains",
+   "qty": 5,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Island",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  }
+ ],
+ "notes": "Several basics are Japanese or Korean printings in an overlapped row, one spell is Italian, and the Tundra's title is glared."
+}

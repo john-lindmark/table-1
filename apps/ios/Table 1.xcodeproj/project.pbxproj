@@ -22,6 +22,7 @@
 		107F3904D521E87AF5BBCEBC /* RankSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDA4C1289215B2E1BF32D184 /* RankSync.swift */; };
 		10ABA73914D5034CA1FD7EBB /* Binders.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2481391075D52535293DC84 /* Binders.swift */; };
 		10BA11DA58B8E0B86B8C2A76 /* LiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B262491F1533D678F74DD238 /* LiveStore.swift */; };
+		11D06CAB80672B7820F3B64A /* DeckPhotoListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDCBF03A655751935B04F0F1 /* DeckPhotoListTests.swift */; };
 		138EC7DDB0E0A31B054BB3ED /* EmailSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435496AE959EE4E278BD3995 /* EmailSignIn.swift */; };
 		13F0FFCA274CEE604023B1DB /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8CEF6031CE6F5FCA7347F5DC /* SwiftUI.framework */; };
 		154CD4E163B070FAD660FA69 /* RotoRepo.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA5585D460ED8D0ECA5B05DA /* RotoRepo.swift */; };
@@ -37,6 +38,7 @@
 		1F66EB68FE24E7ACF235E4AB /* SVGView in Frameworks */ = {isa = PBXBuildFile; productRef = B29FE675356369E91F94A200 /* SVGView */; };
 		1FD753FA046685F585CF4879 /* FinalAlerts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74F82E2A6597AC6108F5E7D7 /* FinalAlerts.swift */; };
 		2141E61DBE7770279BA6EC44 /* ListToCollection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54D68768602F823BEDB4405D /* ListToCollection.swift */; };
+		2177EBAA5FABF5BE63153C49 /* DeckPhotoList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724F200019D4F2B9DF28EA13 /* DeckPhotoList.swift */; };
 		21A24A59133F57CD0FF6B17D /* CardQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7458D31D7677A2D5A263837C /* CardQuery.swift */; };
 		2215C27DC9BA34BF267424EF /* OrganizerPhases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AEABE616F8D0C366BBECFF0 /* OrganizerPhases.swift */; };
 		228CD8FF50CB5C88106AFF80 /* Collection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4EBF4DF80B3E058AB0E4A51 /* Collection.swift */; };
@@ -481,6 +483,7 @@
 		71B8C7CC4BA32B9ADFA2DA44 /* FollowsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowsViews.swift; sourceTree = "<group>"; };
 		71BAD312832FB789063B97CD /* CubeSyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CubeSyncView.swift; sourceTree = "<group>"; };
 		71DEF4750BDB88600510A208 /* PopularCubesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopularCubesTests.swift; sourceTree = "<group>"; };
+		724F200019D4F2B9DF28EA13 /* DeckPhotoList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckPhotoList.swift; sourceTree = "<group>"; };
 		72DEBB4B6FB502FD419464DB /* Prices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prices.swift; sourceTree = "<group>"; };
 		73399518569A7281C28BB7CF /* FindViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindViews.swift; sourceTree = "<group>"; };
 		738481C3E4D90E192835CD87 /* WidgetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetViews.swift; sourceTree = "<group>"; };
@@ -590,6 +593,7 @@
 		D9CE98EF83E5F02B0AA75DC0 /* CommandZoneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandZoneTests.swift; sourceTree = "<group>"; };
 		DD0C14458A0104608C91F3E1 /* OrganizerActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrganizerActivityController.swift; sourceTree = "<group>"; };
 		DD41B679C1BA02ABB15C2B93 /* CatalogPack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogPack.swift; sourceTree = "<group>"; };
+		DDCBF03A655751935B04F0F1 /* DeckPhotoListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckPhotoListTests.swift; sourceTree = "<group>"; };
 		DEBFF4C2089BBCAD4FA4189B /* TrackerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerModel.swift; sourceTree = "<group>"; };
 		E2481391075D52535293DC84 /* Binders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Binders.swift; sourceTree = "<group>"; };
 		E3DAC241E9475632B6E8159C /* CardScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardScanner.swift; sourceTree = "<group>"; };
@@ -707,6 +711,7 @@
 				507E846E91B6B1E06DB8E396 /* CubeSyncTests.swift */,
 				8F8672BF51BE4AEAC870C925 /* DeckFinderTests.swift */,
 				2C3C427BABDE0420BBFA2F31 /* DeckImageTests.swift */,
+				DDCBF03A655751935B04F0F1 /* DeckPhotoListTests.swift */,
 				F75DE22C045863227DB630BF /* DeckPhotoPromptTests.swift */,
 				55984EF20A9062A4F0D1E4B9 /* DeckPhotoTests.swift */,
 				C23AB8F5588863F9D0B84282 /* DeckStatsTests.swift */,
@@ -1053,6 +1058,7 @@
 				13C0AE970C6BB94032DAA56D /* AddPlayersView.swift */,
 				59C86AD83E780247A2D36857 /* Avatar.swift */,
 				D937184FD4C3DFD141073B51 /* CreateEventView.swift */,
+				724F200019D4F2B9DF28EA13 /* DeckPhotoList.swift */,
 				08682F89E12E0BD4142A428C /* EventExtras.swift */,
 				312B7979FC297A98B689D311 /* EventsDemo.swift */,
 				A74A6BB8902A12FD8305F32D /* EventSignUp.swift */,
@@ -1273,6 +1279,7 @@
 				E01CB9A8AAB34CEC93C89971 /* CubeSyncTests.swift in Sources */,
 				887AD2AF5D75DB0C55AF3AC5 /* DeckFinderTests.swift in Sources */,
 				AE286DDDDEFF5E6EF42FD46A /* DeckImageTests.swift in Sources */,
+				11D06CAB80672B7820F3B64A /* DeckPhotoListTests.swift in Sources */,
 				B66D3F03775E2143AF2CC74B /* DeckPhotoPromptTests.swift in Sources */,
 				341E732432FC9DBDF11EFEEC /* DeckPhotoTests.swift in Sources */,
 				DF246074B284841D5C11B4B8 /* DeckStatsTests.swift in Sources */,
@@ -1376,6 +1383,7 @@
 				F0701D8A76DC78D4C98BF31D /* DeckFinderJobs.swift in Sources */,
 				F030B87EDDEA0A4ACC83541E /* DeckImage.swift in Sources */,
 				93FB41A6A5FE2BDECC95B81A /* DeckMeta.swift in Sources */,
+				2177EBAA5FABF5BE63153C49 /* DeckPhotoList.swift in Sources */,
 				ABFF22B51BC01146BF2C6D1A /* DeckStats.swift in Sources */,
 				D0BE8671D486C0B73C63899A /* DraftPods.swift in Sources */,
 				138EC7DDB0E0A31B054BB3ED /* EmailSignIn.swift in Sources */,
@@ -1640,7 +1648,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 61;
+				CURRENT_PROJECT_VERSION = 62;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 94889YTX94;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1723,7 +1731,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 61;
+				CURRENT_PROJECT_VERSION = 62;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 94889YTX94;
 				ENABLE_NS_ASSERTIONS = NO;

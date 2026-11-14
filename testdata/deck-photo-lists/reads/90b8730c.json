@@ -1,0 +1,136 @@
+{
+ "photo_id": "90b8730c-85d9-499c-b9c7-ba0d6df689c8",
+ "event_id": "586d9049-9e76-462e-a9e6-37d9fd51e566",
+ "format_label": "Draft",
+ "event_type": "limited",
+ "pool": null,
+ "cards": [
+  {
+   "name": "Stingerquill Voxmancer",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tomik, Izzet Sparkmage",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fblthp, Impossibly Lost",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Surveillance Phantasm",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Geist of Saint Thalia",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fatehold Chronologist",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Koth, the Geomancer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mindseeker Oculus",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Lyra, Tolarian Archangel",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Whiplash Wordsmith",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Venser, Fervent Forger",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ruric Thar, Biomagus",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Countersculpt",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Clash of Elements",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sphinx's Approach",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Way of the Cryomancer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Infinite Coursework",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Protege's Awakening",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Way of the Mind Sculptor",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Island",
+   "qty": 9,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mountain",
+   "qty": 8,
+   "board": "main",
+   "sure": true
+  }
+ ],
+ "notes": ""
+}

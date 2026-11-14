@@ -1,0 +1,270 @@
+{
+ "photo_id": "45cb7860-a445-4cf0-bbd7-b3eb279dec54",
+ "event_id": "4f68776f-b816-43db-94b9-5a3deedd15fc",
+ "format_label": "Team draft · Lindmark Cube",
+ "event_type": "limited",
+ "pool": "lindmark",
+ "cards": [
+  {
+   "name": "Goblin Engineer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ivora, Insatiable Heir",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Third Path Iconoclast",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Luminarch Aspirant",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sage of the Skies",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Death-Greeter's Champion",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Elite Spellbinder",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Phlage, Titan of Fire's Fury",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fable of the Mirror-Breaker // Reflection of Kiki-Jiki",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Batroc the Leaper",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Forth Eorlingas!",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ugin, Eye of the Storms",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Prismatic Ending",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Currency Converter",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mishra's Bauble",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Chain Lightning",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "non-English title like 'Fulmen a Catena', red one-mana card with lightning art"
+  },
+  {
+   "name": "Daze",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mana Leak",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Miscalculation",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Talisman of Creativity",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Legion Extruder",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Umezawa's Jitte",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Relic of Sauron",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Plateau",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "white-bordered old land, faint title looks like Plateau"
+  },
+  {
+   "name": "Inspiring Vantage",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Raugrin Triome",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Wooded Foothills",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sunbillow Verge",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "City of Traitors",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Elegant Parlor",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Celestial Colonnade",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mox Emerald",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "dark old-frame artifact, faint title 'Mox Em...', gold jewel art"
+  },
+  {
+   "name": "Mox Poison",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Island",
+   "qty": 2,
+   "board": "main",
+   "sure": false,
+   "read": "one Island on top, a second water-drop text box under it"
+  },
+  {
+   "name": "Plains",
+   "qty": 2,
+   "board": "main",
+   "sure": false,
+   "read": "one Plains on top, one edge reading 'Bas' behind it"
+  },
+  {
+   "name": "Mountain",
+   "qty": 3,
+   "board": "main",
+   "sure": false,
+   "read": "two Mountain titles and one more card edge behind"
+  },
+  {
+   "name": "Temple Garden",
+   "qty": 1,
+   "board": "out",
+   "sure": true
+  },
+  {
+   "name": "Territorial Kavu",
+   "qty": 1,
+   "board": "out",
+   "sure": true
+  },
+  {
+   "name": "Thassa's Oracle",
+   "qty": 1,
+   "board": "out",
+   "sure": false,
+   "read": "title partly cut off at the photo edge, blue card under Forensic Gadgeteer"
+  },
+  {
+   "name": "Forensic Gadgeteer",
+   "qty": 1,
+   "board": "out",
+   "sure": true
+  },
+  {
+   "name": "Griselbrand",
+   "qty": 1,
+   "board": "out",
+   "sure": true
+  },
+  {
+   "name": "Phoenix Fleet Airship",
+   "qty": 1,
+   "board": "out",
+   "sure": false,
+   "read": "title hidden under Griselbrand, 'Crew 1' and 4/4 showing"
+  }
+ ],
+ "notes": "Photo is rotated a quarter turn relative to the off-mat cards; sideboard piles at the top edge are cut off and stacked, so more side cards are hidden under them."
+}

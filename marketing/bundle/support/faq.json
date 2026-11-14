@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-11",
+  "updated": "2026-11-13",
   "contact": {
     "discord": "https://discord.gg/SEYnjHTGVr",
     "email": "privacy@table-1.site"
@@ -328,12 +328,29 @@
       "id": "play-deck-photo",
       "topic": "play",
       "q": "How do I add a photo of my deck?",
-      "a": "On the event screen, Deck photo lets you take or pick a photo with a note, and turn it upright before saving. Once your last match is in (or the event is over), the event screen opens on Add a deck photo, which goes straight to the camera or your photos; if you haven't added one ten minutes later, a notification reminds you once. Only you and the organizer see it until the event is over; then everyone in the event does. Account → Deck photos lists every photo of a deck you've played. Hold a photo to copy it, save it to Photos or share it.",
+      "a": "On the event screen, Deck photo lets you take or pick a photo with a note, and turn it upright before saving. Once your last match is in (or the event is over), the event screen opens on Add a deck photo, which goes straight to the camera or your photos; if you haven't added one ten minutes later, a notification reminds you once. Only you and the organizer see it until the event is over; then everyone in the event does. Account → Deck photos lists every photo of a deck you've played. Hold a photo to copy it, save it to Photos or share it. A photo already up can be turned with Rotate right or Rotate left by you, whoever took it, or the event's organizer.",
       "keywords": [
         "photo",
         "picture",
         "deck photo",
         "camera"
+      ],
+      "guide": "after"
+    },
+    {
+      "id": "play-deck-photo-list",
+      "topic": "play",
+      "q": "How do I get a decklist from my deck photo?",
+      "a": "Every deck photo is read into a decklist. Under the photo, Decklist shows how many cards were read and how many to check; tap it to see the photo with the list beside it. The reader uses the event's set or cube to name cards, counts a die on a pile of basic lands as that land's number, and leaves out cards lying sideways or off the mat (they wait under Left out). If you're the player, took the photo or run the event, fix the list: step a count, tap a line to change the card, mark it right, move it to the sideboard or remove it, or add a card; it saves as you go. Add to my decks makes a private deck from the list in your Collection. You get one notification when your list is ready.",
+      "keywords": [
+        "decklist",
+        "deck list",
+        "photo",
+        "read",
+        "scan deck",
+        "dice",
+        "sideways",
+        "add to my decks"
       ],
       "guide": "after"
     },
@@ -1311,7 +1328,7 @@
       "id": "discord-commands",
       "topic": "discord",
       "q": "What can the Discord bot do?",
-      "a": "/event create, post, signup, drop and results run events from a channel, with a card that updates itself as people sign up. /deck posts a deck as a picture, /wants and /trades post your lists, /card looks up a card, /meta posts Insights charts and /ranking posts a ranking. /help lists everything.",
+      "a": "/event create, post, signup, drop and results run events from a channel, with a card that updates itself as people sign up; final results are followed by every player's deck photos, in standings order. /deck posts a deck as a picture, /wants and /trades post your lists, /card looks up a card, /meta posts Insights charts and /ranking posts a ranking. /help lists everything.",
       "keywords": [
         "discord",
         "commands",

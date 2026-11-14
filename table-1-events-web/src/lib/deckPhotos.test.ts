@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { deckPhotoDone, deckPhotoPrompt, deckPhotoSize, deckPhotoWhyLabel, myDeckPhotoDetail, promptRounds, type DeckPhotoWhy, type PromptRound, myDeckPhotoGroups, myDeckPhotoSummary, toMyPhotos, turnDeckPhoto, turnedSize } from "./deckPhotos";
+import { deckPhotoDone, deckPhotoPrompt, deckPhotoSize, deckPhotoWhyLabel, myDeckPhotoDetail, promptRounds, type DeckPhotoWhy, type PromptRound, myDeckPhotoGroups, myDeckPhotoSummary, toMyPhotos, toPhotos, turnDeckPhoto, turnedSize } from "./deckPhotos";
 
 /* Deck photo size and Rotate left / right (contract/event-night-2026-10-16.md § 7) against
    testdata/deck-photos/cases.json (also iOS DeckPhotoTests and Android DeckPhotosTest). */
@@ -86,5 +86,16 @@ describe("deck photo prompt (shared cases)", () => {
     ] }], "a");
     expect(rounds[0].mine).toEqual({ bye: false, status: "confirmed", my: 1, their: 2 });
     expect(deckPhotoWhyLabel("last")).toBe("Last match in");
+  });
+});
+
+describe("who may turn a photo", () => {
+  const row = { id: "d1", participant_id: "p1", player: "Bea", path: "e/d1.jpg", note: "", created_at: "", turns: 0, mine: false };
+  it("the organizer turns a player's photo but doesn't edit it", () => {
+    expect(toPhotos({ photos: [{ ...row, editable: false, turnable: true }] }).photos[0]).toMatchObject({ editable: false, turnable: true });
+  });
+  it("servers before 2026-11-13 send no turnable: it follows editable", () => {
+    expect(toPhotos({ photos: [{ ...row, editable: true }] }).photos[0].turnable).toBe(true);
+    expect(toPhotos({ photos: [{ ...row, editable: false }] }).photos[0].turnable).toBe(false);
   });
 });

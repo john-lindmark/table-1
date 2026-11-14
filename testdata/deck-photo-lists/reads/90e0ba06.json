@@ -1,0 +1,205 @@
+{
+ "photo_id": "90e0ba06-8c5e-4ca1-8013-378900596a51",
+ "event_id": "4f68776f-b816-43db-94b9-5a3deedd15fc",
+ "format_label": "Team draft · Lindmark Cube",
+ "event_type": "limited",
+ "pool": "lindmark",
+ "cards": [
+  {
+   "name": "Plains",
+   "qty": 8,
+   "board": "main",
+   "sure": false,
+   "read": "fanned column, eight Plains title bars (one in Japanese), some faint"
+  },
+  {
+   "name": "Island",
+   "qty": 3,
+   "board": "main",
+   "sure": false,
+   "read": "two Island title bars plus one more unreadable title bar just below them"
+  },
+  {
+   "name": "Shelldock Isle",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Eldrazi Temple",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Starting Town",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tolarian Academy",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Lotus Petal",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mox Opal",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sol Ring",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title unreadable, old-frame artifact with a one generic mana cost between Mox Opal and Mana Crypt"
+  },
+  {
+   "name": "Mana Crypt",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mana Tithe",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Swords to Plowshares",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Static Prison",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Skullclamp",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Manifold Key",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Grim Monolith",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Basalt Monolith",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Parallax Wave",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Phelia, Exuberant Shepherd",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Malcolm, Alluring Scoundrel",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Voice of Victory",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Bilbo, Thief in the Night",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Staff of the Storyteller",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Walking Ballista",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Containment Priest",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tezzeret, Cruel Captain",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Agent Bishop, Man in Black",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "The Fantasticar",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Phyrexian Metamorph",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Serra Paragon",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Karn, Scion of Urza",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sire of Seven Deaths",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  }
+ ],
+ "notes": "Tightly fanned land column with faint foil titles; one artifact title in the second column is unreadable; tokens off the mat and another player's cards at the right edge were left out."
+}

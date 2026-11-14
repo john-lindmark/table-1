@@ -450,6 +450,7 @@ struct SignedInView: View {
                         }
                 }
                 .environment(\.openProfile) { path.append(.library(.social(.profile($0)))) }
+                .environment(\.openLibrary) { path.append(.library($0)) }
                 .opacity(tab == .events ? 1 : 0)
                 .allowsHitTesting(tab == .events)
                 .accessibilityHidden(tab != .events)
@@ -460,6 +461,7 @@ struct SignedInView: View {
                         .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $libraryPath) }
                 }
                 .environment(\.openProfile) { libraryPath.append(.social(.profile($0))) }
+                .environment(\.openLibrary) { libraryPath.append($0) }
                 .opacity(tab == .collection ? 1 : 0)
                 .allowsHitTesting(tab == .collection)
                 .accessibilityHidden(tab != .collection)
@@ -470,6 +472,7 @@ struct SignedInView: View {
                         .navigationDestination(for: InsightsRoute.self) { InsightsDestination(route: $0, path: $insightsPath) }
                 }
                 .environment(\.openProfile) { insightsPath.append(.library(.social(.profile($0)))) }
+                .environment(\.openLibrary) { insightsPath.append(.library($0)) }
                 .opacity(tab == .insights ? 1 : 0)
                 .allowsHitTesting(tab == .insights)
                 .accessibilityHidden(tab != .insights)
@@ -480,6 +483,7 @@ struct SignedInView: View {
                         .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $accountPath) }
                 }
                 .environment(\.openProfile) { accountPath.append(.social(.profile($0))) }
+                .environment(\.openLibrary) { accountPath.append($0) }
                     .opacity(tab == .account ? 1 : 0)
                     .allowsHitTesting(tab == .account)
                     .accessibilityHidden(tab != .account)

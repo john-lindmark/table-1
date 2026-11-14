@@ -113,4 +113,15 @@ class DeckPhotosTest {
         }
         assertEquals("Last match in", DeckPhotoPrompt.label("last"))
     }
+
+    @Test fun theOrganizerTurnsButDoesNotEdit() {
+        val json = Json { ignoreUnknownKeys = true }
+        fun photo(extra: String) = json.decodeFromString(DeckPhoto.serializer(),
+            """{"id": "d1", "participant_id": "p1", "path": "e/d1.jpg", $extra}""")
+        val organizer = photo(""""editable": false, "turnable": true""")
+        assertEquals(true, organizer.canTurn)
+        assertEquals(false, organizer.editable)
+        assertEquals("servers before 2026-11-13 send no turnable: it follows editable", true, photo(""""editable": true""").canTurn)
+        assertEquals(false, photo(""""editable": false""").canTurn)
+    }
 }
