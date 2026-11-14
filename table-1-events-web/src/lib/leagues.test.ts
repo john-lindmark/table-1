@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import cases from "../../../testdata/leagues/cases.json";
 import {
   BOARD_KEYS, FORMAT_KEYS, NO_FILTERS, PRESETS, achievementPath, achievementText, boardLine, counter, dateText, eventLine,
-  filterLabels, filtersWire, findPickOf, finishLine, foundEventPath, isFiltered, isMissing, leagueEventLine, leagueLine,
+  filterLabels, filtersWire, findPickOf, finishLine, foundEventPath, homeLeagueCards, isFiltered, isMissing, leagueEventLine, leagueLine,
   leaguesError, loadFindFilters, memberActions, multiplierText, orderedLeagueEvents, placePoints, pointsWords, presetOf, qualifyWords,
   resultsPublic, rowLabel, standingLine, whenText, whenWindow,
   SEAT_FORMATS, aboutRulesLine, alertLine, cutChoices, dueText, extensionText, finalInvitable, finalLine, finalStateLabel, judgeLine, rulesLine, seatLabel, teamLine,
@@ -404,5 +404,17 @@ describe("a season's final", () => {
     expect(finalStateLabel("none")).toBeNull();          // the Invite button
     // Invite the qualified reaches whoever has an account and isn't in, invited or declined already.
     expect(finalInvitable(qualified).map((r) => r.state)).toEqual(["none"]);
+  });
+});
+
+describe("homeLeagueCards", () => {
+  const card = (id: string) => ({ id, slug: id, name: id.toUpperCase(), region: null, season: null, next_event: null });
+  it("lists yours, followed, then running, each once", () => {
+    const h = { mine: [card("a")], following: [card("b"), card("a")], found: [], active: [card("c"), card("d"), card("e")] };
+    const shown = homeLeagueCards(h);
+    expect(shown.cards.map((c) => c.id)).toEqual(["a", "b", "c", "d"]);
+    expect(shown.more).toBe(true);
+    expect(homeLeagueCards(h, 5).more).toBe(false);
+    expect(homeLeagueCards({ mine: [], following: [], found: [], active: [] }).cards).toEqual([]);
   });
 });

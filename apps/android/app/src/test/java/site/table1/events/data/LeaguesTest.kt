@@ -362,4 +362,18 @@ class LeaguesTest {
         assertTrue(demo.find(FindFilters(open = true), "").none { it.name == "Pauper Weekly" || it.status != "setup" })
         assertEquals("open", demo.page(demo.find_events[1].eventId)?.signUp)
     }
+
+    @Test fun homeCardsYoursFollowedThenRunning() {
+        // An older server sends no `active`.
+        val old = json.decodeFromString<LeaguesHome>("""{"mine": [{"id": "a"}], "following": [], "found": []}""")
+        assertTrue(old.active.isEmpty())
+        assertEquals(listOf("a"), Leagues.homeCards(old).first.map { it.id })
+        val h = LeaguesHome(mine = listOf(LeagueCard("a")), following = listOf(LeagueCard("b"), LeagueCard("a")),
+            active = listOf(LeagueCard("c"), LeagueCard("d"), LeagueCard("e")))
+        val (cards, more) = Leagues.homeCards(h)
+        assertEquals(listOf("a", "b", "c", "d"), cards.map { it.id })
+        assertTrue(more)
+        assertFalse(Leagues.homeCards(h, limit = 5).second)
+        assertTrue(Leagues.homeCards(LeaguesHome()).first.isEmpty())
+    }
 }

@@ -7,7 +7,7 @@ import { BAR_ICON, Icon, IconButton } from "../components/icons";
 import { Bar, BigAction, Field, GhostAction, Notice, Row, Screen, Section, Segmented, SwitchRow, TabBar } from "../components/kit";
 import {
   FORMAT_KEYS, KM_PICKS, NO_FILTERS, WHEN_PICKS, boardLine, filterLabels, filtersWire, findEvents, formatBoards, formatKeyLabel,
-  formatLeaderboard, demoPath, isFiltered, isMissing, leagueCreate, leagueLine, leaguesDemoOn, leaguesError, leaguesHome, loadFindFilters, recordText,
+  formatLeaderboard, demoPath, isFiltered, isMissing, leagueCreate, leagueLine, leaguesDemoOn, leaguesError, leaguesHome, homeLeagueCards, loadFindFilters, recordText,
   saveFindFilters, ALERT_KM, alertLine, eventAlertsGet, eventAlertsSet, type AlertsPatch, type EventAlerts,
   type Board, type BoardRow, type FindFilters, type FindScope, type FoundEvent, type LeagueCard, type Leaderboard, type LeaguesHome, type WhenPick,
 } from "../lib/leagues";
@@ -163,6 +163,36 @@ export function FindEventsSection({ onCreate }: { onCreate?: () => void }) {
         </Link>
       )}
       {rows.length === 0 && <NoEvents filtered={f.filtered} onClear={f.clear} onCreate={onCreate} />}
+    </>
+  );
+}
+
+/** The Events home's Leagues: yours, followed, then running ones; nothing on a server without leagues or when there
+ *  are none (contract/public-events-leagues-2026-11-13.md § 3 "Leagues on the Events home"). */
+export function HomeLeaguesSection() {
+  const [home, setHome] = useState<LeaguesHome | null>(null);
+  useEffect(() => {
+    let live = true;
+    leaguesHome().then((h) => { if (live) setHome(h); }, () => {});
+    return () => { live = false; };
+  }, []);
+  if (!home) return null;
+  const shown = homeLeagueCards(home);
+  if (!shown.cards.length) return null;
+  return (
+    <>
+      <Section title="Leagues" />
+      {shown.cards.map((c) => (
+        <Link key={c.id} to={demoPath(`/league/${c.slug}`)} state={{ from: "home" }} onClick={() => capture("league_opened", { from: "home" })}
+              className="bg-t1-surface hover:bg-t1-surface-hover px-4 py-3 flex flex-col gap-0.5">
+          <span className="text-[14px] truncate">{c.name}</span>
+          {leagueLine(c) && <span className="t1-label truncate">{leagueLine(c)}</span>}
+        </Link>
+      ))}
+      <Link to={demoPath("/find?tab=leagues")} className="bg-t1-surface hover:bg-t1-surface-hover px-4 py-3 flex items-center justify-between gap-3">
+        <span className="text-[13px]">{shown.more ? "All leagues" : "Find leagues"}</span>
+        <Icon d={BAR_ICON.arrow} />
+      </Link>
     </>
   );
 }
@@ -392,6 +422,8 @@ function LeaguesTab({ signedIn }: { signedIn: boolean }) {
           {home.following.map((c) => <LeagueRow key={c.id} card={c} />)}
           {signedIn && (home.mine.length > 0 || home.following.length > 0) && <Section title="Search" />}
           <SearchBox value={q} onChange={setQ} placeholder="Name or region" label="Search leagues" />
+          {!searching && home.active.length > 0 && <Section title="Running now" />}
+          {!searching && home.active.map((c) => <LeagueRow key={c.id} card={c} />)}
           {home.found.map((c) => <LeagueRow key={c.id} card={c} />)}
           {searching && home.found.length === 0 && <div className="bg-t1-surface px-4 py-4 t1-label">No leagues match</div>}
         </>

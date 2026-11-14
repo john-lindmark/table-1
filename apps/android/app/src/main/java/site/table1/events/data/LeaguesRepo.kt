@@ -244,7 +244,8 @@ object LeaguesDemo {
             ?: find_events.firstOrNull { it.eventId == eventId }?.let { EventAbout(eventId, null, it.venueAddress, it.visibility, it.formatKey, it.league) }
             ?: EventAbout(eventId)
 
-        fun home(query: String): LeaguesHome = leagues_home.copy(found = if (query.trim().length < 2) emptyList()
+        fun home(query: String): LeaguesHome = leagues_home.copy(active = if (query.trim().length >= 2) emptyList() else leagues_home.active,
+            found = if (query.trim().length < 2) emptyList()
             else leagues_home.found.filter { it.name.contains(query.trim(), true) || it.region.orEmpty().contains(query.trim(), true) })
 
         fun player(key: String): LeaguePlayer =

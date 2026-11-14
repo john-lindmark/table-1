@@ -152,7 +152,8 @@ export interface LeagueCard {
   next_event: { event_id: string; name: string; starts_at: string | null; format_label: string | null } | null;
   role?: "owner" | "organizer"; notify?: boolean;
 }
-export interface LeaguesHome { mine: LeagueCard[]; following: LeagueCard[]; found: LeagueCard[] }
+/** `active`: running leagues you neither run nor follow, sent only without a search (empty from older servers). */
+export interface LeaguesHome { mine: LeagueCard[]; following: LeagueCard[]; found: LeagueCard[]; active: LeagueCard[] }
 export interface LeagueFollow { following: boolean; notify: boolean }
 
 export interface BoardMe {
@@ -462,6 +463,14 @@ export function boardLine(b: { players: number; me?: Pick<BoardMe, "rating" | "r
 export const recordText = (r: { wins: number; losses: number; draws: number }) => `${r.wins}-${r.losses}-${r.draws}`;
 
 /** "2026 · DENVER, COLORADO · NEXT MODERN OPEN". */
+/** The Events home's Leagues section (contract § 3 "Leagues on the Events home"): yours, then the ones you follow, then
+ *  running leagues to look at, each league once, at most `limit`; `more` when Find → Leagues has others. */
+export function homeLeagueCards(h: LeaguesHome, limit = 4): { cards: LeagueCard[]; more: boolean } {
+  const seen = new Set<string>();
+  const all = [...h.mine, ...h.following, ...(h.active ?? [])].filter((c) => !seen.has(c.id) && !!seen.add(c.id));
+  return { cards: all.slice(0, limit), more: all.length > limit };
+}
+
 export function leagueLine(c: { season?: string | null; region?: string | null; next_event?: { name: string } | null }): string {
   return [(c.season ?? "").toUpperCase(), (c.region ?? "").toUpperCase(), c.next_event ? `NEXT ${c.next_event.name.toUpperCase()}` : ""]
     .filter(Boolean).join(" · ");
@@ -697,7 +706,7 @@ export async function leaguesHome(query?: string): Promise<LeaguesHome> {
   const d = await demo();
   const q = (query ?? "").trim();
   const r = d ? d.leaguesHome(q) : await rpc<Partial<LeaguesHome>>("leagues_home", q.length >= 2 ? { p_query: q } : {});
-  return { mine: r.mine ?? [], following: r.following ?? [], found: r.found ?? [] };
+  return { mine: r.mine ?? [], following: r.following ?? [], found: r.found ?? [], active: r.active ?? [] };
 }
 
 export async function leagueFollowSet(leagueId: string, follow: boolean, notify: boolean | null = null): Promise<LeagueFollow> {

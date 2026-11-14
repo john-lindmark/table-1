@@ -50,6 +50,9 @@ import site.table1.events.ui.components.ListRow
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.Section
 import site.table1.events.ui.components.Stat
+import site.table1.events.data.leaguesHome
+import site.table1.events.ui.components.T1Menu
+import site.table1.events.ui.components.T1MenuItem
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.parseInstant
 import site.table1.events.ui.components.shortWhen
@@ -93,10 +96,14 @@ fun EventsHomeScreen(
     var followed by remember { mutableStateOf<List<site.table1.events.data.FollowedEvent>>(emptyList()) }
     /** Events you can find (contract/public-events-leagues-2026-11-13.md § 1): read again on each return. */
     val found = rememberFound(refresh = foregrounds)
+    /** Leagues without searching: yours, followed, then running ones (null on a server without leagues). */
+    var leagues by remember { mutableStateOf<site.table1.events.data.LeaguesHome?>(null) }
+    /** + New: an event or a league (contract/public-events-leagues-2026-11-13.md § 3 "New league from + New"). */
+    var newMenu by remember { mutableStateOf(false) }
 
     suspend fun load() {
         // Debug `--es t1Leagues home`: no account, so no events of your own; Find events draws its stand-in rows.
-        if (site.table1.events.data.LeaguesDemo.on) { data = HomeData(); return }
+        if (site.table1.events.data.LeaguesDemo.on) { data = HomeData(); leagues = runCatching { Repo.leaguesHome() }.getOrNull(); return }
         // What this account last saw shows at once; the server's answer replaces it.
         if (data == null) Repo.savedHome()?.let { (h, at) -> data = h; savedAt = at }
         runCatching { Repo.eventsHome() }
@@ -112,6 +119,11 @@ fun EventsHomeScreen(
             }
         // A server without event follows (or a failed read) just shows no Following section.
         runCatching { Repo.eventsFollowed() }.onSuccess { followed = it }.onFailure { it.rethrowIfCancelled() }
+        // Leagues fail soft: a server without them hides the section, any other failure keeps what was shown.
+        runCatching { Repo.leaguesHome() }.onSuccess { leagues = it }.onFailure { e ->
+            e.rethrowIfCancelled()
+            if (site.table1.events.data.Leagues.isMissing(e)) leagues = null
+        }
         snaps = Repo.liveSnapshots().associateBy { it.eventId }
         TrackerSettings.refresh()
     }
@@ -176,8 +188,17 @@ fun EventsHomeScreen(
     T1Screen {
         Bar("Events", if (live.isEmpty()) null else "${live.size} live") {
             BarAction("Life", onLife)
-            BarAction("+ New", onCreate)
+            BarAction("+ New") { newMenu = true }
             BarIcon(site.table1.events.library.T1Icon.Search, "Find events, leagues and boards") { go("find") }
+        }
+        if (newMenu) {
+            T1Menu(items = listOf(
+                T1MenuItem("New event", onClick = onCreate),
+                T1MenuItem("New league") {
+                    Telemetry.capture("league_new_opened", mapOf("from" to "home"))
+                    go("leagues/new")
+                },
+            ), onDismiss = { newMenu = false })
         }
         error?.let { Notice(it, error = true) }
         stale?.let { Notice(it) }
@@ -188,7 +209,8 @@ fun EventsHomeScreen(
         }
         // Nothing of your own, and nothing to find either (or no listings on this server yet): the ways in are the screen.
         val nothingFound = found.missing || (found.events.isNullOrEmpty() && FindStore.filters.isDefault && found.error == null)
-        if (d.events.isEmpty() && invites.isEmpty() && d.waitlist.isEmpty() && followed.isEmpty() && nothingFound) {
+        if (d.events.isEmpty() && invites.isEmpty() && d.waitlist.isEmpty() && followed.isEmpty() && nothingFound &&
+            leagues?.let { site.table1.events.data.Leagues.homeCards(it).first.isEmpty() } != false) {
             if (error != null) BigAction("Try again") { scope.launch { load() } }
             EmptyEvents(onScan = { scan() }, onNearby = onNearby, onCreate = onCreate, onJoined = onOpenEvent)
             return@T1Screen
@@ -241,6 +263,7 @@ fun EventsHomeScreen(
                 items(followed, key = { "f-${it.eventId}" }) { f -> ListRow(f.name, f.detail, onClick = { onOpenPage(f.eventId) }) }
             }
             findEventsSection(found, onOpen = { go(foundEventRoute(it)) }, onAll = { go("find") }, onCreate = onCreate)
+            homeLeaguesSection(leagues, go)
             if (past.isNotEmpty()) {
                 item {
                     Row(Modifier.fillMaxWidth().clickable { showPast = !showPast }) {

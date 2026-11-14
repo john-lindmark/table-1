@@ -354,6 +354,10 @@ private struct FindLeaguesTab: View {
                     ForEach(home.following) { row($0) }
                 }
                 T1SearchField(text: $q, prompt: "Name or region")
+                if words.count < 2, let active = home.active, !active.isEmpty {
+                    Section1("Running now")
+                    ForEach(active) { row($0) }
+                }
                 ForEach(home.found) { row($0) }
                 if words.count >= 2, home.found.isEmpty { ListRow(title: "No leagues match") }
             } else if error == nil, !missing {

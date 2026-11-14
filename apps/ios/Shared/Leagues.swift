@@ -219,6 +219,8 @@ struct LeaguesHome: Codable, Hashable {
     var mine: [LeagueCard] = []
     var following: [LeagueCard] = []
     var found: [LeagueCard] = []
+    /// Running leagues you neither run nor follow, sent only without a search (missing from older servers).
+    var active: [LeagueCard]?
 }
 
 struct BoardMe: Codable, Hashable {
@@ -606,6 +608,14 @@ enum Leagues {
             parts.append(rank.map { "#\($0)" } ?? (toGo > 0 ? "\(toGo) TO GO" : "NOT LISTED"))
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// The Events home's Leagues section (contract § 3 "Leagues on the Events home"): yours, then the ones you follow,
+    /// then running leagues to look at, each league once, at most `limit`; `more` when Find → Leagues has others.
+    static func homeCards(_ h: LeaguesHome, limit: Int = 4) -> (cards: [LeagueCard], more: Bool) {
+        var seen = Set<String>()
+        let all = (h.mine + h.following + (h.active ?? [])).filter { seen.insert($0.id).inserted }
+        return (Array(all.prefix(limit)), all.count > limit)
     }
 
     /// `2026 · DENVER, COLORADO · NEXT MODERN OPEN`.

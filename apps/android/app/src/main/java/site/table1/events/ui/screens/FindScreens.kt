@@ -341,6 +341,17 @@ private fun ColumnScope.FindEvents(foregrounds: Int, onOpen: (FoundEvent) -> Uni
 fun leagueRoute(league: String, from: String, season: String? = null) =
     "league/${android.net.Uri.encode(league)}?from=$from" + (season?.let { "&season=$it" } ?: "")
 
+/** The Events home's Leagues: yours, followed, then running ones; nothing when there are none. */
+fun LazyListScope.homeLeaguesSection(home: LeaguesHome?, go: (String) -> Unit) {
+    val (cards, more) = home?.let { Leagues.homeCards(it) } ?: return
+    if (cards.isEmpty()) return
+    item(key = "leagues-head") { Section("Leagues") }
+    items(cards, key = { "league-${it.id}" }) { c ->
+        LeagueCardRow(c) { Telemetry.capture("league_opened", mapOf("from" to "home")); go(leagueRoute(it, "home")) }
+    }
+    item(key = "leagues-all") { ArrowRow(if (more) "All leagues" else "Find leagues") { go("find?tab=leagues") } }
+}
+
 @Composable
 private fun LeagueCardRow(c: LeagueCard, onLeague: (String) -> Unit) {
     ListRow(c.name, c.line.ifEmpty { null }, onClick = { onLeague(c.slug.ifEmpty { c.id }) })
@@ -388,6 +399,10 @@ private fun ColumnScope.FindLeagues(foregrounds: Int, onLoaded: () -> Unit, onLe
             Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
                 T1TextField(query, { query = it.take(60) }, placeholder = "Search leagues")
             }
+        }
+        if (query.trim().length < 2 && h.active.isNotEmpty()) {
+            item(key = "h-active") { Section("Running now") }
+            items(h.active, key = { "active-${it.id}" }) { LeagueCardRow(it, onLeague) }
         }
         items(h.found, key = { "found-${it.id}" }) { LeagueCardRow(it, onLeague) }
         if (query.trim().length >= 2 && h.found.isEmpty()) item(key = "none") { ListRow("No leagues match") }

@@ -147,7 +147,7 @@ rank.
   `user_id` is null for guests and for signed-out readers; `key` names the player for `league_player`.
 - `league_standings(p_season_id, p_after = 0, p_limit = 100) → [row]`; `league_player(p_season_id, p_key) →
   {player row, events [{event_id, name, format_label, starts_at, place, players, match_wins, points, counted}]}`.
-- `leagues_home(p_query?) → {mine [card + role], following [card + notify], found [card]}`; a card is
+- `leagues_home(p_query?) → {mine [card + role], following [card + notify], found [card], active [card]}` (`active` since 2026-11-14, `20261114120000_leagues_active.sql`: without a search, up to 20 running leagues (a season not over, or an event still to play) you neither run nor follow, soonest event first, then by name; empty with a search; signed out too); a card is
   `{id, slug, name, region, season, next_event {event_id, name, starts_at, format_label} | null}`. `found` needs a
   query of 2+ characters (name or region).
 - `league_follow_set(p_league_id, p_follow, p_notify?) → {following, notify}`. Signing up for or finishing a league
@@ -169,8 +169,15 @@ Push payloads carry `league_id` and `league_slug`.
 
 ### Clients
 
-- **Find → Leagues**: Yours, Following, then a search box (name or region). Rows: name; data line
+- **Find → Leagues**: Yours, Following, then a search box (name or region), and under it **Running now** (`active`) until something is typed. Rows: name; data line
   `2026 · DENVER, COLORADO · NEXT MODERN OPEN`. A `+` in the bar makes a league (name, region, description, link).
+- **Leagues on the Events home** (2026-11-14; John: "leagues should be able to be seen without having to go search"): a
+  Leagues section after Find events: yours, then the ones you follow, then running leagues, each once, four at most
+  (`homeCards` iOS/Android, `homeLeagueCards` web), then **All leagues** (more to see) or **Find leagues**, which open
+  Find → Leagues. Hidden with no leagues to show or on a server without leagues. Shown on the empty home too.
+- **New league from + New** (2026-11-14; John: "the user should be able to make new leagues from the 'new' flow"):
+  the Events home's **+ New** is a menu, **New event** | **New league**; New league opens the same form as Find →
+  Leagues' `+` and then the new league's page.
 - **League page** (iOS `Route.league(id or slug)`, web `/league/<slug>` signed in or out, Android `league/{slug}`).
   Opens on the standings: the league's name, a season cell (a dropdown when there are several), your row in accent
   outline when you're on it, then rows `rank · name · points` with `Q` in accent for the qualified; **All N** opens
@@ -185,7 +192,7 @@ Push payloads carry `league_id` and `league_slug`.
 - **An event's League row** (Setup → Details, organizers who run a league): pick league and season, multiplier
   (`1×`, `1.5×`, `2×`, `3×`), This is the final; Remove from league.
 - Telemetry: `find_opened {tab}`, `find_filtered {filter}`, `found_event_opened {format_key, visibility, km}`,
-  `event_listing_saved {find, description}`, `league_opened {from}`, `league_followed {following}`, `league_created`, `league_season_saved
+  `event_listing_saved {find, description}`, `league_opened {from: find | home | …}`, `league_new_opened {from: home}`, `league_followed {following}`, `league_created`, `league_season_saved
   {preset}`, `league_event_set {final, multiplier}`, `league_player_opened`.
 
 ## 4. Format boards

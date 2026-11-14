@@ -400,6 +400,21 @@ final class LeaguesTests: XCTestCase {
         XCTAssertEqual(h.following[0].line, "")
     }
 
+    func testHomeCards() throws {
+        func card(_ id: String) -> String { #"{"id": "\#(id)", "slug": "\#(id)", "name": "\#(id.uppercased())"}"# }
+        // An older server sends no `active`.
+        let old = try decode(LeaguesHome.self, #"{"mine": [\#(card("a"))], "following": [], "found": []}"#)
+        XCTAssertNil(old.active)
+        XCTAssertEqual(Leagues.homeCards(old).cards.map(\.id), ["a"])
+        let h = try decode(LeaguesHome.self, #"{"mine": [\#(card("a"))], "following": [\#(card("b")), \#(card("a"))], "found": [], "#
+            + #""active": [\#(card("c")), \#(card("d")), \#(card("e"))]}"#)
+        let shown = Leagues.homeCards(h)
+        XCTAssertEqual(shown.cards.map(\.id), ["a", "b", "c", "d"], "yours, followed, then running; each once")
+        XCTAssertTrue(shown.more)
+        XCTAssertFalse(Leagues.homeCards(h, limit: 5).more)
+        XCTAssertTrue(Leagues.homeCards(LeaguesHome()).cards.isEmpty)
+    }
+
     func testBoardsDecode() throws {
         let b = try decode(FormatBoards.self, """
         {"listed": true, "boards": [

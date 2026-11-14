@@ -174,7 +174,8 @@ enum LeaguesDemo {
         let found = query.count >= 2 ? #"[{"id": "55555555-5555-4555-8555-555555555555", "slug": "pikes-peak-pauper", "name": "Pikes Peak Pauper", "region": "Colorado Springs, Colorado", "season": "2026", "next_event": null}]"# : "[]"
         let mine = role != nil && !archived ? "[" + card + #", "role": "owner"}]"# : "[]"
         let following = "[" + (role == nil ? card + #", "notify": true},"# : "") + other + "]"
-        return decode(LeaguesHome.self, #"{"mine": \#(mine), "following": \#(following), "found": \#(found)}"#)
+        let active = query.count >= 2 ? "[]" : #"[{"id": "66666666-6666-4666-8666-666666666666", "slug": "mile-high-legacy", "name": "Mile High Legacy", "region": "Denver, Colorado", "season": "Winter", "next_event": {"event_id": "f6", "name": "Legacy Night", "starts_at": "\#(at(5))", "format_label": "Legacy"}}]"#
+        return decode(LeaguesHome.self, #"{"mine": \#(mine), "following": \#(following), "found": \#(found), "active": \#(active)}"#)
     }
 
     /// A profile's achievements (`-T1LibraryDemo profile|myprofile`): a champion, a running season, a top 4 in another

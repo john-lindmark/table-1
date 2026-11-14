@@ -1,7 +1,7 @@
 import { currentFix, setEventLocation } from "../lib/nearby";
 import { JOIN_NOTICE } from "../lib/joinPreview";
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
 import {
@@ -45,6 +45,7 @@ import {
   Countdown,
   Field,
   GhostAction,
+  Menu,
   Notice,
   Row,
   Screen,
@@ -58,6 +59,9 @@ import {
 /** Find events under your own (contract/public-events-leagues-2026-11-13.md § 1): its own chunk, drawn only when the
  *  server lists events. */
 const FindEventsSection = lazy(() => import("./Find").then((m) => ({ default: m.FindEventsSection })));
+/** Leagues without searching, and + New → New league (contract § 3): the same chunk. */
+const HomeLeaguesSection = lazy(() => import("./Find").then((m) => ({ default: m.HomeLeaguesSection })));
+const NewLeaguePanel = lazy(() => import("./Find").then((m) => ({ default: m.NewLeaguePanel })));
 
 /** Dev server, `/?demo`: the Events home on stand-in events, to look at Find events without an account. */
 const DEMO_HOME: HomeData = {
@@ -92,6 +96,10 @@ export function Home({
   const demoHome = import.meta.env.DEV && new URLSearchParams(useLocation().search).has("demo");
   const [data, setData] = useState<HomeData | null>(demoHome ? DEMO_HOME : null);
   const [followed, setFollowed] = useState<FollowedEvent[]>([]);
+  /** + New: the menu, then the New league panel. */
+  const [newMenu, setNewMenu] = useState(false);
+  const [newLeague, setNewLeague] = useState(false);
+  const navigate = useNavigate();
   const [snaps, setSnaps] = useState<Record<string, LiveSnapshot>>({});
   const [showPast, setShowPast] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -255,6 +263,7 @@ export function Home({
         </>
       )}
       <Suspense fallback={null}><FindEventsSection onCreate={() => setCreating(true)} /></Suspense>
+      <Suspense fallback={null}><HomeLeaguesSection /></Suspense>
       {past.length > 0 && (
         <>
           <button onClick={() => setShowPast((v) => !v)} className="bg-t1-surface px-4 py-2 t1-label text-left">
@@ -282,7 +291,7 @@ export function Home({
             <button onClick={() => onOpenLife()} className="t1-label">
               Life
             </button>
-            <button onClick={() => setCreating(true)} className="t1-label">
+            <button onClick={() => setNewMenu(true)} className="t1-label">
               + New
             </button>
           </div>
@@ -295,6 +304,7 @@ export function Home({
         {data === null && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
         {empty && <EmptyEvents onCreate={() => setCreating(true)} onNearby={onNearby} />}
         {empty && <Suspense fallback={null}><FindEventsSection /></Suspense>}
+        {empty && <Suspense fallback={null}><HomeLeaguesSection /></Suspense>}
         {!empty && data && desktop && (
           // Desktop: your events on the left; joining, creating and the tracker on the right.
           <Columns aside={<HomeActions onCreate={() => setCreating(true)} onOpenLife={() => onOpenLife()} onNearby={onNearby} />}>
@@ -303,6 +313,17 @@ export function Home({
         )}
         {!empty && data && !desktop && lists}
       </div>
+      {newMenu && (
+        <Menu onClose={() => setNewMenu(false)} items={[
+          { title: "New event", onClick: () => setCreating(true) },
+          { title: "New league", onClick: () => { capture("league_new_opened", { from: "home" }); setNewLeague(true); } },
+        ]} />
+      )}
+      {newLeague && (
+        <Suspense fallback={null}>
+          <NewLeaguePanel onClose={() => setNewLeague(false)} onCreated={(slug) => navigate(demoPath(`/league/${slug}`))} />
+        </Suspense>
+      )}
     </Screen>
   );
 }

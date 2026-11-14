@@ -18,6 +18,8 @@ struct EventsHomeView: View {
     @State private var stale: String?
     /// Events you follow but aren't in (contract/event-follows-2026-11-09.md).
     @State private var followed: [FollowedEvent] = []
+    /// Leagues to show without searching: yours, followed, then running ones (nil on a server without leagues).
+    @State private var leagues: LeaguesHome?
 
     private var live: [HomeEvent] { data?.events.filter { $0.bucket == "live" } ?? [] }
     private var upcoming: [HomeEvent] { data?.events.filter { $0.bucket == "upcoming" } ?? [] }
@@ -36,7 +38,7 @@ struct EventsHomeView: View {
                 T1IconButton(icon: .search, label: "Find") { path.append(.find("events")) }
                     .padding(.vertical, -16).padding(.horizontal, -8)
                 BarButton("Life") { session.openTracker(matchId: liveMatchId, source: "home_life") }
-                BarButton("+ New") { path.append(.create) }
+                BarButton("+ New") { new() }
             }
             if let error { Notice(error, error: true) }
             if let stale { Notice(stale) }
@@ -47,6 +49,7 @@ struct EventsHomeView: View {
                     if error != nil { Ghost(text: "Try again") { Task { await load() } } }
                     EmptyEvents(path: $path)
                     FindEventsSection(path: $path)
+                    HomeLeaguesSection(home: leagues, path: $path)
                 } else {
                     ForEach(live) { e in
                         Button { path.append(.event(e.id)) } label: {
@@ -97,6 +100,7 @@ struct EventsHomeView: View {
                         }
                     }
                     FindEventsSection(path: $path)
+                    HomeLeaguesSection(home: leagues, path: $path)
                     if !past.isEmpty {
                         Button { withAnimation(.snappy) { showPast.toggle() } } label: {
                             Section1(showPast ? "Past · hide" : "Past · \(past.count)")
@@ -133,6 +137,19 @@ struct EventsHomeView: View {
         }
     }
 
+    /// + New: an event, or a league to run a series of them in (contract § 3 "New league from + New").
+    private func new() {
+        T1Overlays.shared.showMenu(nil, [
+            T1MenuItem(title: "New event") { path.append(.create) },
+            T1MenuItem(title: "New league") {
+                Telemetry.capture("league_new_opened", ["from": "home"])
+                T1Overlays.shared.present(full: true) {
+                    LeagueEditPanel(league: nil) { made in path.append(.league(made.slug)) }.screen("league_new")
+                }
+            },
+        ])
+    }
+
     private func inviteDetail(_ i: HomeInvite) -> String {
         var parts = [i.source == "nearby_alert" ? "Starting near you" : "From \(i.invitedBy ?? "an organizer")"]
         if let label = i.formatLabel { parts.append(label) }
@@ -148,6 +165,7 @@ struct EventsHomeView: View {
             data = demo
             snapshots = Dictionary(DemoScreens.snapshots.map { ($0.eventId, $0) }, uniquingKeysWith: { a, _ in a })
             await FindStore.shared.load()
+            leagues = LeaguesDemo.home("")
             return
         }
         #endif
@@ -164,6 +182,10 @@ struct EventsHomeView: View {
             followed = (try? await Repo.eventsFollowed()) ?? followed
             // The events you can find, under your own (hidden on a server without it).
             Task { await FindStore.shared.load() }
+            // Leagues fail soft: a server without them, or a failed read, keeps what was shown.
+            Task {
+                do { leagues = try await Repo.leaguesHome() } catch where Leagues.isMissing(error) { leagues = nil } catch {}
+            }
             error = nil
             stale = nil
             savedAt = .now
@@ -391,6 +413,34 @@ private struct EventLine: View {
 }
 
 /// No events and no invitations: the ways in become the screen.
+/// Leagues without searching: yours, the ones you follow, then running leagues; All leagues opens Find → Leagues.
+private struct HomeLeaguesSection: View {
+    let home: LeaguesHome?
+    @Binding var path: [Route]
+
+    var body: some View {
+        if let home {
+            let shown = Leagues.homeCards(home)
+            if !shown.cards.isEmpty {
+                Section1("Leagues")
+                ForEach(shown.cards) { c in
+                    Button {
+                        Telemetry.capture("league_opened", ["from": "home"])
+                        path.append(.league(c.slug))
+                    } label: {
+                        ListRow(title: c.name, detail: c.line.isEmpty ? nil : c.line)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Button { path.append(.find("leagues")) } label: {
+                    ListRow(title: shown.more ? "All leagues" : "Find leagues") { T1Icon.arrowRight.fill(T1.text).frame(width: 18, height: 18) }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
 private struct EmptyEvents: View {
     @Binding var path: [Route]
     var body: some View {

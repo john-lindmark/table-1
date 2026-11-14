@@ -250,6 +250,8 @@ data class LeaguesHome(
     val mine: List<LeagueCard> = emptyList(),
     val following: List<LeagueCard> = emptyList(),
     val found: List<LeagueCard> = emptyList(),
+    /** Running leagues you neither run nor follow, sent only without a search (empty from older servers). */
+    val active: List<LeagueCard> = emptyList(),
 )
 
 @Serializable
@@ -557,6 +559,15 @@ object Leagues {
             add(rank?.let { "#$it" } ?: if (toGo > 0) "$toGo TO GO" else "NOT LISTED")
         }
     }.joinToString(" · ")
+
+    /**
+     * The Events home's Leagues section (contract § 3 "Leagues on the Events home"): yours, then the ones you follow,
+     * then running leagues to look at, each league once, at most [limit]; second = Find → Leagues has others.
+     */
+    fun homeCards(h: LeaguesHome, limit: Int = 4): Pair<List<LeagueCard>, Boolean> {
+        val all = (h.mine + h.following + h.active).distinctBy { it.id }
+        return all.take(limit) to (all.size > limit)
+    }
 
     /** `2026 · DENVER, COLORADO · NEXT MODERN OPEN`. */
     fun leagueLine(season: String?, region: String?, next: String?): String =

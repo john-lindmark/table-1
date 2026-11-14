@@ -272,6 +272,7 @@ export function leaguesHome(query: string): LeaguesHome {
     mine: live.filter((l) => roleOf(l)).map((l) => ({ ...card(l), role: roleOf(l)! })),
     following: live.filter((l) => l.following && !roleOf(l)).map((l) => ({ ...card(l), notify: l.notify })),
     found: q.length < 2 ? [] : live.filter((l) => l.name.toLowerCase().includes(q) || (l.region ?? "").toLowerCase().includes(q)).map(card),
+    active: q.length >= 2 ? [] : live.filter((l) => !roleOf(l) && !l.following && !!card(l).season).map(card),
   };
 }
 
