@@ -4,7 +4,7 @@
 //
 //   POST { action: "connect_start" }                 -> { url }  Stripe's onboarding for the caller (makes their account once)
 //   POST { action: "connect_status" }                -> the caller's account as Stripe sees it now
-//   POST { action: "connect_dashboard" }             -> { url }  a one-time link to their Stripe dashboard
+//   POST { action: "connect_dashboard" }             -> { url }  where they sign in to their own Stripe dashboard
 //   POST { action: "checkout", event_id, origin? }   -> { url }  hosted checkout for the caller's entry to that event
 //   POST { action: "refund", event_id, participant_id? }
 //                                                    -> the caller's own entry inside the refund window, or any entry
@@ -119,8 +119,8 @@ async function connectStatus(user: { id: string }) {
 async function connectDashboard(user: { id: string }) {
   const accountId = await accountOf(user.id);
   if (!accountId) throw new Refused(409, "Connect Stripe first");
-  const link = await stripe("POST", `/v1/accounts/${accountId}/login_links`, {});
-  return json({ url: link.url });
+  // Hosts have their own full Stripe dashboard (login links exist only for Express accounts): they sign in at Stripe.
+  return json({ url: "https://dashboard.stripe.com/" });
 }
 
 async function checkout(user: { id: string; email: string | null }, eventId: string, origin: string) {

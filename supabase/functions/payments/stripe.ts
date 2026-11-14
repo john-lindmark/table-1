@@ -81,12 +81,16 @@ export function checkoutParams(i: CheckoutInput): Record<string, unknown> {
   };
 }
 
-/** A new host account: Stripe's Express dashboard, Stripe collects its own fees from the host and carries losses. */
+/**
+ * A new host account: the host's own full Stripe dashboard, Stripe collects its fees from the host and carries
+ * losses. Checked in the sandbox 2026-11-14: Stripe refuses the Express dashboard with either fee setting on this
+ * platform (`account_controller_unsupported_configuration`), and the platform as losses collector.
+ */
 export function newAccountBody(email: string | null, name: string): Record<string, unknown> {
   return {
     ...(email ? { contact_email: email } : {}),
     display_name: name.slice(0, 100) || "Table 1 host",
-    dashboard: "express",
+    dashboard: "full",
     identity: { country: "us", entity_type: "individual" },
     configuration: { merchant: { capabilities: { card_payments: { requested: true } } } },
     defaults: { currency: "usd", responsibilities: { fees_collector: "stripe", losses_collector: "stripe" } },
@@ -100,7 +104,6 @@ export function accountLinkBody(account: string, site: string): Record<string, u
     use_case: {
       type: "account_onboarding",
       account_onboarding: {
-        configurations: ["merchant"],
         refresh_url: `${site}/pay/connect`,
         return_url: `${site}/pay/connected`,
         collection_options: { fields: "eventually_due" },

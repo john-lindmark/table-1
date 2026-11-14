@@ -58,13 +58,14 @@ test("checkout: Table 1's fee when there is one, never the whole charge; the web
 
 test("a new host account and its onboarding link", () => {
   const a = newAccountBody("ana@example.com", "Ana Org") as any;
-  assert.equal(a.dashboard, "express");
+  assert.equal(a.dashboard, "full");
   assert.deepEqual(a.defaults.responsibilities, { fees_collector: "stripe", losses_collector: "stripe" });
   assert.equal(a.configuration.merchant.capabilities.card_payments.requested, true);
   assert.equal("contact_email" in newAccountBody(null, ""), false);
   const l = accountLinkBody("acct_1", "https://table-1.site") as any;
   assert.equal(l.use_case.account_onboarding.return_url, "https://table-1.site/pay/connected");
-  assert.deepEqual(l.use_case.account_onboarding.configurations, ["merchant"]);
+  assert.equal("configurations" in l.use_case.account_onboarding, false, "Stripe refuses it as an unknown field");
+  assert.equal(l.use_case.type, "account_onboarding");
 });
 
 test("account flags", () => {

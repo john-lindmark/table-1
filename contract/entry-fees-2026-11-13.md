@@ -16,7 +16,8 @@ The `payments` function (signed in; `supabase.functions.invoke("payments", {body
   Open it in the system's in-app browser tab (iOS `ASWebAuthenticationSession` or `SFSafariViewController`, Android
   a Custom Tab, the web a new tab): never an embedded web view. It comes back to `table-1.site/pay/connected`.
 - `{action: "connect_status"} → {connected, ready, payouts, details_submitted, disabled_reason}`: asks Stripe now.
-- `{action: "connect_dashboard"} → {url}`: a one-time link to your Stripe dashboard.
+- `{action: "connect_dashboard"} → {url}`: where you sign in to your own Stripe dashboard (hosts have a full Stripe
+  account of their own).
 - 503 `{error: "Payments aren't set up yet"}` until Table 1's own Stripe keys are in place: show that line.
 
 `payments_account() → {connected, ready, payouts, details_submitted, disabled_reason}` reads the last known state
