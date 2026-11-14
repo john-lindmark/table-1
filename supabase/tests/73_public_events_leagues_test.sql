@@ -84,10 +84,13 @@ select pg_temp.throws('a stranger can''t describe an event', format('select publ
 select pg_temp.as_user(:A);
 select pg_temp.eq('describe, address, public',
   public.event_listing_set(:E3, '{"description": "  Competitive REL.\nDecklists required.  ", "venue_address": "6835 S Dayton St,   Greenwood Village", "find": "public", "lat": 39.5954, "lng": -104.8771}')::text,
-  '{"visibility": "public", "description": "Competitive REL.\nDecklists required.", "venue_address": "6835 S Dayton St, Greenwood Village"}');
-select pg_temp.eq('the same again writes no second audit row',
+  '{"rel": null, "visibility": "public", "description": "Competitive REL.\nDecklists required.", "venue_address": "6835 S Dayton St, Greenwood Village", "decklist_due_at": null}');
+select pg_temp.eq('rules level and a decklist deadline',
+  (select (v->>'rel') || ' ' || ((v->>'decklist_due_at') is not null)::text from public.event_listing_set(:E3, jsonb_build_object('rel', 'competitive', 'decklist_due_at', now() + interval '8 days')) v), 'competitive true');
+select pg_temp.throws('an unknown rules level', format('select public.event_listing_set(%L, %L)', :E3, '{"rel": "pro"}'), '22023');
+select pg_temp.eq('the same again writes no further audit row',
   (select public.event_listing_set(:E3, '{"find": "public"}')->>'visibility') ||
-  (select count(*)::text from public.audit_log where event_id = :E3 and action = 'event.listing_updated'), 'public1');
+  (select count(*)::text from public.audit_log where event_id = :E3 and action = 'event.listing_updated'), 'public2');
 select pg_temp.throws('a long description is refused', format('select public.event_listing_set(%L, jsonb_build_object(''description'', repeat(''x'', 2001)))', :E3), '22023');
 select pg_temp.throws('demo events can''t be listed', format('select public.event_listing_set(%L, %L)', :ED, '{"find": "public"}'), '22023');
 select pg_temp.throws('bad coordinates', format('select public.event_listing_set(%L, %L)', :E3, '{"lat": 139, "lng": 0}'), '22023');

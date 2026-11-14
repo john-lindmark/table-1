@@ -15,7 +15,7 @@ import { signUpCopy, type SignUpCount } from "./sign-up.ts";
 import { deckFoundCopy } from "./deck-found.ts";
 import { eventFollowCopy } from "./event-follow.ts";
 import { deckPhotoCopy } from "./deck-photo.ts";
-import { leagueCopy } from "./league.ts";
+import { judgeCallCopy, leagueCopy, publicNewCopy } from "./league.ts";
 
 const url = Deno.env.get("SUPABASE_URL")!;
 const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
@@ -65,6 +65,12 @@ function copy(m: Message, eventName: string, mine?: { table: number | null; oppo
     case "event.follow_round":
     case "event.follow_done":
       return { ...eventFollowCopy(m.kind, { ...d, event_name: name }), priority: 5 };
+    // contract/room-tools-2026-11-13.md § Judge calls: a table calls a judge; to the organizers, at once.
+    case "judge.call":
+      return { ...judgeCallCopy({ ...d, event_name: d.event_name ?? name }), priority: 10 };
+    // contract/teams-finals-alerts-2026-11-13.md § Alerts: a new public event that fits your alert; the app opens it.
+    case "event.public_new":
+      return { ...publicNewCopy({ ...d, event_name: d.event_name ?? name }), priority: 5 };
     // contract/public-events-leagues-2026-11-13.md § Notifications: a league you follow or play in; the app opens it.
     case "league.event":
     case "league.results":

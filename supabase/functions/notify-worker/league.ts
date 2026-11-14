@@ -32,3 +32,17 @@ export function leagueCopy(kind: string, d: Record<string, unknown>): { title: s
     }
   }
 }
+
+/** A new public event that fits your alert (contract/teams-finals-alerts-2026-11-13.md § Alerts); the app opens it. */
+export function publicNewCopy(d: Record<string, unknown>): { title: string; body: string } {
+  const format = text(d.format_label).split(" · ")[0];
+  const parts = [text(d.event_name, "A new event"), text(d.venue_name)].filter(Boolean);
+  return { title: `New ${format ? `${format} ` : ""}event${d.near === true ? " near you" : ""}`, body: parts.join(" · ") };
+}
+
+/** A table calls a judge (contract/room-tools-2026-11-13.md § Judge calls): to the organizers; the app opens the event. */
+export function judgeCallCopy(d: Record<string, unknown>): { title: string; body: string } {
+  const table = Number(d.table_number ?? 0);
+  const parts = [text(d.event_name), text(d.by)].filter(Boolean);
+  return { title: table > 0 ? `Judge! Table ${table}` : "Judge!", body: parts.join(" · ") || "A table is calling a judge." };
+}

@@ -38,7 +38,9 @@ alter table public.events add constraint events_visibility_check
 
 alter table public.events
   add column if not exists description text,
-  add column if not exists venue_address text;
+  add column if not exists venue_address text,
+  add column if not exists rel text check (rel is null or rel in ('casual', 'competitive')),
+  add column if not exists decklist_due_at timestamptz;
 alter table public.events drop constraint if exists events_listing_text_check;
 alter table public.events add constraint events_listing_text_check check (
   (description is null or char_length(description) between 1 and 2000)
@@ -246,7 +248,8 @@ end $$;
 -- ==================================================================== b_listing
 -- Organizers describe and list an event. p_patch keys (each optional): description, venue_address (null or '' clears),
 -- find (`public`: listed for everyone; `friends`: for the organizers' friends; `private`: not listed, link only),
--- lat + lng (where it is, for "near you").
+-- lat + lng (where it is, for "near you"), rel (`casual` | `competitive` | null: the rules level players should
+-- expect), decklist_due_at (when decklists are due; null clears).
 create or replace function public.event_listing_set(p_event_id uuid, p_patch jsonb)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -258,6 +261,8 @@ declare
   v_vis text;
   v_lat double precision;
   v_lng double precision;
+  v_rel text;
+  v_due timestamptz;
 begin
   if v_uid is null then raise exception 'Sign in first' using errcode = '28000'; end if;
   if p_patch is null or jsonb_typeof(p_patch) <> 'object' then
@@ -268,8 +273,22 @@ begin
     raise exception 'Only organizers can change this' using errcode = '42501';
   end if;
   if e.status = 'cancelled' then raise exception 'That event was cancelled' using errcode = '22023'; end if;
-  v_before := jsonb_build_object('description', e.description, 'venue_address', e.venue_address, 'visibility', e.visibility);
-  v_desc := e.description; v_addr := e.venue_address; v_vis := e.visibility;
+  v_before := jsonb_build_object('description', e.description, 'venue_address', e.venue_address, 'visibility', e.visibility,
+                                 'rel', e.rel, 'decklist_due_at', e.decklist_due_at);
+  v_desc := e.description; v_addr := e.venue_address; v_vis := e.visibility; v_rel := e.rel; v_due := e.decklist_due_at;
+  if p_patch ? 'rel' then
+    v_rel := nullif(p_patch->>'rel', '');
+    if v_rel is not null and v_rel not in ('casual', 'competitive') then
+      raise exception 'The rules level is casual or competitive' using errcode = '22023';
+    end if;
+  end if;
+  if p_patch ? 'decklist_due_at' then
+    begin
+      v_due := (p_patch->>'decklist_due_at')::timestamptz;
+    exception when others then
+      raise exception 'Check the decklist deadline' using errcode = '22023';
+    end;
+  end if;
 
   if p_patch ? 'description' then
     v_desc := nullif(btrim(p_patch->>'description'), '');
@@ -304,14 +323,17 @@ begin
       set location = excluded.location, geohash6 = excluded.geohash6, updated_at = now();
   end if;
 
-  if (v_desc, v_addr, v_vis) is distinct from (e.description, e.venue_address, e.visibility) then
-    update public.events set description = v_desc, venue_address = v_addr, visibility = v_vis, updated_at = now()
+  if (v_desc, v_addr, v_vis, v_rel, v_due) is distinct from (e.description, e.venue_address, e.visibility, e.rel, e.decklist_due_at) then
+    update public.events set description = v_desc, venue_address = v_addr, visibility = v_vis, rel = v_rel,
+                             decklist_due_at = v_due, updated_at = now()
      where id = p_event_id;
     insert into public.audit_log (event_id, actor_user, action, target_type, target_id, before, after)
     values (p_event_id, v_uid, 'event.listing_updated', 'event', p_event_id, v_before,
-            jsonb_build_object('description', v_desc, 'venue_address', v_addr, 'visibility', v_vis));
+            jsonb_build_object('description', v_desc, 'venue_address', v_addr, 'visibility', v_vis,
+                               'rel', v_rel, 'decklist_due_at', v_due));
   end if;
-  return jsonb_build_object('description', v_desc, 'venue_address', v_addr, 'visibility', v_vis);
+  return jsonb_build_object('description', v_desc, 'venue_address', v_addr, 'visibility', v_vis,
+                            'rel', v_rel, 'decklist_due_at', v_due);
 end $$;
 
 -- The league an event is in, as the listing and the event page show it.
@@ -336,6 +358,8 @@ begin
   select * into e from public.events where id = p_event_id;
   return jsonb_build_object(
     'event_id', e.id, 'description', e.description, 'venue_address', e.venue_address, 'visibility', e.visibility,
+    'rel', e.rel, 'decklist_due_at', e.decklist_due_at, 'seat_formats', to_jsonb(e) -> 'seat_formats',
+    'team_signup', coalesce((to_jsonb(e) ->> 'team_signup')::boolean, false),
     'format_key', t1_private.event_format_key(e.format_name, e.cube_name),
     'league', t1_private.event_league_json(e.id),
     'placed', exists (select 1 from public.event_placements pl where pl.event_id = e.id));
