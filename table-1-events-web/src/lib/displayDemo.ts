@@ -6,6 +6,8 @@
 //   /d/demo-small?demo     7-player draft, round 2 of 3, a bye, clock paused
 //   /d/demo-team?demo      3v3 team draft, round 2 of 3
 //   /d/demo-off?demo       16 players, "Round timer off"
+//   /d/demo-room?demo      32 players, round 2: an announcement, tables 9 and 12 on extra time
+//   /d/demo-remote?demo    the organizer's remote set to Standings, with an announcement
 //   /d/demo-welcome?demo   before round 1: name, start time, sign-up QR
 //   /d/demo-final?demo     the 64-player event, finished
 //   anything else          "This event isn't available"
@@ -24,6 +26,8 @@ export interface DemoOptions {
   elapsed?: number;
   /** Results in for the open round. */
   resultsIn?: number;
+  /** `&message=`: an announcement for any stand-in event. */
+  message?: string | null;
 }
 
 const FIRST = ["Ann", "Bo", "Cy", "Dee", "Eli", "Fen", "Gus", "Hal", "Ivy", "Jo", "Kai", "Lu", "Max", "Nia", "Oli", "Pat"];
@@ -83,6 +87,8 @@ interface Spec {
   team?: boolean;
   elapsed: number;
   resultsIn: number;
+  /** The room tools' part (contract/room-tools-2026-11-13.md): an announcement, tables on extra time, the remote's pick. */
+  room?: { message?: string; extra?: [table: number, seconds: number][]; show?: "auto" | "clock" | "pairings" | "standings" };
 }
 
 function build(spec: Spec, o: DemoOptions): DisplayData {
@@ -120,7 +126,7 @@ function build(spec: Spec, o: DemoOptions): DisplayData {
     topCut: 0, autoRounds: false, signUp: spec.current === 0 ? "open" : "closed", me: null, position: null, decklists: "off",
   };
   const standings: PublicStandings = {
-    bracket: [], pods: [],
+    bracket: [], pods: [], teamBracket: [],
     rows: computeStandings(participants, rounds).map((s) => ({
       rank: s.rank, participantId: s.participantId, displayName: s.displayName, status: s.status, matchPoints: s.matchPoints,
       matchWins: s.matchWins, matchLosses: s.matchLosses, matchDraws: s.matchDraws, byes: s.byes, omw: s.opponentMatchWinPct, gw: s.gameWinPct,
@@ -133,7 +139,12 @@ function build(spec: Spec, o: DemoOptions): DisplayData {
         }))
       : null,
   };
-  return { event, standings };
+  const message = o.message ?? spec.room?.message ?? null;
+  const room = spec.room || message ? {
+    display: { show: spec.room?.show ?? ("auto" as const), message },
+    extensions: (spec.room?.extra ?? []).map(([table_number, extra_seconds]) => ({ table_number, extra_seconds })),
+  } : null;
+  return { event, standings, room };
 }
 
 const SPECS: Spec[] = [
@@ -141,6 +152,12 @@ const SPECS: Spec[] = [
   { id: "demo-small", name: "Draft · Duskmourn · Fri 13 Nov", formatLabel: "Draft · Duskmourn", players: 7, rounds: 3, current: 2, paused: true, elapsed: 1276, resultsIn: 1 },
   { id: "demo-team", name: "Team draft · Duskmourn · Fri 13 Nov", formatLabel: "Team draft · Duskmourn", players: 6, rounds: 3, current: 2, team: true, elapsed: 900, resultsIn: 1 },
   { id: "demo-off", name: "Pauper League · Week 3", formatLabel: "Pauper", players: 16, rounds: 4, current: 3, showClock: false, elapsed: 1500, resultsIn: 5 },
+  // The room tools: an announcement along the bottom and two tables on extra time (`+5:00` on their rows, listed under the clock).
+  { id: "demo-room", name: "Modern Open", formatLabel: "Modern", players: 32, rounds: 5, current: 2, elapsed: 1560, resultsIn: 6,
+    room: { message: "Round 3 starts at 14:30 · lunch is in the back room", extra: [[9, 300], [12, 180]] } },
+  // The organizer's remote picked Standings (the address has no ?show=, so the display follows it).
+  { id: "demo-remote", name: "Modern Open", formatLabel: "Modern", players: 16, rounds: 4, current: 2, elapsed: 1200, resultsIn: 3,
+    room: { show: "standings", message: "Top 8 decklists to the judge station, please" } },
   { id: "demo-welcome", name: "Modern Open", formatLabel: "Modern", players: 12, rounds: 4, current: 0, elapsed: 0, resultsIn: 0 },
   { id: "demo-final", name: "Modern Open", formatLabel: "Modern", players: 64, rounds: 6, current: 6, finished: true, elapsed: 0, resultsIn: 0 },
 ];

@@ -23,6 +23,12 @@ import { useSession } from "../lib/useSession";
 import { EventAboutRows, PublicResultsNotice, useEventAbout } from "../components/EventListing";
 import { leaguesDemoOn, type EventAbout } from "../lib/leagues";
 import { getLocalParticipant } from "../lib/session";
+import { PayBlock, PrizePoolRow, feeFact, useEventMoney } from "../components/EventMoney";
+import { TeamBracketView } from "../components/EventExtras";
+import { TeamSignupBlock, TeamsList, teamCodeInAddress, useTeamMine } from "../components/TeamSignup";
+import type { PublicTeamBracketStage } from "../lib/api";
+import type { EventMoney } from "../lib/money";
+import type { TeamMine } from "../lib/teamSignup";
 
 /**
  * One link for the event's whole life (contract/scheduled-events-2026-10-27.md §4): before round 1 the sign-up page,
@@ -35,6 +41,7 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [rows, setRows] = useState<PublicStandingRow[] | null>(null);
   const [bracket, setBracket] = useState<PublicBracketStage[]>([]);
+  const [teamBracket, setTeamBracket] = useState<PublicTeamBracketStage[]>([]);
   const [pods, setPods] = useState<PodRef[]>([]);
   const [tab, setTab] = useState<"standings" | "matchups">("standings");
   const [error, setError] = useState<string | null>(null);
@@ -42,11 +49,18 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
   const about = useEventAbout(eventId, getLocalParticipant(eventId)?.token);
   // Dev server, `?demo`: a found event's page on stand-in data.
   const demo = leaguesDemoOn() && eventId.startsWith("demo-");
+  const token = getLocalParticipant(eventId)?.token;
+  // The fee and prize pool (contract/entry-fees-2026-11-13.md § 2) and, for team events whose teams sign themselves
+  // up, the teams (contract/teams-finals-alerts-2026-11-13.md § 2): read with the event, null while the server has none.
+  const { money, reload: reloadMoney } = useEventMoney(eventId, token, event);
+  const teams = useTeamMine(eventId, !!about?.team_signup, token, event);
 
   const load = useCallback(async () => {
     if (demo) {
       const e = (await import("../lib/leaguesDemo")).publicEvent(eventId);
       if (e) {
+        // Signing a team up in the demo signs you up to its event.
+        if ((await import("../lib/phasesDemo")).demoOnTeam(eventId)) e.me = "player";
         setEvent(e);
         setRows([]);
       } else setError("That event isn't available");
@@ -57,6 +71,7 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
       setEvent(e);
       setRows(s.rows);
       setBracket(s.bracket);
+      setTeamBracket(s.teamBracket);
       setPods(s.pods);
       setError(null);
     } catch (e) {
@@ -94,7 +109,8 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
 
   // Before round 1 (and for someone still on the waitlist then): the sign-up page.
   if (event.signUp !== "closed" || (event.me === "waitlisted" && event.currentRound === 0)) {
-    return <SignUpPage event={event} reload={load} onBack={onBack} about={about} />;
+    return <SignUpPage event={event} reload={load} onBack={onBack} about={about} money={money} reloadMoney={reloadMoney}
+                       teams={teams.mine} onTeams={teams.setMine} />;
   }
 
   const round = event.round;
@@ -113,6 +129,7 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
       {event.me === "waitlisted" && <Notice tone="info">Sign-ups are closed: you didn't get in this time.</Notice>}
       <FollowRow event={event} />
       <EventAboutRows about={about} eventName={event.name} />
+      <PrizePoolRow money={money} eventName={event.name} leagueName={about?.league?.name} />
       {round && event.showClock && (
         <div className="bg-t1-bg py-4">
           <ClockFace round={round} size="small" />
@@ -123,6 +140,7 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
         {tab === "standings" ? (
           <>
             {bracket.length > 0 && <PublicBracket stages={bracket} />}
+            <TeamBracketView stages={teamBracket as Parameters<typeof TeamBracketView>[0]["stages"]} seatFormats={about?.seat_formats} />
             <PublicStandingsTable rows={rows} />
           </>
         ) : (
@@ -216,10 +234,19 @@ function PairingRow({ match }: { match: PublicPairing }) {
  * The sign-up page: when, where, the format, how many are in, and Sign up / Join the waitlist. Signed out, Sign up
  * signs in first (any option makes an account) and comes back here with ?signup=1, which signs up once.
  */
-export function SignUpPage({ event, reload, onBack, about = null }: {
+export function SignUpPage({ event, reload, onBack, about = null, money = null, reloadMoney, teams = null, onTeams }: {
   event: PublicEvent; reload: () => Promise<void>; onBack: () => void; about?: EventAbout | null;
+  money?: EventMoney | null; reloadMoney?: () => Promise<EventMoney | null>;
+  /** Team events whose teams sign themselves up: team_mine (null otherwise). */
+  teams?: TeamMine | null; onTeams?: (m: TeamMine) => void;
 }) {
-  const { session, ready } = useSession();
+  const real = useSession();
+  // Dev server, `?demo`: the page as someone signed in sees it.
+  const { ready } = real;
+  const session = real.session ?? (leaguesDemoOn() ? ({ user: { id: "demo" } } as NonNullable<typeof real.session>) : null);
+  /** Teams sign themselves up here: Sign up a team / Join a team stand where Sign up would. */
+  const teamPage = !!teams?.team_signup || !!teams?.team;
+  const teamCode = useRef(teamCodeInAddress());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -237,6 +264,7 @@ export function SignUpPage({ event, reload, onBack, about = null }: {
     setBusy(true);
     setError(null);
     try {
+      if (leaguesDemoOn()) throw new Error("The demo has no server to sign up with.");
       const r = await signUpForEvent(event.eventId, signedInNow);
       setMessage(r.status === "waitlisted" || r.status === "already_waitlisted"
         ? `It's full, so you're on the waitlist (number ${r.position ?? 1}).` : "You're signed up.");
@@ -254,8 +282,9 @@ export function SignUpPage({ event, reload, onBack, about = null }: {
     auto.current = false;
     // Keep the router's entry state, so Back still knows what came before.
     window.history.replaceState(window.history.state, "", window.location.pathname);
-    if (state === "sign_up" || state === "waitlist") void signUp(true);
-  }, [ready, session, state, signUp]);
+    // A team event is signed up to through a team, never alone.
+    if ((state === "sign_up" || state === "waitlist") && !teamPage) void signUp(true);
+  }, [ready, session, state, signUp, teamPage]);
 
   async function leave() {
     setBusy(true);
@@ -280,12 +309,21 @@ export function SignUpPage({ event, reload, onBack, about = null }: {
         <div className="bg-t1-surface px-5 py-5 flex flex-col gap-2">
           <p className="text-[22px] leading-7">{event.name}</p>
           {facts && <p className="text-[12px] text-t1-muted">{facts}</p>}
-          <p className="t1-label">{roundsLine(event.autoRounds, event.numberOfRounds, event.topCut, event.signUp !== "closed")}</p>
+          <p className="t1-label">
+            {[roundsLine(event.autoRounds, event.numberOfRounds, event.topCut, event.signUp !== "closed"), feeFact(money)].filter(Boolean).join(" · ")}
+          </p>
           {event.decklists !== "off" && <p className="t1-label">{event.decklists === "required" ? "Decklist required" : "Decklists welcome"}</p>}
         </div>
         <div className="bg-t1-surface px-4 py-3 text-[13px]">{signUpLine(event.players, event.capacity, event.waitlist)}</div>
         <EventAboutRows about={about} eventName={event.name} />
+        <PrizePoolRow money={money} eventName={event.name} leagueName={about?.league?.name} />
         <FollowRow event={event} />
+        {state === "in" && reloadMoney && <PayBlock eventId={event.eventId} eventName={event.name} money={money} reload={reloadMoney} onLeft={() => void reload()} />}
+        {teamPage && teams && onTeams && session && state !== "organizer" && state !== "closed" && (
+          <TeamSignupBlock eventId={event.eventId} eventName={event.name} mine={teams} userId={session.user.id === "demo" ? null : session.user.id}
+                           onMine={onTeams} onChanged={() => void reload()} />
+        )}
+        {teams && (teamPage || teams.teams.length > 0) && <TeamsList mine={teams} />}
         {(state === "sign_up" || state === "waitlist" || state === "sign_in") && <PublicResultsNotice about={about} shown />}
         {message && <Notice tone="info">{message}</Notice>}
         {error && <Notice tone="error">{error}</Notice>}
@@ -302,13 +340,13 @@ export function SignUpPage({ event, reload, onBack, about = null }: {
                 New to Table 1? Any option below makes your account, then you're signed up.
               </p>
             </div>
-            <SignInButtons returnTo={`/s/${event.eventId}?signup=1`} />
+            <SignInButtons returnTo={teamPage ? `/s/${event.eventId}${teamCode.current ? `?team=${teamCode.current}` : ""}` : `/s/${event.eventId}?signup=1`} />
           </>
         )}
       </div>
       {(state === "in" || state === "organizer") && (
         <div className="flex gap-px">
-          {state === "in" && <GhostAction label="Leave" onClick={() => setConfirmLeave(true)} />}
+          {state === "in" && !teams?.team && <GhostAction label="Leave" onClick={() => setConfirmLeave(true)} />}
           <Link to={state === "organizer" ? `/e/${event.eventId}` : `/p/${event.eventId}`}
                 className="flex-1 bg-t1-accent text-t1-ink px-4 py-3 text-[11px] uppercase tracking-[1px] text-center">
             Open event
@@ -316,9 +354,10 @@ export function SignUpPage({ event, reload, onBack, about = null }: {
         </div>
       )}
       {state === "waitlisted" && <BigAction label="Leave the waitlist" busy={busy} onClick={() => setConfirmLeave(true)} />}
-      {(state === "sign_up" || state === "waitlist" || (state === "sign_in" && !signingIn)) && (
+      {(((state === "sign_up" || state === "waitlist") && !teamPage) || (state === "sign_in" && !signingIn)) && (
         <BigAction
-          label={state === "waitlist" || (state === "sign_in" && event.signUp === "full") ? "Join the waitlist" : "Sign up"}
+          label={state === "sign_in" && teamPage ? (teamCode.current ? "Sign in to join the team" : "Sign in to sign up a team")
+            : state === "waitlist" || (state === "sign_in" && event.signUp === "full") ? "Join the waitlist" : "Sign up"}
           tone="accent"
           busy={busy}
           onClick={() => {
@@ -390,7 +429,7 @@ function FollowRow({ event }: { event: PublicEvent }) {
 function PublicBracket({ stages }: { stages: PublicBracketStage[] }) {
   return (
     <div className="flex flex-col gap-px">
-      <div className="bg-t1-surface px-4 py-2 t1-label">Top 8</div>
+      <div className="bg-t1-surface px-4 py-2 t1-label">{stages.some((s) => s.stage === "quarterfinal") ? "Top 8" : "Top 4"}</div>
       {stages.map((st) => (
         <div key={st.stage} className="flex flex-col gap-px">
           <p className="t1-label px-4 py-2">{roundName(st.stage, 0, 0)}</p>

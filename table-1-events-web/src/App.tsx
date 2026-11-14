@@ -125,6 +125,11 @@ const BoardScreen = lazyNamed(find, "BoardScreen");
 const LeagueScreen = lazyNamed(() => import("./screens/League"), "LeagueScreen");
 // The TV display (/d/<event>) is its own chunk: only the screen that shows it downloads it.
 const DisplayScreen = lazyNamed(() => import("./screens/Display"), "DisplayScreen");
+// Stripe's return pages and the organizer's print views (contracts entry-fees and room-tools, 2026-11-13): browser only.
+const pay = () => import("./screens/Pay");
+const PayDone = lazyNamed(pay, "PayDone");
+const PayConnected = lazyNamed(pay, "PayConnected");
+const PrintScreen = lazyNamed(() => import("./screens/Print"), "PrintScreen");
 const EventsDemo = lazyNamed(() => import("./screens/EventsDemo"), "EventsDemo");
 // Dev only: production builds drop the demo and its fixture.
 const RotoDemo = import.meta.env.DEV ? lazyNamed(() => import("./screens/RotoDemo"), "RotoDemo") : () => null;
@@ -174,8 +179,17 @@ function OrganizerRoute() {
       onOpenLife={(matchId) => navigate(`/life/${matchId}`)}
       onOpenPhotos={() => navigate(`/e/${eventId}/photos`)}
       onOpenRedraft={(setCode) => navigate(`/e/${eventId}/redraft`, { state: { setCode } })}
+      onPrint={(what) => navigate(`/e/${eventId}/print/${what}`)}
     />
   );
+}
+
+/** /e/:eventId/print/:what: pairings by table, pairings A–Z, standings or result slips, on paper. */
+function PrintRoute() {
+  const { eventId, what } = useParams();
+  const back = useBack(`/e/${eventId}`);
+  if (!eventId) return <Navigate to="/" replace />;
+  return <PrintScreen eventId={eventId} what={what} onBack={back} />;
 }
 
 /** /e/:eventId/photos from the organizer screen, /p/:eventId/photos from a player's. */
@@ -687,6 +701,10 @@ export default function App() {
         <Route path="/e/:eventId/add" element={<AddPlayersRoute />} />
         <Route path="/e/:eventId/photos" element={<DeckPhotosRoute organizer />} />
         <Route path="/e/:eventId/redraft" element={<RedraftRoute organizer />} />
+        <Route path="/e/:eventId/print/:what" element={<PrintRoute />} />
+        <Route path="/pay/done" element={<PayDone />} />
+        <Route path="/pay/connected" element={<PayConnected />} />
+        <Route path="/pay/connect" element={<PayConnected expired />} />
         <Route path="/p/:eventId/redraft" element={<RedraftRoute organizer={false} />} />
         <Route path="/join/:code" element={<JoinRoute />} />
         <Route path="/j/:code" element={<QrJoinRoute />} />

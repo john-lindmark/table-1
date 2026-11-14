@@ -11,6 +11,7 @@ import {
   type LeagueEvent, type LeaguePlayer, type LeagueView, type StandingRow,
 } from "../lib/leagues";
 import { useBack } from "../lib/nav";
+import { leagueMoney, money as dollars, type LeagueMoney } from "../lib/money";
 import { capture } from "../lib/telemetry";
 import { useSession } from "../lib/useSession";
 
@@ -68,6 +69,16 @@ export function LeagueScreen({ league, onBack }: { league: string; onBack: () =>
   const [error, setError] = useState<unknown>(null);
   const [menu, setMenu] = useState<"follow" | "tools" | null>(null);
   const [followError, setFollowError] = useState<string | null>(null);
+  // The season's prize pool from its cut of each entry (contract/entry-fees-2026-11-13.md § 5); null while the server has none.
+  const [pool, setPool] = useState<LeagueMoney | null>(null);
+  const shownSeason = data?.season?.id ?? null;
+  useEffect(() => {
+    setPool(null);
+    if (!shownSeason) return;
+    let live = true;
+    void leagueMoney(shownSeason).then((m) => live && setPool(m));
+    return () => { live = false; };
+  }, [shownSeason]);
   const here = `/league/${league}`;
   const backToLeague = useBack(seasonId ? `${here}?season=${seasonId}` : here);
 
@@ -127,7 +138,7 @@ export function LeagueScreen({ league, onBack }: { league: string; onBack: () =>
     return <AllStandings data={data} onBack={backToLeague} onPlayer={(key) => go({ player: key })} />;
   }
   if (view === "details") return <Details data={data} signedIn={signedIn} onBack={backToLeague} onNotify={(on) => follow(true, on)} error={followError} />;
-  if (view && me.role && ["edit", "seasons", "season", "organizers"].includes(view)) {
+  if (view && me.role && ["edit", "seasons", "season", "organizers", "dues"].includes(view)) {
     return (
       <Suspense fallback={<Screen><Bar title={l.name} onBack={backToLeague} /></Screen>}>
         <LeagueTools data={data} view={view} seasonId={params.get("sid")} onBack={backToLeague}
@@ -156,6 +167,9 @@ export function LeagueScreen({ league, onBack }: { league: string; onBack: () =>
           <p className="text-[22px] leading-[28px] tracking-[0.5px] break-words">{l.name}</p>
           {(l.region || season) && (
             <p className="t1-label">{[l.region, season ? seasonLine(season) : null].filter(Boolean).join(" · ")}</p>
+          )}
+          {pool && pool.entry_cut_cents > 0 && (
+            <p className="t1-label">Prize pool <span className="text-t1-text text-[13px] tracking-[1px]">{dollars(pool.pool_cents)}</span></p>
           )}
         </div>
         {seasons.length > 1 && season && (
@@ -199,6 +213,7 @@ export function LeagueScreen({ league, onBack }: { league: string; onBack: () =>
           { title: "Edit league", onClick: () => go({ view: "edit" }) },
           { title: "Seasons", detail: seasons.length ? seasons.map((s) => s.name).join(" · ") : "None yet", onClick: () => go({ view: "seasons" }) },
           { title: "Organizers", detail: (data.members?.map((m) => m.name) ?? l.organizers).join(", "), onClick: () => go({ view: "organizers" }) },
+          ...(pool?.events ? [{ title: "Dues", detail: `${dollars(pool.received_cents ?? 0)} of ${dollars(pool.pool_cents)} received`, onClick: () => go({ view: "dues" }) }] : []),
         ]} />
       )}
     </Screen>

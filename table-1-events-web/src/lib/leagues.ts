@@ -66,7 +66,14 @@ export interface EventAbout {
   format_key: string | null;
   league: EventLeague | null;
   placed?: boolean;
+  /** Rules level and the decklist deadline (contract/room-tools-2026-11-13.md § 4); missing from a server before them. */
+  rel?: Rel | null;
+  decklist_due_at?: string | null;
+  /** Team Trios: the format each seat plays, A first (contract/teams-finals-alerts-2026-11-13.md § 1). */
+  seat_formats?: string[] | null;
+  team_signup?: boolean;
 }
+export type Rel = "casual" | "competitive";
 
 export interface EventListing { description: string | null; venue_address: string | null; visibility: string }
 /** Who can find it, as Create and Setup → Details say it. */
@@ -97,7 +104,11 @@ export interface League {
   archived: boolean; organizers: string[];
 }
 export interface SeasonRef { id: string; name: string; starts_on: string; ends_on: string; state: SeasonState }
-export interface Season extends SeasonRef { points: PointsRule; best_n: number | null; qualify: Qualify; closed: boolean }
+export interface Season extends SeasonRef {
+  points: PointsRule; best_n: number | null; qualify: Qualify; closed: boolean;
+  /** What each paid entry of the season's events owes the league (contract/entry-fees-2026-11-13.md § 5); 0 or missing = none. */
+  entry_cut_cents?: number;
+}
 export interface LeagueEvent {
   event_id: string; name: string; format_label: string | null; format_key: string | null; starts_at: string | null;
   venue_name: string | null; status: string; multiplier: number; final: boolean; players: number; winner: string | null;
@@ -513,6 +524,71 @@ export function achievementText(i: Partial<LeagueAchievement> | Partial<BoardAch
 export const achievementPath = (i: Achievement) =>
   i.kind === "board" ? `/boards/${i.board}` : `/league/${i.league_slug}?season=${i.season_id}`;
 
+/* ── teams, the cut, alerts and the room: wording (phases 2 and 4) ───── */
+
+/** The top cuts a format can have (0 = none): top 8 for Swiss events of players, top 4 for those and for team sealed
+ *  and Team Trios, none for a team draft, a roto or round robin (contract/teams-finals-alerts-2026-11-13.md § 1). */
+export function cutChoices(formatName: string | null | undefined, pairing: string | null | undefined = "swiss"): number[] {
+  if ((pairing ?? "swiss") !== "swiss" || formatName === "team_draft" || formatName === "roto") return [0];
+  return formatName === "team_sealed" || formatName === "team_trios" ? [0, 4] : [0, 4, 8];
+}
+export const cutLabel = (cut: number) => (cut ? `Top ${cut}` : "No top cut");
+
+/** What a Team Trios seat can play. */
+export const SEAT_FORMATS: { key: string; label: string }[] = [
+  ...FORMAT_KEYS.slice(0, 8), { key: "duel_commander", label: "Duel Commander" }, { key: "other", label: "Other" },
+];
+const SEAT_LABEL = new Map(SEAT_FORMATS.map((f) => [f.key, f.label]));
+export const seatFormatLabel = (key: string | null | undefined) => SEAT_LABEL.get(key ?? "") ?? "Other";
+export const DEFAULT_SEAT_FORMATS = ["modern", "standard", "pioneer"];
+
+/** A team seat: "A · MODERN" in Team Trios, "B" elsewhere. */
+export function seatLabel(slot: number | null | undefined, seatFormats?: readonly string[] | null): string {
+  const n = slot ?? 0;
+  const letter = n >= 1 && n <= 4 ? "ABCD"[n - 1] : String(n);
+  return seatFormats && n >= 1 && n <= seatFormats.length ? `${letter} · ${seatFormatLabel(seatFormats[n - 1]).toUpperCase()}` : letter;
+}
+
+/** A team in the Teams list: "2/3", or COMPLETE. */
+export const teamLine = (team: { members: number; complete?: boolean }, teamSize: number) =>
+  team.complete ? "COMPLETE" : `${team.members}/${teamSize}`;
+
+export interface EventAlerts { on: boolean; formats: string[]; km: number | null; lat: number | null; lng: number | null }
+/** The Alerts row: "OFF", "MODERN, LIMITED · 50 KM", "EVERY FORMAT · ANYWHERE". */
+export function alertLine(a: Pick<EventAlerts, "on"> & Partial<EventAlerts>): string {
+  if (!a.on) return "OFF";
+  const formats = (a.formats ?? []).map((f) => formatKeyLabel(f).toUpperCase()).join(", ") || "EVERY FORMAT";
+  return a.km ? `${formats} · ${a.km} KM` : `${formats} · ANYWHERE`;
+}
+
+/** A table's extra time: "+5:00"; nothing for none. */
+export const extensionText = (seconds: number | null | undefined) =>
+  seconds && seconds > 0 ? `+${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : "";
+
+/** An open judge call: "JUDGE · TABLE 7 · BEA · 2 MIN". */
+export function judgeLine(call: { table_number: number | null; by?: string | null; called_at: string }, now: Date | number = Date.now()): string {
+  const mins = Math.max(0, Math.floor((new Date(now).getTime() - new Date(call.called_at).getTime()) / 60000));
+  return ["JUDGE", `TABLE ${call.table_number ?? "–"}`, (call.by ?? "").toUpperCase() || null, mins === 0 ? "NOW" : `${mins} MIN`]
+    .filter(Boolean).join(" · ");
+}
+
+/** What leads an event's About: "COMPETITIVE · DECKLISTS DUE SAT 14 NOV 09:30". `due` is already in the device's zone. */
+export const rulesLine = (rel: string | null | undefined, due: string | null | undefined) =>
+  [rel ? rel.toUpperCase() : null, due ? `DECKLISTS DUE ${due}` : null].filter(Boolean).join(" · ");
+
+/** "SAT 14 NOV 09:30" in the device's zone (or `zone`), 24-hour, for the decklist deadline. */
+export function dueText(iso: string | null | undefined, zone?: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: zone }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${clean(`${get("weekday")} ${get("day")} ${get("month")}`)} ${get("hour")}:${get("minute")}`;
+}
+/** An event's rules line from its About, or "" (a server before it, or nothing set). */
+export const aboutRulesLine = (a: Pick<EventAbout, "rel" | "decklist_due_at"> | null | undefined, zone?: string) =>
+  (a ? rulesLine(a.rel ?? null, dueText(a.decklist_due_at ?? null, zone)) : "");
+
 /* ── calls ───────────────────────────────────────────────────────────── */
 
 /** The function isn't on the server (PostgREST PGRST202, HTTP 404): the section hides, nothing is reported. */
@@ -533,7 +609,7 @@ export function leaguesError(e: unknown): string {
   return typeof m === "string" && m ? m : "Couldn't load. Check your connection.";
 }
 
-async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
+export async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
   const { data, error, status } = await supabase.rpc(fn, args);
   if (error) throw Object.assign(error, { status });
   return data as T;
@@ -542,6 +618,8 @@ async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
 /** Dev server, `?demo`: every call answers from stand-in data (leaguesDemo.ts), no account or server. Production
  *  builds drop it. */
 const demo = () => (import.meta.env.DEV && isLibraryDemo() ? import("./leaguesDemo") : null);
+/** The same switch for the phases 2 to 4 stand-ins (lib/phasesDemo.ts): fees, teams, the room. */
+export const phasesDemo = () => (import.meta.env.DEV && isLibraryDemo() ? import("./phasesDemo") : null);
 export const leaguesDemoOn = () => import.meta.env.DEV && isLibraryDemo();
 /** A path inside the demo keeps `?demo`, so the next screen's taps (a person's profile) stay in it. */
 export const demoPath = (path: string) => (leaguesDemoOn() && !/[?&]demo\b/.test(path) ? `${path}${path.includes("?") ? "&" : "?"}demo` : path);
@@ -585,10 +663,14 @@ export async function listingsLive(): Promise<boolean> {
   }
 }
 
-export interface ListingPatch { description?: string | null; venue_address?: string | null; find?: FindPick; lat?: number; lng?: number }
+export interface ListingPatch {
+  description?: string | null; venue_address?: string | null; find?: FindPick; lat?: number; lng?: number;
+  rel?: Rel | null; decklist_due_at?: string | null;
+}
 export async function eventListingSet(eventId: string, patch: ListingPatch): Promise<EventListing> {
   const d = await demo();
   const r = d ? d.eventListingSet(eventId, patch) : await rpc<EventListing>("event_listing_set", { p_event_id: eventId, p_patch: patch });
+  if ("rel" in patch || "decklist_due_at" in patch) return r;
   capture("event_listing_saved", { find: patch.find ?? "kept", description: !!(patch.description ?? "").trim() });
   return r;
 }
@@ -650,6 +732,7 @@ export async function leagueMemberSet(leagueId: string, userId: string, role: Le
 
 export interface SeasonPatch {
   name?: string; starts_on?: string; ends_on?: string; points?: PointsRule; best_n?: number | null; qualify?: Qualify; closed?: boolean;
+  entry_cut_cents?: number;
 }
 export async function leagueSeasonSet(leagueId: string, seasonId: string | null, patch: SeasonPatch): Promise<Season> {
   const d = await demo();
@@ -703,5 +786,60 @@ export async function achievementsVisibilitySet(visibility: AchievementsVisibili
   const r = d ? d.achievementsVisibilitySet(visibility)
     : await rpc<{ visibility: AchievementsVisibility }>("achievements_visibility_set", { p_visibility: visibility });
   capture("achievements_visibility", { visibility: r.visibility });
+  return r;
+}
+
+/* ── a season's final and alerts (contract/teams-finals-alerts-2026-11-13.md §§ 3, 4) ── */
+
+export type FinalState = "in" | "invited" | "declined" | "guest" | "none";
+export interface FinalRow { key: string; user_id: string | null; name: string; rank: number; points: number; how: "winner" | "points" | null; state: FinalState }
+export interface FinalStatus { season_id: string; qualified: FinalRow[]; next: FinalRow[] }
+
+/** "3 of 23 in". */
+export const finalLine = (f: Pick<FinalStatus, "qualified">) => `${f.qualified.filter((r) => r.state === "in").length} of ${f.qualified.length} in`;
+/** What a qualified row says on the right; null means the Invite button. */
+export const finalStateLabel = (state: FinalState): string | null =>
+  state === "none" ? null : state.toUpperCase();
+/** Whom "Invite the qualified" reaches: an account, not in, not invited yet. */
+export const finalInvitable = (rows: FinalRow[]) => rows.filter((r) => r.user_id && r.state === "none");
+
+/** The Qualified list of a season's final you run; null for every other event, a server before it, or a failed read. */
+export async function leagueFinalStatus(eventId: string): Promise<FinalStatus | null> {
+  try {
+    const d = await demo();
+    const r = d ? d.leagueFinalStatus(eventId) : await rpc<FinalStatus | null>("league_final_status", { p_event_id: eventId });
+    return r ? { ...r, qualified: r.qualified ?? [], next: r.next ?? [] } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Invite the qualified (no keys), or pass an invitation down to the named players. */
+export async function leagueFinalInvite(eventId: string, keys: string[] | null = null): Promise<{ ok: boolean; invited: number }> {
+  const d = await demo();
+  const r = d ? d.leagueFinalInvite(eventId, keys) : await rpc<{ ok: boolean; invited: number }>("league_final_invite", { p_event_id: eventId, p_keys: keys });
+  capture("final_invited", { count: r?.invited ?? 0, passed_down: keys != null });
+  return r;
+}
+
+export const ALERT_KM = [25, 50, 100, 250];
+const cleanAlerts = (a: Partial<EventAlerts> | null | undefined): EventAlerts =>
+  ({ on: !!a?.on, formats: a?.formats ?? [], km: a?.km ?? null, lat: a?.lat ?? null, lng: a?.lng ?? null });
+
+/** Your alert for new public events; null signed out, on a server before it, or when the read fails (the row hides). */
+export async function eventAlertsGet(): Promise<EventAlerts | null> {
+  try {
+    const d = await demo();
+    return cleanAlerts(d ? d.eventAlertsGet() : await rpc<EventAlerts>("event_alerts_get"));
+  } catch {
+    return null;
+  }
+}
+
+export interface AlertsPatch { on?: boolean; formats?: string[]; km?: number | null; lat?: number; lng?: number; place?: null }
+export async function eventAlertsSet(patch: AlertsPatch): Promise<EventAlerts> {
+  const d = await demo();
+  const r = cleanAlerts(d ? d.eventAlertsSet(patch) : await rpc<EventAlerts>("event_alerts_set", { p_patch: patch }));
+  capture("event_alerts_saved", { on: r.on, formats: r.formats.length, km: r.km ?? 0 });
   return r;
 }

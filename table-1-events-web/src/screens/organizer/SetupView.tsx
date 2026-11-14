@@ -19,6 +19,11 @@ import { decklistsLine, when } from "../../lib/scheduledEvents";
 import { RotoPickOrder, RotoStartAction } from "../roto/lazy";
 import type { PhaseViewProps } from "./shared";
 import { Avatar } from "../../components/Avatar";
+import { PaymentMenu, payDetail, paymentsById } from "./Money";
+import { unpaidConfirm, unpaidHeader, type PlayerPayment } from "../../lib/money";
+import { OrganizerTeamSignup, useTeamMine } from "../../components/TeamSignup";
+import { QualifiedRow } from "./Qualified";
+import { seatLabel } from "../../lib/leagues";
 
 /** Setup: Players | Seating (drafts) | Teams (team events) | Details, and "Start event · pair round 1". */
 export function SetupView({
@@ -33,6 +38,8 @@ export function SetupView({
   setActionError,
   onAddPlayers,
   onTeamsSaved,
+  money = null,
+  reloadMoney,
 }: PhaseViewProps & { onAddPlayers: () => void; onTeamsSaved: (rows: EventTeam[]) => void }) {
   const { event } = bundle;
   const isRoto = event.formatName === "roto";
@@ -52,6 +59,12 @@ export function SetupView({
   const [removing, setRemoving] = useState<(typeof participants)[number] | null>(null);
   const [listFor, setListFor] = useState<(typeof participants)[number] | null>(null);
   const [copied, setCopied] = useState(false);
+  // Entry fees: each player's payment, and the menu on its tag (contract/entry-fees-2026-11-13.md § 4).
+  const pays = paymentsById(money);
+  const [payFor, setPayFor] = useState<PlayerPayment | null>(null);
+  const unpaid = money?.fee && money.fee.amount_cents > 0 ? money.organizer?.unpaid ?? 0 : 0;
+  // Teams that sign themselves up: the switch and each team's code (contract/teams-finals-alerts-2026-11-13.md § 2).
+  const teamSignup = useTeamMine(eventId, isTeam, null, bundle);
   const guest = tidyName(guestName);
   const guestDup = !!guest && participants.some((p) => p.displayName.toLowerCase() === guest.toLowerCase());
 
@@ -194,7 +207,7 @@ export function SetupView({
 
   const playerDetail = (p: (typeof participants)[number]) => {
     const who = p.status === "dropped" ? "Dropped" : p.userId ? "Joined" : "Guest";
-    const team = isTeam ? (p.teamId ? `${teamNames.get(p.teamId) ?? "Team"} · ${slotLetter(p.teamSlot)}` : "No team") : null;
+    const team = isTeam ? (p.teamId ? `${teamNames.get(p.teamId) ?? "Team"} · ${event.seatFormats ? seatLabel(p.teamSlot, event.seatFormats) : slotLetter(p.teamSlot)}` : "No team") : null;
     return [who, team, decklistDetail(bundle, p)].filter(Boolean).join(" · ");
   };
   const takesLists = event.decklists !== "off";
@@ -220,8 +233,10 @@ export function SetupView({
             </div>
             <Row title="Join code" detail={[when(event.startsAt), event.venueName].filter(Boolean).join(" · ") || undefined}
                  value={<span className="tracking-[4px]">{event.shortCode}</span>} />
+            <QualifiedRow eventId={eventId} version={bundle} />
             <Section title={event.capacity ? `Players · ${active.length}/${event.capacity}` : "Players"}
-                     count={event.capacity ? undefined : participants.length} />
+                     count={event.capacity ? undefined : participants.length}
+                     right={unpaid > 0 ? <span className="text-t1-warning">{unpaidHeader(unpaid)}</span> : undefined} />
             {takesLists && (
               <Notice tone="info">
                 {decklistsLine(active.length - missing, active.length)}
@@ -244,7 +259,7 @@ export function SetupView({
                 <Avatar name={p.displayName} userId={p.userId} opens="event_players" />
                 <span className="flex-1 min-w-0 flex flex-col gap-0.5">
                   <span className="text-[13px] truncate">{p.id === me?.id ? `You · ${p.displayName}` : p.displayName}</span>
-                  <span className="t1-label truncate">{playerDetail(p)}</span>
+                  <span className="t1-label truncate">{payDetail(pays.get(p.id), setPayFor, playerDetail(p))}</span>
                 </span>
                 <button type="button" className="t1-label text-t1-accent" onClick={() => setListFor(p)}>
                   {decklistOf(bundle, p.id) ? "List" : "Enter list"}
@@ -258,7 +273,8 @@ export function SetupView({
                 key={p.id}
                 title={p.id === me?.id ? `You · ${p.displayName}` : p.displayName}
                 avatar={<Avatar name={p.displayName} userId={p.userId} opens="event_players" />}
-                detail={[playerDetail(p), (isDraft || isRoto) && p.seat != null ? `${isRoto ? "Pick" : "Seat"} ${p.seat}` : null].filter(Boolean).join(" · ")}
+                detail={payDetail(pays.get(p.id), setPayFor,
+                  [playerDetail(p), (isDraft || isRoto) && p.seat != null ? `${isRoto ? "Pick" : "Seat"} ${p.seat}` : null].filter(Boolean).join(" · "))}
                 action={{ label: "Remove", onClick: () => setRemoving(p), disabled: playersBusy }}
                 dim={p.status === "dropped"}
               />
@@ -332,7 +348,12 @@ export function SetupView({
         )}
 
         {tab === "teams" && isTeam && (
+          <OrganizerTeamSignup eventId={eventId} on={event.teamSignup} mine={teamSignup.mine}
+                               onChanged={() => { void teamSignup.reload(); void refetch(); }} />
+        )}
+        {tab === "teams" && isTeam && (
           <TeamsPanel
+            seatFormats={event.seatFormats}
             eventId={eventId}
             formatName={event.formatName}
             teamSize={event.teamSize ?? 3}
@@ -343,7 +364,7 @@ export function SetupView({
           />
         )}
 
-        {tab === "details" && <DetailsForm event={event} players={active.length} onSaved={() => void refetch()} />}
+        {tab === "details" && <DetailsForm event={event} players={active.length} onSaved={() => void refetch()} money={money} onMoneySaved={reloadMoney} />}
       </div>
 
       {isRoto ? (
@@ -388,11 +409,14 @@ export function SetupView({
         />
       )}
 
+      {payFor && money?.fee && (
+        <PaymentMenu eventId={eventId} payment={payFor} amountCents={money.fee.amount_cents} onClose={() => setPayFor(null)} onChanged={() => reloadMoney?.()} />
+      )}
       {seatMenu && <Menu title={seatMenu.title} items={seatMenu.items} onClose={() => setSeatMenu(null)} />}
       {confirmStart && (
         <Dialog
           title={dialog.title}
-          message={dialog.message}
+          message={unpaid > 0 ? `${unpaidConfirm(unpaid)} ${dialog.message}` : dialog.message}
           cancelLabel="Not yet"
           confirmLabel="Start"
           busyLabel="Pairing…"

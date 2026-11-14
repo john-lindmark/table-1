@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { randomizeTeams, saveTeams, errorMessage } from "../lib/api";
 import { slotLetter } from "../lib/formats";
+import { seatLabel } from "../lib/leagues";
 import type { EventTeam, FormatName, Participant } from "../lib/types";
 import { GhostAction, Notice } from "./kit";
 
@@ -31,7 +32,10 @@ export function TeamsPanel({
   teams,
   locked,
   onSaved,
+  seatFormats,
 }: {
+  /** Team Trios: the format each seat plays, so a seat reads `A · MODERN`. */
+  seatFormats?: string[] | null;
   eventId: string;
   formatName: FormatName;
   teamSize: number;
@@ -123,7 +127,7 @@ export function TeamsPanel({
     if (!p) return null;
     return (
       <div key={id} className="bg-t1-surface px-4 py-2.5 flex items-center gap-3">
-        <span className="w-5 t1-label text-t1-accent!">{slot ? slotLetter(slot) : "·"}</span>
+        <span className={`${seatFormats ? "w-[88px] truncate" : "w-5"} shrink-0 t1-label text-t1-accent!`}>{slot ? (seatFormats ? seatLabel(slot, seatFormats) : slotLetter(slot)) : "·"}</span>
         <span className={`flex-1 min-w-0 truncate text-[13px] ${p.status === "dropped" ? "line-through opacity-50" : ""}`}>
           {p.displayName}
         </span>

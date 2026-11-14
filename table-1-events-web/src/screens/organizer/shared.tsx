@@ -1,4 +1,6 @@
 import type { EventBundle } from "../../lib/api";
+import type { EventMoney } from "../../lib/money";
+import type { EventRoom } from "../../lib/room";
 import type { OrganizerTab } from "../../lib/organizer";
 import { toTeams } from "../../lib/useEventExtras";
 import type { EventTeam, Match, Participant, RoundWithMatches } from "../../lib/types";
@@ -8,6 +10,7 @@ import { PodHeader, Row, Section } from "../../components/kit";
 import { matchCount, podSections, type PodRef } from "../../lib/draftPods";
 import { StandingsTable } from "../../components/StandingsTable";
 import { TeamStandingsTable } from "../../components/TeamStandingsTable";
+import { Bracket, TeamBracket } from "../../components/EventExtras";
 
 /** What every phase view gets from the organizer screen. */
 export interface PhaseViewProps {
@@ -23,6 +26,12 @@ export interface PhaseViewProps {
   onOpenMatch: (match: Match) => void;
   /** Big-action / tab errors shown under the tabs. */
   setActionError: (message: string | null) => void;
+  /** The event's money (contract/entry-fees-2026-11-13.md): null while the server has none; `reloadMoney` after a change. */
+  money?: EventMoney | null;
+  reloadMoney?: () => void;
+  /** The room (contract/room-tools-2026-11-13.md): judge calls and tables with extra time. */
+  room?: EventRoom | null;
+  reloadRoom?: () => void;
 }
 
 /** The standings list; team events show the team table first. */
@@ -36,11 +45,13 @@ export function StandingsBlock({
     <>
       {isTeam && (
         <>
+          <TeamBracket teams={toTeams(teams ?? [])} participants={bundle.participants} rounds={bundle.rounds} seatFormats={bundle.event.seatFormats} />
           <Section title="Teams" />
           <TeamStandingsTable teams={toTeams(teams ?? [])} participants={bundle.participants} rounds={bundle.rounds} />
           <Section title="Players" />
         </>
       )}
+      {!isTeam && <Bracket participants={bundle.participants} rounds={bundle.rounds} />}
       <StandingsTable participants={bundle.participants} rounds={bundle.rounds} teamNames={isTeam ? teamNames : undefined}
                       pods={bundle.event.formatName === "draft" ? bundle.pods : undefined} />
     </>

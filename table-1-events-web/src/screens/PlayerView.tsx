@@ -42,6 +42,11 @@ import { useTrackerMode } from "../lib/settings";
 import { RotoDraftGate, RotoDraftOverlay, RotoSchedule } from "./roto/lazy";
 import { participantsKey, toTeams, useEventTeams, useSeating } from "../lib/useEventExtras";
 import { EventAboutRows, PublicResultsNotice, useEventAbout } from "../components/EventListing";
+import { PayBlock, PrizePoolRow, useEventMoney } from "../components/EventMoney";
+import { JudgeCallRow } from "../components/RoomTools";
+import { TeamSignupBlock, TeamsList, useTeamMine } from "../components/TeamSignup";
+import { extensionText, leaguesDemoOn, seatLabel } from "../lib/leagues";
+import { useEventRoom } from "../lib/room";
 
 const teamTitle = (name: string) => (/^team\b/i.test(name) ? name : `Team ${name}`);
 
@@ -91,6 +96,18 @@ export function PlayerView({
   }, [code, eventId]);
 
   const { bundle, error: bundleError, stale, refetch } = useEvent(eventId);
+  // Dev server, `?demo`: the stand-in events' player (lib/phasesDemo.ts) is found by a seat, as a guest is by a token.
+  useEffect(() => {
+    if (!leaguesDemoOn() || !eventIdProp || me) return;
+    void import("../lib/phasesDemo").then((d) => {
+      const seat = d.demoSeat(eventIdProp);
+      if (seat) setMe({ eventId: eventIdProp, shortCode: "", token: "", ...seat });
+    });
+  }, [eventIdProp, me]);
+  // Fees, the room and teams that sign themselves up are read with the event (each null while the server has none).
+  const { money, reload: reloadMoney } = useEventMoney(eventId, me?.token || null, bundle);
+  const { room, reload: reloadRoom } = useEventRoom(eventId, me?.token || null, bundle);
+  const teamSignup = useTeamMine(eventId, !!bundle?.event.teamSize && !!bundle.event.teamSignup, me?.token || null, bundle);
   // Description, address and league (contract/public-events-leagues-2026-11-13.md § 1); nothing until the server has them.
   const about = useEventAbout(eventId, me?.token);
 
@@ -290,11 +307,15 @@ export function PlayerView({
 
   const me_ = participants.get(viewer.participantId);
   const myTeam = me_?.teamId ? teamNames.get(me_.teamId) : null;
+  const seatFormats = event.seatFormats;
+  const mySeat = me_?.teamId ? (seatFormats ? seatLabel(me_.teamSlot, seatFormats) : `seat ${slotLetter(me_.teamSlot)}`) : null;
   const where = myTeam
-    ? `${teamTitle(myTeam)} · seat ${slotLetter(me_?.teamSlot)}`
+    ? `${teamTitle(myTeam)} · ${mySeat}`
     : `Seat ${me_?.seat ?? "–"}`;
   // The shared tracker needs an account on both ends; guests keep score elsewhere.
-  const signedInPlayer = !!userId && !viewer.token;
+  const signedInPlayer = (!!userId || leaguesDemoOn()) && !viewer.token;
+  // Extra time for this player's table (contract/room-tools-2026-11-13.md § 2): their time runs that much past the round's.
+  const myExtra = extensionText(room?.my_match && room.my_match.match_id === myMatch?.id ? room.my_match.extra_seconds : myMatch?.extraSeconds ?? 0);
   const canTrack =
     signedInPlayer && !!onOpenLife && !!myMatch && !myMatch.isBye && !!theirSide?.participantId && event.status === "in_progress";
   const trackerFirst = canTrack && mode === "tracker" && myMatch?.status !== "confirmed";
@@ -377,6 +398,10 @@ export function PlayerView({
           <Row title="Deck photo" detail={myPhotos === 1 ? "Added" : `Added · ${myPhotos} photos`} value="View"
                onClick={() => onOpenPhotos(event.id)} />
         ))}
+        {/* The entry fee: Pay, pending, paid or refunded for a signed-in player (contract/entry-fees-2026-11-13.md § 3). */}
+        {signedInPlayer && event.status !== "cancelled" && (
+          <PayBlock eventId={event.id} eventName={event.name} money={money} reload={reloadMoney} onLeft={onBack} />
+        )}
         {event.status === "cancelled" && (
           <Notice tone="error">
             Cancelled by the organizer{event.cancelReason ? `: ${event.cancelReason}` : ""}. Confirmed results still count.
@@ -385,8 +410,9 @@ export function PlayerView({
 
         {activeRound && event.showClock && (
           <>
-            <div className="bg-t1-bg py-4">
+            <div className="bg-t1-bg py-4 flex flex-col items-center gap-1">
               <ClockFace round={activeRound} />
+              {myExtra && <p className="text-[15px] tabular-nums tracking-[1px] text-t1-warning" aria-label={`Your table has ${myExtra} extra`}>{myExtra}</p>}
             </div>
             <TimerProgress round={activeRound} />
           </>
@@ -400,7 +426,7 @@ export function PlayerView({
           ) : (
             <>
               <PersonBlock open={openProfile(theirSide?.participantId ? participants.get(theirSide.participantId)?.userId : null)}>
-                <p className="t1-label">Table {myMatch.tableNumber} · playing</p>
+                <p className="t1-label">{["Table " + myMatch.tableNumber, seatFormats && me_?.teamSlot ? seatLabel(me_.teamSlot, seatFormats) : null, "playing"].filter(Boolean).join(" · ")}</p>
                 <p className="text-[22px] tracking-[1px]">{opponentName ?? "—"}</p>
               </PersonBlock>
               {trackerFirst && <BigAction label="Open life tracker" tone="accent" onClick={() => onOpenLife!(myMatch.id)} />}
@@ -466,6 +492,9 @@ export function PlayerView({
                   <GhostAction label="Open life tracker" onClick={() => onOpenLife!(myMatch.id)} />
                 </div>
               )}
+              {activeRound && myMatch.status !== "confirmed" && (
+                <JudgeCallRow eventId={event.id} room={room} token={viewer.token} onChanged={() => void reloadRoom()} />
+              )}
             </>
           )
         ) : (
@@ -490,7 +519,14 @@ export function PlayerView({
         {beforeRound1 && when(event.startsAt) && (
           <Row title="Starts" detail={[when(event.startsAt), event.venueName].filter(Boolean).join(" · ")} />
         )}
-        {signedInPlayer && beforeRound1 && (
+        <PrizePoolRow money={money} eventName={event.name} leagueName={about?.league?.name} />
+        {/* Teams that sign themselves up: your team, its code and the captain's menu (before round 1), then every team. */}
+        {teamSignup.mine && beforeRound1 && signedInPlayer && (
+          <TeamSignupBlock eventId={event.id} eventName={event.name} mine={teamSignup.mine} userId={userId ?? null} onMine={teamSignup.setMine}
+                           onChanged={() => void refetch()} onLeft={onBack} />
+        )}
+        {teamSignup.mine && beforeRound1 && <TeamsList mine={teamSignup.mine} />}
+        {signedInPlayer && beforeRound1 && !teamSignup.mine?.team && (
           <div className="flex gap-px">
             <GhostAction label="Leave event" onClick={() => { setLeaveError(null); setConfirmLeave(true); }} />
           </div>

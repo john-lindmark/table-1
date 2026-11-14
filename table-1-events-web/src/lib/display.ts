@@ -9,6 +9,42 @@ import type { PublicEvent, PublicStandings } from "./api";
 export interface DisplayData {
   event: PublicEvent;
   standings: PublicStandings;
+  /** The room (contract/room-tools-2026-11-13.md): what the organizer's remote picked, the announcement, tables with
+   *  extra time. Null or missing while the server has no room tools. */
+  room?: DisplayRoom | null;
+}
+export interface DisplayRoom {
+  display: { show: DisplayShow; message: string | null };
+  extensions: { table_number: number | null; extra_seconds: number }[];
+}
+
+/**
+ * What the display shows: the address's `?show=` when it has one (the address wins), else the organizer's remote,
+ * else auto.
+ */
+export function effectiveShow(pinned: DisplayShow | null, room: DisplayRoom | null | undefined): DisplayShow {
+  return pinned ?? room?.display.show ?? "auto";
+}
+
+/** `?show=` when the address carries a view (also `auto`, which pins the display to auto whatever the remote says). */
+export function pinnedShow(value: string | null | undefined): DisplayShow | null {
+  const v = (value ?? "").toLowerCase() as DisplayShow;
+  return DISPLAY_SHOWS.includes(v) ? v : null;
+}
+
+/** The announcement's type (px): as large as fits one line, down to a size that wraps onto two. */
+export function messageType(text: string, width: number, unit: number): number {
+  const max = Math.round(40 * unit), min = Math.round(26 * unit);
+  return Math.max(min, Math.min(max, Math.floor((0.94 * width) / (Math.max(1, text.length) * CHAR_EM))));
+}
+/** The announcement band's height in design px. */
+export const MESSAGE_BAND = 104;
+
+/** "TABLE 5 +5:00 · TABLE 9 +3:00": the tables on extra time, in table order, for under the clock. */
+export function extensionsLine(room: DisplayRoom | null | undefined): string {
+  return (room?.extensions ?? []).filter((x) => x.extra_seconds > 0 && x.table_number != null)
+    .sort((a, b) => (a.table_number ?? 0) - (b.table_number ?? 0))
+    .map((x) => `TABLE ${x.table_number} +${Math.floor(x.extra_seconds / 60)}:${String(x.extra_seconds % 60).padStart(2, "0")}`).join(" · ");
 }
 
 /** What `?show=` asks for. */

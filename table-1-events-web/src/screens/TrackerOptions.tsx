@@ -40,7 +40,10 @@ export function TrackerOptionsPanel({
   onHistory,
   onNewMatch,
   onLeave,
+  judge,
 }: {
+  /** A player's own table in an event: Call a judge, or take the call back while it's open. */
+  judge?: { open: boolean; run: () => void };
   onClose: () => void;
   onChooser: () => void;
   onDice: () => void;
@@ -66,6 +69,7 @@ export function TrackerOptionsPanel({
         {row("Chooser", onChooser)}
         {row("Roll dice", onDice)}
         {row("History", onHistory)}
+        {judge && row(judge.open ? "Judge called · cancel" : "Call a judge", judge.run)}
         {onNewMatch && row("New match", onNewMatch)}
         {row("Leave tracker", onLeave)}
       </div>

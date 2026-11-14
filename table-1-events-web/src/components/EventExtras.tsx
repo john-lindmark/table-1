@@ -5,7 +5,9 @@ import { autoLabel, when } from "../lib/scheduledEvents";
 import { capture } from "../lib/telemetry";
 import type { PodPairing } from "../lib/draftPods";
 import { podCount, podLabel } from "../lib/seating";
-import type { Participant, Table1Event } from "../lib/types";
+import type { Participant, RoundWithMatches, Table1Event, TopCut } from "../lib/types";
+import { cutLabel, seatLabel } from "../lib/leagues";
+import { teamBracket, type Team } from "../lib/teams";
 import { Field, Notice, Section, Segmented, Stepper, SwitchRow } from "./kit";
 
 // Scheduled events, the sign-up link, the waitlist, top 8 and decklists (contract/scheduled-events-2026-10-27.md):
@@ -79,27 +81,36 @@ export function ScheduleFields({ value, onChange, onCommit }: {
 }
 
 /** Automatic rounds and the top cut (Swiss events of players), then the rounds stepper when set by hand. */
-export function CutAndRoundsFields({ autoRounds, onAutoRounds, rounds, onRounds, topCut, onTopCut, players, swiss, autoDetail }: {
+export function CutAndRoundsFields({ autoRounds, onAutoRounds, rounds, onRounds, topCut, onTopCut, players, swiss, autoDetail, cuts, teams }: {
   autoRounds: boolean; onAutoRounds: (v: boolean) => void; rounds: number; onRounds: (n: number) => void;
-  topCut: 0 | 8; onTopCut: (v: 0 | 8) => void; players: number; swiss: boolean;
+  topCut: TopCut; onTopCut: (v: TopCut) => void; players: number; swiss: boolean;
   /** Drafts with pods: the automatic count follows the pods (draftAutoLabel). */
   autoDetail?: string;
+  /** The cuts this format can have (leagues.ts cutChoices): [0] hides the picker. Left out: none or top 8 for Swiss events of players. */
+  cuts?: number[];
+  /** Team sealed and Team Trios: the cut is between teams. */
+  teams?: boolean;
 }) {
+  const choices = (cuts ?? (swiss ? [0, 8] : [0])) as TopCut[];
+  const need = topCut === 4 ? 5 : 9;
+  const what = teams ? "teams" : "players";
   return (
     <>
       {swiss && (
         <SwitchRow label="Automatic rounds" detail={autoRounds ? autoDetail ?? autoLabel(players) : "Set by hand"} on={autoRounds} onChange={onAutoRounds} />
       )}
       {(!swiss || !autoRounds) && <Stepper label="Rounds" value={rounds} onChange={onRounds} min={1} max={15} />}
-      {swiss && (
-        <Segmented value={topCut} onChange={onTopCut}
-                   options={[{ value: 0 as const, label: "No top cut" }, { value: 8 as const, label: "Top 8" }]} />
+      {choices.length > 1 && (
+        <Segmented value={choices.includes(topCut) ? topCut : 0} onChange={onTopCut}
+                   options={choices.map((c) => ({ value: c, label: cutLabel(c) }))} />
       )}
-      {swiss && topCut === 8 && (
+      {choices.length > 1 && topCut > 0 && choices.includes(topCut) && (
         <Notice tone="info">
-          {players > 8 || players < 2
-            ? "After Swiss, the top 8 play single elimination: quarterfinals, semifinals, final."
-            : `Top 8 needs 9 or more players: with ${players} the event ends after Swiss.`}
+          {teams ? "After Swiss, the top 4 teams play semifinals and a final, team against team. With fewer than 5 teams the event ends after Swiss."
+            : players >= need || players < 2
+            ? topCut === 4 ? "After Swiss, the top 4 play single elimination: semifinals 1 v 4 and 2 v 3, then the final."
+              : "After Swiss, the top 8 play single elimination: quarterfinals, semifinals, final."
+            : `Top ${topCut} needs ${need} or more ${what}: with ${players} the event ends after Swiss.`}
         </Notice>
       )}
     </>
@@ -183,7 +194,7 @@ export function Bracket({ participants, rounds }: { participants: Participant[];
   const title = (s: string) => (s === "quarterfinal" ? "Quarterfinals" : s === "semifinal" ? "Semifinals" : "Final");
   return (
     <>
-      <Section title="Top 8" />
+      <Section title={stages.some((s) => s.stage === "quarterfinal") ? "Top 8" : "Top 4"} />
       {stages.map((st) => (
         <div key={st.stage} className="flex flex-col gap-px">
           <p className="t1-label px-4 py-2">{title(st.stage)}</p>
@@ -206,6 +217,66 @@ export function Bracket({ participants, rounds }: { participants: Participant[];
         </div>
       ))}
       <Section title="Standings" />
+    </>
+  );
+}
+
+/**
+ * A team event's top 4 (contract/teams-finals-alerts-2026-11-13.md § 1): each team match "(1) Alpha 2–1 (4) Delta" with
+ * the winner in the accent, and under it the seats' matches with their seat labels (`A · MODERN`).
+ */
+export function TeamBracket({ teams, participants, rounds, seatFormats }: {
+  teams: Team[]; participants: Participant[]; rounds: RoundWithMatches[]; seatFormats?: string[] | null;
+}) {
+  const stages = teamBracket(teams, participants, rounds);
+  if (stages.length === 0) return null;
+  return <TeamBracketView stages={stages} seatFormats={seatFormats} />;
+}
+
+/** The same bracket from the engine's `team_bracket` (the public page has no participant list to work it out from). */
+export function TeamBracketView({ stages, seatFormats }: { stages: ReturnType<typeof teamBracket>; seatFormats?: string[] | null }) {
+  if (stages.length === 0) return null;
+  return (
+    <>
+      <Section title="Top 4" />
+      {stages.map((st) => (
+        <div key={st.stage} className="flex flex-col gap-px">
+          <p className="t1-label px-4 py-2">{st.stage === "semifinal" ? "Semifinals" : st.stage === "final" ? "Final" : "Quarterfinals"}</p>
+          {st.matches.map((tm, i) => (
+            <div key={`${st.stage}-${i}`} className="flex flex-col gap-px">
+              <div className="bg-t1-surface px-4 py-3 flex items-center gap-2 text-[13px]">
+                {[0, 1].map((n) => {
+                  const s = tm.sides[n];
+                  const won = !!s && s.team_id === tm.winner && tm.status !== "pending";
+                  return (
+                    <span key={n} className={`flex-1 min-w-0 truncate ${n === 1 ? "text-right order-3" : ""} ${won ? "text-t1-accent font-bold" : ""}`}>
+                      ({s?.seed ?? "–"}) {s?.name ?? "—"}
+                    </span>
+                  );
+                })}
+                <span className="order-2 text-t1-muted tabular-nums">{tm.sides[0]?.match_wins ?? 0}–{tm.sides[1]?.match_wins ?? 0}</span>
+              </div>
+              {tm.matches.map((m) => (
+                <div key={m.match_id} className="bg-t1-surface pl-8 pr-4 py-2 flex items-center gap-2 text-[12px]">
+                  <span className="w-[104px] shrink-0 t1-label truncate">{seatLabel(m.sides[0]?.slot, seatFormats)}</span>
+                  {[0, 1].map((n) => {
+                    const s = m.sides[n];
+                    const won = !!s?.participant_id && s.participant_id === m.winner;
+                    return (
+                      <span key={n} className={`flex-1 min-w-0 truncate ${n === 1 ? "text-right order-3" : ""} ${won ? "text-t1-accent" : ""}`}>
+                        {s?.display_name ?? (m.is_bye ? "Bye" : "—")}
+                      </span>
+                    );
+                  })}
+                  <span className="order-2 text-t1-muted tabular-nums">
+                    {m.is_bye ? "" : m.status === "pending" ? "v" : `${m.sides[0]?.game_wins ?? 0}–${m.sides[1]?.game_wins ?? 0}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ))}
     </>
   );
 }

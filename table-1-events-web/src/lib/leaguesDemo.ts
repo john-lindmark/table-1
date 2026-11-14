@@ -9,8 +9,9 @@ import {
   type Achievement, type Achievements, type AchievementsVisibility, type Board, type BoardMe, type BoardRow, type Boards, type EventAbout,
   type EventLeague, type EventListing, type FoundEvent, type League, type LeagueCard, type LeagueEvent, type LeagueFollow, type LeaguePatch,
   type LeaguePlayer, type LeaguePlayerEvent, type LeagueView, type Leaderboard, type LeaguesHome, type ListingPatch, type PointsRule, type Qualify,
-  type Season, type SeasonPatch, type SeasonState, type StandingRow,
+  type Season, type SeasonPatch, type SeasonState, type StandingRow, type AlertsPatch, type EventAlerts, type FinalRow, type FinalState, type FinalStatus,
 } from "./leagues";
+import type { LeagueDue, LeagueMoney } from "./money";
 
 /** The Library demo's account id (collection.ts DEMO_USER), spelled here so this file stays free of the Library. */
 const DEMO_USER = "demo";
@@ -49,7 +50,7 @@ function at(days: number, hour = 10, minute = 0): string {
 interface Placement { key: string; userId: string | null; name: string; place: number; matchWins: number }
 interface DemoEvent extends LeagueEvent { placements: Placement[]; seasonId: string; leagueId: string }
 interface DemoSeason { id: string; leagueId: string; name: string; starts_on: string; ends_on: string; points: PointsRule; best_n: number | null;
-  qualify: Qualify; closed: boolean }
+  qualify: Qualify; closed: boolean; entry_cut_cents?: number }
 interface DemoLeague extends League { members: { userId: string; name: string; role: "owner" | "organizer" }[]; following: boolean; notify: boolean }
 
 const MMS = "d0000000-0000-0000-0000-00000001ea01";
@@ -71,7 +72,7 @@ const year = new Date(now).getFullYear();
 const S26 = "d0000000-0000-0000-0000-00000005ea26", S25 = "d0000000-0000-0000-0000-00000005ea25";
 const seasons: DemoSeason[] = [
   { id: S26, leagueId: MMS, name: String(year), starts_on: `${year}-01-01`, ends_on: `${year}-12-31`, points: PRESETS.places, best_n: null,
-    qualify: { winners: true, pass_down: true, top: 10 }, closed: false },
+    qualify: { winners: true, pass_down: true, top: 10 }, closed: false, entry_cut_cents: 700 },
   { id: S25, leagueId: MMS, name: String(year - 1), starts_on: `${year - 1}-01-01`, ends_on: `${year - 1}-12-31`, points: PRESETS.places, best_n: 6,
     qualify: { winners: true, pass_down: true, top: 10 }, closed: true },
   { id: "d0000000-0000-0000-0000-00000005ea31", leagueId: leagues[1].id, name: "Fall", starts_on: `${year}-09-01`, ends_on: `${year}-12-15`,
@@ -127,13 +128,21 @@ for (let i = 0; i < 8; i++) events.push(finished(S25, i, monthsIn + 3 + (8 - i),
   events.push(f);
 }
 
+// The cube league the demo account helps run: five weeks played, $2 of each entry to the season's prize pool
+// (its organizers see the dues in the league's tools).
+seasons[2].entry_cut_cents = 200;
+for (let i = 0; i < 5; i++) {
+  events.push({ ...finished(seasons[2].id, i, i < 2 ? 2 : 1, 300 + i * 7, { name: `Week ${i + 1}`, format_label: "Cube draft", format_key: "cube", venue_name: "Canton Games" }),
+                leagueId: leagues[1].id });
+}
+
 const stateOf = (s: DemoSeason): SeasonState => {
   const d = new Date(now);
   const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   return s.closed || today > s.ends_on ? "over" : today < s.starts_on ? "upcoming" : "active";
 };
 const seasonJson = (s: DemoSeason): Season => ({ id: s.id, name: s.name, starts_on: s.starts_on, ends_on: s.ends_on, state: stateOf(s),
-  points: s.points, best_n: s.best_n, qualify: s.qualify, closed: s.closed });
+  points: s.points, best_n: s.best_n, qualify: s.qualify, closed: s.closed, entry_cut_cents: s.entry_cut_cents ?? 0 });
 const leagueJson = (l: DemoLeague): League => ({ id: l.id, slug: l.slug, name: l.name, description: l.description, region: l.region, link: l.link,
   archived: l.archived, organizers: l.members.map((m) => m.name) });
 
@@ -338,6 +347,7 @@ export function leagueSeasonSet(leagueId: string, seasonId: string | null, patch
   if ("best_n" in patch) s.best_n = patch.best_n ?? null;
   if (patch.qualify) s.qualify = patch.qualify;
   if (patch.closed != null) s.closed = patch.closed;
+  if (patch.entry_cut_cents != null) s.entry_cut_cents = patch.entry_cut_cents;
   return seasonJson(s);
 }
 
@@ -385,6 +395,12 @@ const found: Found[] = [
     organizer: "Ines Ruiz", has_description: true,
     description: "Round 1 at 10:00. Five rounds of Swiss, then a top 8.\n\nDecklists are due before round 1: https://example.com/mountain-magic/decklists\nWinner qualifies for the final in December.",
     league: null, me: null, here_km: 19 },
+  // Team Trios with teams signing themselves up (lib/phasesDemo.ts has its teams and its organizer's side).
+  { event_id: "demo-trios", name: "Team Trios Open", format_key: "other", format_label: "Team Trios", team_size: 3, status: "setup", current_round: 0,
+    starts_at: at(12, 11), venue_name: "Mythic Games", venue_address: "1630 S Colorado Blvd, Denver", capacity: 24, players: 12, top_cut: 4,
+    visibility: "public", organizer: "Kai Brandt", has_description: true,
+    description: "Three players a team: Modern, Standard and Pioneer. Captains sign the team up and share its code.",
+    league: null, me: null, here_km: 4 },
   { event_id: "demo-ev-std", name: "Standard Showdown", format_key: "standard", format_label: "Standard", status: "setup", current_round: 0,
     starts_at: at(9, 12), venue_name: "The Wizard's Chest", capacity: 24, players: 9, visibility: "public", organizer: "Sam Okafor",
     has_description: false, league: null, me: null, here_km: 6 },
@@ -429,19 +445,25 @@ export function findEvents(filters: Record<string, unknown>, limit: number): Fou
 }
 
 /** Text an organizer typed in the demo's Setup → Details, kept for the page. */
-const listings = new Map<string, EventListing>();
+const listings = new Map<string, EventListing & { rel?: "casual" | "competitive" | null; decklist_due_at?: string | null }>();
 
 export function eventAbout(eventId: string): EventAbout | null {
   const e = found.find((x) => x.event_id === eventId);
   const mine = listings.get(eventId);
   if (!e && !mine) return null;
   return { event_id: eventId, description: mine?.description ?? e?.description ?? null, venue_address: mine?.venue_address ?? e?.venue_address ?? null,
-           visibility: mine?.visibility ?? e?.visibility ?? "link_only", format_key: e?.format_key ?? "other", league: leagueFor(eventId), placed: false };
+           visibility: mine?.visibility ?? e?.visibility ?? "link_only", format_key: e?.format_key ?? "other", league: leagueFor(eventId), placed: false,
+           rel: mine?.rel ?? (eventId === "demo-ev-up-1" || eventId === "demo-ev-up-2" ? "competitive" : null),
+           decklist_due_at: mine?.decklist_due_at ?? (eventId === "demo-ev-up-1" ? at(8, 9, 30) : null),
+           seat_formats: eventId.startsWith("demo-trios") ? ["modern", "standard", "pioneer"] : null, team_signup: eventId === "demo-trios" };
 }
 
 export function eventListingSet(eventId: string, patch: ListingPatch): EventListing {
   const was = listings.get(eventId) ?? { description: null, venue_address: null, visibility: "link_only" };
-  const next: EventListing = {
+  const next = {
+    ...was,
+    ...("rel" in patch ? { rel: patch.rel ?? null } : {}),
+    ...("decklist_due_at" in patch ? { decklist_due_at: patch.decklist_due_at ?? null } : {}),
     description: "description" in patch ? patch.description?.trim() || null : was.description,
     venue_address: "venue_address" in patch ? patch.venue_address?.trim() || null : was.venue_address,
     visibility: patch.find ? (patch.find === "private" ? "link_only" : patch.find) : was.visibility,
@@ -561,6 +583,67 @@ export function profileAchievements(userId: string): Achievements {
 export function achievementsVisibilitySet(v: AchievementsVisibility): { visibility: AchievementsVisibility } {
   achievementsVisibility = v;
   return { visibility: v };
+}
+
+/* ── a season's final, alerts, a league's money ──────────────────────── */
+
+/** Who was invited to the demo final so far, and how the invitation stands. */
+const invited = new Map<string, FinalState>([[uid(2), "invited"], [uid(5), "declined"]]);
+const IN_FINAL = new Set([uid(1), uid(3), ME.id]);
+
+export function leagueFinalStatus(eventId: string): FinalStatus | null {
+  const e = events.find((x) => x.event_id === eventId && x.final && x.status !== "completed");
+  if (!e) return null;
+  const row = (r: TableRow): FinalRow => ({
+    key: r.key, user_id: r.userId, name: r.name, rank: r.rank, points: r.points, how: r.qualified,
+    state: !r.userId ? "guest" : IN_FINAL.has(r.userId) ? "in" : invited.get(r.userId) ?? "none",
+  });
+  const rows = table(e.seasonId);
+  return { season_id: e.seasonId, qualified: rows.filter((r) => r.qualified).map(row), next: rows.filter((r) => !r.qualified).slice(0, 8).map(row) };
+}
+
+export function leagueFinalInvite(eventId: string, keys: string[] | null): { ok: boolean; invited: number } {
+  const f = leagueFinalStatus(eventId);
+  if (!f) throw Object.assign(new Error("Only the organizers of a season's final can invite to it"), { code: "42501" });
+  const to = [...f.qualified, ...f.next].filter((r) => r.user_id && r.state !== "in" && r.state !== "invited" && (keys ? keys.includes(r.key) : r.how != null));
+  for (const r of to) invited.set(r.user_id!, "invited");
+  return { ok: true, invited: to.length };
+}
+
+let alerts: EventAlerts = { on: false, formats: ["modern", "limited"], km: null, lat: null, lng: null };
+export const eventAlertsGet = (): EventAlerts => ({ ...alerts });
+export function eventAlertsSet(patch: AlertsPatch): EventAlerts {
+  const next = { ...alerts };
+  if (patch.on != null) next.on = patch.on;
+  if (patch.formats) next.formats = patch.formats;
+  if (patch.lat != null && patch.lng != null) [next.lat, next.lng] = [Math.round(patch.lat * 10) / 10, Math.round(patch.lng * 10) / 10];
+  if ("place" in patch && patch.place === null) [next.lat, next.lng, next.km] = [null, null, null];
+  if ("km" in patch) {
+    if (patch.km != null && next.lat == null) throw Object.assign(new Error("Pick your area before a distance"), { code: "22023" });
+    next.km = patch.km ?? null;
+  }
+  alerts = next;
+  return { ...alerts };
+}
+
+const received = new Map<string, number>();
+/** A season's prize pool from its cut of each entry ($7 in the demo's series), and each event's dues for its organizers. */
+export function leagueMoney(seasonId: string): LeagueMoney {
+  const s = seasons.find((x) => x.id === seasonId);
+  if (!s) throw Object.assign(new Error("That league isn't available"), { code: "P0002" });
+  const cut = s.entry_cut_cents ?? 0;
+  const l = leagues.find((x) => x.id === s.leagueId)!;
+  const dues: LeagueDue[] = events.filter((e) => e.seasonId === seasonId && !e.final && e.status === "completed").map((e, i) => {
+    const owed = cut * e.players;
+    if (!received.has(e.event_id)) received.set(e.event_id, i < 3 ? owed : i === 3 ? Math.floor(owed / 2 / 100) * 100 : 0);
+    return { event_id: e.event_id, name: e.name, entries: e.players, owed_cents: owed, received_cents: received.get(e.event_id) ?? 0 };
+  }).filter((d) => d.owed_cents > 0 || d.received_cents > 0);
+  const member = !!roleOf(l);
+  return { entry_cut_cents: cut, pool_cents: dues.reduce((n, d) => n + d.owed_cents, 0),
+           received_cents: member ? dues.reduce((n, d) => n + d.received_cents, 0) : null, events: member ? dues : null };
+}
+export function leagueDueMark(eventId: string, cents: number) {
+  received.set(eventId, cents);
 }
 
 /** The demo account's id, for screens that mark "you". */

@@ -525,7 +525,7 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative bg-t1-bg w-[90%] max-w-[380px] p-6 flex flex-col gap-4 border border-t1-surface">
+      <div className="relative bg-t1-bg w-[90%] max-w-[380px] max-h-[calc(100dvh-24px)] overflow-y-auto p-6 flex flex-col gap-4 border border-t1-surface">
         {title && <p className="text-[15px]">{title}</p>}
         {children}
       </div>

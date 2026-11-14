@@ -4,14 +4,15 @@ import { Avatar } from "../components/Avatar";
 import { FoundEventRow, Over } from "../components/EventListing";
 import { FilterRow, type FilterCell } from "../components/FilterRow";
 import { BAR_ICON, Icon, IconButton } from "../components/icons";
-import { Bar, BigAction, Field, GhostAction, Notice, Row, Screen, Section, TabBar } from "../components/kit";
+import { Bar, BigAction, Field, GhostAction, Notice, Row, Screen, Section, Segmented, SwitchRow, TabBar } from "../components/kit";
 import {
   FORMAT_KEYS, KM_PICKS, NO_FILTERS, WHEN_PICKS, boardLine, filterLabels, filtersWire, findEvents, formatBoards, formatKeyLabel,
   formatLeaderboard, demoPath, isFiltered, isMissing, leagueCreate, leagueLine, leaguesDemoOn, leaguesError, leaguesHome, loadFindFilters, recordText,
-  saveFindFilters,
+  saveFindFilters, ALERT_KM, alertLine, eventAlertsGet, eventAlertsSet, type AlertsPatch, type EventAlerts,
   type Board, type BoardRow, type FindFilters, type FindScope, type FoundEvent, type LeagueCard, type Leaderboard, type LeaguesHome, type WhenPick,
 } from "../lib/leagues";
 import { currentFix } from "../lib/nearby";
+import { useBack } from "../lib/nav";
 import { useOpenProfile } from "../lib/personLink";
 import { capture } from "../lib/telemetry";
 import { useSession } from "../lib/useSession";
@@ -217,9 +218,13 @@ export function FindScreen({ onBack }: { onBack: () => void }) {
   const tab: FindTab = TABS.find((t) => t === params.get("tab")) ?? "events";
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
+  const alerts = params.get("view") === "alerts";
+  const backToFind = useBack(demoPath("/find"));
   useEffect(() => {
-    capture("find_opened", { tab });
-  }, [tab]);
+    if (!alerts) capture("find_opened", { tab });
+  }, [tab, alerts]);
+  // Alerts for new public events, one tap deeper (contract/teams-finals-alerts-2026-11-13.md § 4).
+  if (alerts) return <AlertsScreen onBack={backToFind} />;
   return (
     <Screen>
       <Bar title="Find" onBack={onBack}
@@ -249,7 +254,106 @@ function EventsTab({ signedIn }: { signedIn: boolean }) {
         : f.events === null ? <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>
         : f.events.length === 0 ? <NoEvents filtered={f.filtered} onClear={() => { setQ(""); f.clear(); }} onCreate={signedIn ? () => navigate("/") : undefined} />
         : f.events.map((e) => <FoundEventRow key={e.event_id} event={e} from="find" />)}
+      {signedIn && <AlertsRow onOpen={() => navigate(demoPath("/find?view=alerts"))} />}
     </>
+  );
+}
+
+/** Find → Events ends with Alerts: `OFF`, or `MODERN, LIMITED · 50 KM`. Hidden while the server has no alerts. */
+function AlertsRow({ onOpen }: { onOpen: () => void }) {
+  const [a, setA] = useState<EventAlerts | null>(null);
+  useEffect(() => {
+    let live = true;
+    void eventAlertsGet().then((r) => live && setA(r));
+    return () => { live = false; };
+  }, []);
+  if (!a) return null;
+  return (
+    <Row title="Alerts" value={<span className="flex items-center gap-3"><span className={`t1-label ${a.on ? "!text-t1-text" : ""}`}>{alertLine(a)}</span><Icon d={BAR_ICON.arrow} /></span>}
+         onClick={onOpen} />
+  );
+}
+
+/**
+ * Alerts for new public events: On, Formats (several; none = every format), Area (a rough place you choose, asked
+ * only on that tap, kept to about 10 km) and Distance. Every change saves at once.
+ */
+function AlertsScreen({ onBack }: { onBack: () => void }) {
+  const [a, setA] = useState<EventAlerts | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void eventAlertsGet().then((r) => { if (!live) return; if (r) setA(r); else setFailed(true); });
+    return () => { live = false; };
+  }, []);
+  const save = async (patch: AlertsPatch, optimistic?: Partial<EventAlerts>) => {
+    const was = a;
+    if (optimistic && a) setA({ ...a, ...optimistic });
+    setBusy(true);
+    setError(null);
+    try {
+      setA(await eventAlertsSet(patch));
+      return true;
+    } catch (e) {
+      setA(was);
+      setError(leaguesError(e));
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+  /** One location reading, on the tap that asks for it; rounded by the server to about 10 km. */
+  const useHere = async (km?: number | null) => {
+    setBusy(true);
+    setError(null);
+    const fix = await place();
+    setBusy(false);
+    if (!fix) return void setError("Location is off, so there's no area to measure from.");
+    await save({ lat: fix.lat, lng: fix.lng, ...(km !== undefined ? { km } : {}) });
+  };
+  const pickKm = (km: number | null) => {
+    if (!a) return;
+    // A distance needs an area: ask for it first.
+    if (km != null && a.lat == null) return void useHere(km);
+    void save({ km }, { km });
+  };
+  const toggle = (key: string) => {
+    if (!a) return;
+    const next = key === "all" ? [] : a.formats.includes(key) ? a.formats.filter((f) => f !== key) : FORMAT_KEYS.map((f) => f.key).filter((k) => k === key || a.formats.includes(k));
+    void save({ formats: next }, { formats: next });
+  };
+  return (
+    <Screen>
+      <Bar title="Alerts" onBack={onBack} />
+      <div className="flex-1 min-h-0 flex flex-col gap-px">
+        {failed && <Notice tone="info">This isn't available yet.</Notice>}
+        {!a && !failed && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
+        {a && (
+          <>
+            <div className="bg-t1-bg px-4 py-8 flex flex-col items-center gap-2">
+              <p className="t1-label">New public events</p>
+              <p className={`text-[17px] leading-[24px] tracking-[2px] uppercase text-center ${a.on ? "text-t1-accent" : "text-t1-muted"}`}>{alertLine(a)}</p>
+            </div>
+            <SwitchRow label="On" on={a.on} disabled={busy} onChange={(on) => void save({ on }, { on })} />
+            <FilterRow telemetry={noTelemetry} cells={[{
+              name: "Formats", value: a.formats.length === 0 ? "Every format" : a.formats.length === 1 ? formatKeyLabel(a.formats[0]) : `${a.formats.length} formats`,
+              current: null, picked: a.formats,
+              options: [{ value: "all", label: "Every format" }, ...FORMAT_KEYS.map((f) => ({ value: f.key, label: f.label }))],
+              onPick: toggle,
+            }]} />
+            <Row title="Area" detail={a.lat != null && a.lng != null ? `Near ${a.lat.toFixed(1)}, ${a.lng.toFixed(1)} · kept to about 10 km` : "None"}
+                 action={a.lat != null ? { label: "Forget area", disabled: busy, onClick: () => void save({ place: null }) } : undefined} />
+            <div className="flex"><GhostAction label={a.lat != null ? "Use where I am now instead" : "Use where I am now"} disabled={busy} onClick={() => void useHere()} /></div>
+            <Segmented scroll label="Distance" value={a.km ?? 0} onChange={(v) => pickKm(v || null)}
+                       options={[{ value: 0, label: "Anywhere" }, ...ALERT_KM.map((k) => ({ value: k, label: `${k} km` }))]} />
+            {error && <Notice tone="error">{error}</Notice>}
+            <Notice tone="info">Up to five a week.</Notice>
+          </>
+        )}
+      </div>
+    </Screen>
   );
 }
 

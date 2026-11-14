@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
-  PUBLIC_NOTICE, counter, demoPath, eventAbout, eventLine, foundEventPath, publicNoticeDue, publicNoticeSeen, resultsPublic, rowLabel, whenText,
+  PUBLIC_NOTICE, aboutRulesLine, counter, demoPath, eventAbout, eventLine, foundEventPath, publicNoticeDue, publicNoticeSeen, resultsPublic, rowLabel, whenText,
   type EventAbout, type FoundEvent,
 } from "../lib/leagues";
 import { capture } from "../lib/telemetry";
@@ -103,12 +103,14 @@ export function useEventAbout(eventId: string | null | undefined, token?: string
 export function EventAboutRows({ about, eventName }: { about: EventAbout | null; eventName: string }) {
   const [open, setOpen] = useState(false);
   if (!about) return null;
-  const has = !!(about.description?.trim() || about.venue_address?.trim());
+  // Rules level and the decklist deadline lead the About (contract/room-tools-2026-11-13.md § 4).
+  const rules = aboutRulesLine(about);
+  const has = !!(about.description?.trim() || about.venue_address?.trim() || rules);
   const league = about.league;
   if (!has && !league) return null;
   return (
     <>
-      {has && <Row title="About" detail={about.venue_address ?? undefined} value={<Icon d={BAR_ICON.arrow} />} onClick={() => setOpen(true)} />}
+      {has && <Row title="About" detail={rules || about.venue_address || undefined} value={<Icon d={BAR_ICON.arrow} />} onClick={() => setOpen(true)} />}
       {league && (
         <Link to={demoPath(`/league/${league.slug ?? league.id}${league.season_id ? `?season=${league.season_id}` : ""}`)}
               state={{ from: "event" }}
@@ -122,6 +124,7 @@ export function EventAboutRows({ about, eventName }: { about: EventAbout | null;
       )}
       {open && (
         <Over title={eventName} onBack={() => setOpen(false)}>
+          {rules && <div className="bg-t1-surface px-4 py-3 text-[12px] uppercase tracking-[1.5px]">{rules}</div>}
           {about.venue_address && (
             <div className="bg-t1-surface px-4 py-3 flex flex-col gap-1">
               <span className="t1-label">Address</span>

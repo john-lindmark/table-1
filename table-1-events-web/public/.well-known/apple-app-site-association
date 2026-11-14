@@ -9,6 +9,7 @@
           { "?": { "code": "?*" }, "exclude": true, "comment": "A web sign-in's code exchange" },
           { "/": "/", "comment": "Events" },
           { "/": "/sign-in" },
+          { "/": "/e/*/print/*", "exclude": true, "comment": "The organizer's print views: web pages only" },
           { "/": "/e/*", "comment": "An event (organizer)" },
           { "/": "/p/*", "comment": "An event (player)" },
           { "/": "/s/*", "comment": "Standings: the event for its players, else the web page" },

@@ -8,7 +8,9 @@ export type EventFormat = "draft" | "sealed" | "constructed" | "cube";
 export type EventType = "constructed" | "limited";
 export type FormatName =
   | "standard" | "pioneer" | "modern" | "legacy" | "vintage" | "pauper" | "premodern" | "canadian_highlander"
-  | "other_constructed" | "draft" | "team_draft" | "sealed" | "team_sealed" | "roto";
+  | "other_constructed" | "draft" | "team_draft" | "sealed" | "team_sealed" | "roto" | "team_trios";
+/** No cut, top 4 or top 8 (contract/teams-finals-alerts-2026-11-13.md § 1; which a format can have: leagues.ts cutChoices). */
+export type TopCut = 0 | 4 | 8;
 export type MatchStatus = "pending" | "reported" | "confirmed";
 export type ParticipantStatus = "active" | "dropped";
 export type TimerStatus = "paused" | "running";
@@ -47,8 +49,12 @@ export interface Table1Event {
   /** swiss | round_robin (roto only). */
   pairing: "swiss" | "round_robin";
   /** contract/scheduled-events-2026-10-27.md */
-  topCut: 0 | 8;
+  topCut: TopCut;
   autoRounds: boolean;
+  /** Team Trios: the format each seat plays, A first; null for every other format. */
+  seatFormats: string[] | null;
+  /** Team events: teams sign themselves up (captains and codes) instead of the organizer building them. */
+  teamSignup: boolean;
   /** Who can find it: public / friends (listed in the Events tab, contract/public-events-leagues-2026-11-13.md § 1),
    *  link_only (Private: QR, code, link or invitation), and the two older choices nearby (150 m and alerts) and
    *  private (invitation only; contract/privacy-lockdown-2026-10-18.md). */
@@ -124,6 +130,8 @@ export interface Match {
   resultSource?: "player" | "organizer" | null;
   /** Last change on the server (re-pair notice, lib/repairRound.ts). */
   updatedAt?: string | null;
+  /** Extra time this table was given, in seconds (contract/room-tools-2026-11-13.md § 2). */
+  extraSeconds?: number;
 }
 
 export interface RoundWithMatches extends Round {

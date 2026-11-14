@@ -1,20 +1,31 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { errorMessage, setEventSchedule, updateEventDetails } from "../../lib/api";
+import { errorMessage, setEventSchedule, setEventTrios, updateEventDetails } from "../../lib/api";
 import { CutAndRoundsFields, DecklistsFields, ScheduleFields, type ScheduleValue } from "../../components/EventExtras";
-import { isTeamFormat, typeOfFormat } from "../../lib/formats";
+import { isTeamFormat, isTriosFormat, typeOfFormat } from "../../lib/formats";
+import { SeatsRow } from "../../components/SeatsRow";
+import { FeeRow } from "./Money";
+import type { EventMoney } from "../../lib/money";
 import { detailsFromEvent, detailsToInput, type DetailsState } from "../../lib/organizer";
 import type { Table1Event } from "../../lib/types";
 import { Field, Notice, Row, Segmented } from "../../components/kit";
 import { TextPanel } from "../../components/EventListing";
 import { BAR_ICON, Icon } from "../../components/icons";
 import {
-  ADDRESS_MAX, DESCRIPTION_MAX, FIND_PICKS, counter, eventAboutOrMissing, eventListingSet, leaguesError, type EventAbout, type FindPick,
+  ADDRESS_MAX, DEFAULT_SEAT_FORMATS, DESCRIPTION_MAX, FIND_PICKS, counter, cutChoices, dueText, eventAboutOrMissing, eventListingSet, leaguesError,
+  type EventAbout, type FindPick, type Rel,
 } from "../../lib/leagues";
 import { FormatPicker, ProductPicker, RoundTimerSwitch, cubeUrlProblem } from "../../components/EventFormFields";
 import { RotoPairingFields, RotoSetupFields } from "../roto/lazy";
 import { VISIBILITY_LABEL, currentFix, setEventLocation, type EventVisibility } from "../../lib/nearby";
 
 const DEBOUNCE_MS = 600;
+
+/** Local "YYYY-MM-DDTHH:MM" for an <input type="datetime-local">. */
+const localInput = (iso: string) => {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 /** An event's League row: only organizers who run a league download it. */
 const EventLeagueRow = lazy(() => import("../LeagueTools").then((m) => ({ default: m.EventLeagueRow })));
@@ -40,7 +51,11 @@ function localProblem(s: DetailsState): string | null {
  * Setup → Details. Every change saves the full state with update_event_details: steppers and pickers at once,
  * text 600 ms after typing stops (or on blur). Saves run one after another so the last one wins.
  */
-export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Event; onSaved: () => void; players?: number }) {
+export function DetailsForm({ event, onSaved, players = 0, money = null, onMoneySaved }: {
+  event: Table1Event; onSaved: () => void; players?: number;
+  /** The event's money, for the Entry fee row (null while the server has no fees). */
+  money?: EventMoney | null; onMoneySaved?: () => void;
+}) {
   const [state, setState] = useState<DetailsState>(() => detailsFromEvent(event));
   const [error, setError] = useState<string | null>(null);
   const [schedule, setSchedule] = useState<ScheduleValue>(() => ({
@@ -109,6 +124,33 @@ export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Even
     const r = await eventListingSet(event.id, patch);
     setAbout((a) => (a && a !== "missing" ? { ...a, description: r.description, venue_address: r.venue_address } : a));
     setError(null);
+  }
+  /** Rules level and the decklist deadline (contract/room-tools-2026-11-13.md § 4), through event_listing_set. */
+  async function saveRules(patch: { rel?: Rel | null; decklist_due_at?: string | null }) {
+    setAbout((a) => (a && a !== "missing" ? { ...a, ...patch } : a));
+    try {
+      await eventListingSet(event.id, patch);
+      setError(null);
+    } catch (e) {
+      setError(leaguesError(e));
+    }
+  }
+  /** Team Trios: the format each seat plays. Saved with set_event_trios once the format itself is saved. */
+  const [seats, setSeats] = useState<string[]>(() => event.seatFormats ?? [...DEFAULT_SEAT_FORMATS]);
+  useEffect(() => {
+    if (event.seatFormats) setSeats(event.seatFormats);
+  }, [event.seatFormats]);
+  function changeSeats(next: string[]) {
+    setSeats(next);
+    chain.current = chain.current.then(async () => {
+      try {
+        await setEventTrios(event.id, next);
+        setError(null);
+        onSavedRef.current();
+      } catch (e) {
+        setError(errorMessage(e));
+      }
+    });
   }
   const saveAddress = () => {
     const next = address.trim();
@@ -202,7 +244,9 @@ export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Even
 
   const limited = typeOfFormat(state.formatName) === "limited";
   const team = isTeamFormat(state.formatName);
+  const trios = isTriosFormat(state.formatName);
   const roto = state.formatName === "roto";
+  const cuts = cutChoices(state.formatName, roto ? state.pairing : "swiss");
   const shownVis = pendingVis ?? event.visibility;
 
   return (
@@ -235,7 +279,8 @@ export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Even
           onCommit={flush}
         />
       )}
-      {team && (
+      {trios && <SeatsRow seats={seats} onChange={changeSeats} />}
+      {team && !trios && (
         <Segmented
           label="Team size"
           value={state.teamSize}
@@ -254,10 +299,27 @@ export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Even
           rounds={state.rounds} onRounds={(n) => commit({ rounds: n }, true)}
           topCut={state.topCut} onTopCut={(v) => commit({ topCut: v }, true)}
           players={players} swiss={!team && !(roto && state.pairing === "round_robin")}
+          cuts={cuts} teams={team}
         />
       )}
       <RoundTimerSwitch on={state.showClock} onChange={(on) => commit({ showClock: on }, true)} />
       {!limited && <DecklistsFields mode={state.decklists} onMode={(m) => commit({ decklists: m }, true)} />}
+      {info && !limited && state.decklists !== "off" && (
+        <label className="bg-t1-surface px-4 py-3 flex flex-col gap-1">
+          <span className="t1-label">Decklists due{info.decklist_due_at ? ` · ${dueText(info.decklist_due_at)}` : ""}</span>
+          <span className="flex items-center gap-3">
+            <input type="datetime-local" value={info.decklist_due_at ? localInput(info.decklist_due_at) : ""} step={900}
+                   onChange={(e) => void saveRules({ decklist_due_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                   className="flex-1 min-w-0 bg-transparent border-0 outline-0 text-[15px] text-t1-text [color-scheme:dark]" />
+            {info.decklist_due_at && <button type="button" className="t1-label hover:text-t1-text" onClick={() => void saveRules({ decklist_due_at: null })}>Clear</button>}
+          </span>
+        </label>
+      )}
+      {info && "rel" in info && (
+        <Segmented label="Rules" value={info.rel ?? "none"} onChange={(v) => void saveRules({ rel: v === "none" ? null : v })}
+                   options={[{ value: "none" as const, label: "Not said" }, { value: "casual" as const, label: "Casual" }, { value: "competitive" as const, label: "Competitive" }]} />
+      )}
+      <FeeRow eventId={event.id} money={money} players={players} leagueName={info?.league?.name} onSaved={() => onMoneySaved?.()} />
       {info && (
         <>
           <Row title="Description" detail={info.description?.trim() ? counter(info.description.length, DESCRIPTION_MAX) : "None"}

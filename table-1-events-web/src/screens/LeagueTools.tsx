@@ -9,6 +9,7 @@ import {
   multiplierText, pointsWords, presetOf, qualifyWords, seasonLine,
   type EventLeague, type LeagueCard, type LeagueMember, type LeagueRole, type LeagueView, type MemberAction, type PointsBracket, type PointsRule, type Preset, type SeasonRef,
 } from "../lib/leagues";
+import { centsOf, centsText, leagueDueMark, leagueMoney, money, type LeagueDue, type LeagueMoney } from "../lib/money";
 
 /* An organizer's league tools (contract/public-events-leagues-2026-11-13.md § 3 Clients): Edit league, Seasons (the
    two presets and custom brackets, best N, who qualifies, Close season), Organizers; and an event's League row in
@@ -25,6 +26,7 @@ export function LeagueTools({ data, view, seasonId, onBack, go, onChanged, onArc
   if (view === "edit") return <EditLeague data={data} onBack={onBack} onChanged={onChanged} onArchived={onArchived} />;
   if (view === "organizers") return <Organizers data={data} onBack={onBack} onChanged={() => onChanged()} />;
   if (view === "season") return <SeasonEditor data={data} seasonId={seasonId === "new" ? null : seasonId} onBack={onBack} onChanged={() => onChanged()} />;
+  if (view === "dues") return <Dues data={data} onBack={onBack} />;
   return (
     <Screen>
       <Bar title="Seasons" onBack={onBack} />
@@ -192,6 +194,9 @@ function SeasonForm({ leagueId, season, onBack, onChanged }: {
   const [bestN, setBestN] = useState<number | null>(season?.best_n ?? null);
   const [winners, setWinners] = useState(season?.qualify.winners ?? true);
   const [top, setTop] = useState(season?.qualify.top ?? 0);
+  /** What each paid entry of the season's events owes the league (contract/entry-fees-2026-11-13.md § 5). */
+  const [cut, setCut] = useState(season?.entry_cut_cents ? centsText(season.entry_cut_cents) : "");
+  const cutCents = cut.trim() === "" ? 0 : centsOf(cut);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
@@ -200,7 +205,8 @@ function SeasonForm({ leagueId, season, onBack, onChanged }: {
   // Brackets rise: each `through` past the one before.
   const rising = rule.places.every((b, i) => b.through > (i ? rule.places[i - 1].through : 0));
   const problem = !name.trim() ? "Name the season" : !starts || !ends || ends < starts ? "The season ends on or after the day it starts"
-    : !rising ? "Each bracket reaches further than the one before" : !pointsWords(rule) ? "Give points for something" : null;
+    : !rising ? "Each bracket reaches further than the one before" : !pointsWords(rule) ? "Give points for something"
+    : cutCents == null || cutCents > 100000 ? "The cut per entry is $0 to $1,000" : null;
 
   const save = async (patch: Parameters<typeof leagueSeasonSet>[2]) => {
     setBusy(true);
@@ -269,6 +275,9 @@ function SeasonForm({ leagueId, season, onBack, onChanged }: {
         <SwitchRow label="Event winners qualify" on={winners} onChange={setWinners} />
         <Stepper label="Top on points qualify" value={top} min={0} max={64} onChange={setTop} />
         {qualifyWords(qualify) && <div className="bg-t1-surface px-4 py-3 t1-label">{qualifyWords(qualify)}</div>}
+        {(season == null || "entry_cut_cents" in season) && (
+          <Field label="Cut per entry · USD" value={cut} placeholder="0" onChange={(v) => setCut(v.replace(/[^0-9.]/g, "").slice(0, 7))} />
+        )}
         {error && <Notice tone="error">{error}</Notice>}
         {season && !season.closed && season.state !== "upcoming" && (
           <div className="flex"><GhostAction label="Close season" onClick={() => setClosing(true)} /></div>
@@ -276,11 +285,87 @@ function SeasonForm({ leagueId, season, onBack, onChanged }: {
         {season?.closed && <Notice tone="info">This season is closed.</Notice>}
       </div>
       <BigAction label={problem ?? (season ? "Save" : "Add season")} tone="accent" busy={busy} disabled={!!problem}
-                 onClick={() => void save({ name: name.trim(), starts_on: starts, ends_on: ends, points: rule, best_n: bestN, qualify })} />
+                 onClick={() => void save({ name: name.trim(), starts_on: starts, ends_on: ends, points: rule, best_n: bestN, qualify,
+                                            ...(cutCents != null && cutCents !== (season?.entry_cut_cents ?? 0) ? { entry_cut_cents: cutCents } : {}) })} />
       {closing && season && (
         <Dialog title={`Close ${season.name}?`} message="Standings become final, whoever qualifies on points is told, and followers hear the season is over."
                 cancelLabel="Not yet" confirmLabel="Close season" busy={busy} error={error}
                 onCancel={() => setClosing(false)} onConfirm={() => void save({ closed: true })} />
+      )}
+    </Screen>
+  );
+}
+
+/* ── dues ────────────────────────────────────────────────────────────── */
+
+/** What each event's host owes the league from its cut of the entries, and what the league has marked received. */
+function Dues({ data, onBack }: { data: LeagueView; onBack: () => void }) {
+  const seasonId = data.season?.id ?? null;
+  const [m, setM] = useState<LeagueMoney | null | "failed">(null);
+  const [marking, setMarking] = useState<LeagueDue | null>(null);
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const load = () => {
+    if (seasonId) void leagueMoney(seasonId).then((r) => setM(r ?? "failed"));
+  };
+  useEffect(load, [seasonId]);
+  const cents = amount.trim() === "" ? 0 : centsOf(amount);
+  const mark = async () => {
+    if (!marking || cents == null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await leagueDueMark(marking.event_id, cents);
+      setMarking(null);
+      load();
+    } catch (e) {
+      setError(leaguesError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const info = m && m !== "failed" ? m : null;
+  return (
+    <Screen>
+      <Bar title="Dues" onBack={onBack} />
+      <div className="flex-1 min-h-0 flex flex-col gap-px">
+        {m === "failed" && <Notice tone="info">This isn't available yet.</Notice>}
+        {m === null && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
+        {info && (
+          <>
+            <div className="bg-t1-bg px-4 py-6 flex flex-col items-center gap-1">
+              <p className="t1-label">{data.season?.name} · received</p>
+              <p className="text-[40px] leading-[48px] tabular-nums tracking-[2px]">
+                <span className="text-t1-accent">{money(info.received_cents ?? 0)}</span><span className="text-t1-muted text-[20px]"> of {money(info.pool_cents)}</span>
+              </p>
+              <p className="t1-label">{money(info.entry_cut_cents)} an entry</p>
+            </div>
+            {(info.events ?? []).length === 0 && <Notice tone="info">No paid entries yet.</Notice>}
+            {(info.events ?? []).map((d) => {
+              const settled = d.received_cents >= d.owed_cents;
+              return (
+                <button key={d.event_id} type="button" onClick={() => { setAmount(centsText(d.received_cents || d.owed_cents)); setError(null); setMarking(d); }}
+                        className="bg-t1-surface hover:bg-t1-surface-hover px-4 py-3 flex items-center gap-3 text-left w-full">
+                  <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                    <span className="text-[14px] truncate">{d.name}</span>
+                    <span className="t1-label truncate">{d.entries} {d.entries === 1 ? "ENTRY" : "ENTRIES"} · OWES {money(d.owed_cents)}</span>
+                  </span>
+                  <span className={`shrink-0 text-[13px] tabular-nums ${settled ? "text-t1-accent" : d.received_cents > 0 ? "" : "text-t1-muted"}`}>
+                    {d.received_cents > 0 ? money(d.received_cents) : "Mark received"}
+                  </span>
+                </button>
+              );
+            })}
+          </>
+        )}
+      </div>
+      {marking && (
+        <Dialog title={marking.name} message={`Owes ${money(marking.owed_cents)}. What has the league received?`} cancelLabel="Cancel" confirmLabel="Mark received"
+                busy={busy} error={error ?? (cents == null ? "Type an amount" : null)} onCancel={() => setMarking(null)} onConfirm={() => void mark()}>
+          <input value={amount} autoFocus inputMode="decimal" aria-label="Received, in dollars" onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, "").slice(0, 9))}
+                 className="bg-t1-surface px-3 py-3 outline-0 border-0 text-[17px] tabular-nums" />
+        </Dialog>
       )}
     </Screen>
   );

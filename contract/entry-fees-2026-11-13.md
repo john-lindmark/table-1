@@ -91,7 +91,9 @@ yet / Cancelled, with Back to the event; on a phone that link opens the app), `/
   Payments made in the app change only by a refund (22023).
 - `event_prizes_set(p_event_id, p_rows [{participant_id, amount_cents}] | null) → {total_cents, pool_cents}`: an
   agreed split or any change; null goes back to the table; the total can't pass the pool (22023); needs final places.
-- `event_prize_mark(p_event_id, p_participant_id, p_paid, p_how?) → {participant_id, paid}`.
+- `event_prize_mark(p_event_id, p_participant_id, p_paid, p_how?) → {participant_id, paid}`. `p_how` is one of
+  `cash`, `store credit`, `other` (shown `PAID · CASH`, `PAID · STORE CREDIT`, plain `PAID` for other).
+- Every payment, fee and prize change pings `event:<id>`: re-read `event_money` wherever the event is re-read.
 
 Clients:
 - Players lists (Setup, Live): a payment tag per player (`pay_tag`: `PAID · APP`, `PAID · DOOR`, `COMP`, `UNPAID`,

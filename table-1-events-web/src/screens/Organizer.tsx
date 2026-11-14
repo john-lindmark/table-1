@@ -24,6 +24,11 @@ import { LiveView } from "./organizer/LiveView";
 import { ResultsView } from "./organizer/ResultsView";
 import { ResultPanel } from "./organizer/ResultPanel";
 import { DisplayPanel } from "../components/DisplayPanel";
+import { useEventMoney } from "../components/EventMoney";
+import { useEventRoom } from "../lib/room";
+import { PRINT_VIEWS, type PrintWhat } from "../lib/printViews";
+import { Menu } from "../components/kit";
+import { useDesktop } from "../lib/desktop";
 import type { PhaseViewProps } from "./organizer/shared";
 import { RotoDraftGate, RotoDraftOverlay } from "./roto/lazy";
 
@@ -39,7 +44,10 @@ export function Organizer({
   onOpenLife,
   onOpenPhotos,
   onOpenRedraft,
+  onPrint,
 }: {
+  /** Opens a print view (contract/room-tools-2026-11-13.md § 5). */
+  onPrint?: (what: PrintWhat) => void;
   eventId: string;
   onExit: () => void;
   onAddPlayers: () => void;
@@ -64,6 +72,13 @@ export function Organizer({
   const [repairing, setRepairing] = useState<"notice" | "menu" | null>(null);
   const [repairBusy, setRepairBusy] = useState(false);
   const [repairError, setRepairError] = useState<string | null>(null);
+  const [printOpen, setPrintOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const desktop = useDesktop();
+  // Fees and the room are read with the event: every reload of the bundle (its ping, the 20 s refresh, the tab
+  // coming back) reads them again. Null while the server has neither.
+  const { money, reload: reloadMoney } = useEventMoney(eventId, null, bundle);
+  const { room, reload: reloadRoom } = useEventRoom(eventId, null, bundle);
 
   const formatName = bundle?.event.formatName ?? "draft";
   const isTeam = !!bundle && isTeamFormat(formatName) && !!bundle.event.teamSize;
@@ -97,7 +112,8 @@ export function Organizer({
   const isRoto = event.formatName === "roto";
   const repairable = phase === "live" ? repairableRound(rounds) : null;
   const earlier = rounds.some((r) => r.status !== "active");
-  const tabs = phaseTabs(phase, { isTeam, isDraft, isRoto, roundRobin: isRoto && event.pairing === "round_robin", earlier });
+  const tabs = phaseTabs(phase, { isTeam, isDraft, isRoto, roundRobin: isRoto && event.pairing === "round_robin", earlier,
+                                  prizes: event.status !== "cancelled" && !!money?.fee && ((money.pool?.pool_cents ?? 0) > 0 || (money.prizes?.length ?? 0) > 0) });
   const tab = resolveTab(selected, phase, tabs);
   const activePlayers = participants.filter((p) => p.status === "active").length;
   const subtitle =
@@ -157,7 +173,21 @@ export function Organizer({
     refetch,
     onOpenMatch: (m) => setOpenMatchId(m.id),
     setActionError,
+    money,
+    reloadMoney: () => void reloadMoney(),
+    room,
+    reloadRoom: () => void reloadRoom(),
   };
+
+  const barActions: { title: string; onClick: () => void }[] = [
+    ...(isRoto && rounds.length > 0 ? [{ title: "Draft", onClick: () => setDraftOpen(true) }] : []),
+    ...(onOpenRedraft && canRedraft(event) ? [{ title: "Redraft", onClick: () => onOpenRedraft(event.setCode) }] : []),
+    ...(event.status !== "cancelled" ? [{ title: "Display", onClick: () => setDisplayOpen(true) }] : []),
+    ...(onPrint && rounds.length > 0 && event.status !== "cancelled" ? [{ title: "Print", onClick: () => setPrintOpen(true) }] : []),
+    ...(onOpenPhotos && event.status !== "cancelled" ? [{ title: "Deck photos", onClick: onOpenPhotos }] : []),
+    ...(repairable ? [{ title: `Re-pair ${repairName}`, onClick: () => askRepair("menu") }] : []),
+    ...(phase !== "results" ? [{ title: "Cancel event", onClick: () => { setCancelError(null); setCancelling(""); } }] : []),
+  ];
 
   const screen = (
     <Screen width="wide">
@@ -166,45 +196,16 @@ export function Organizer({
         subtitle={subtitle}
         onBack={onExit}
         right={
-          <div className="flex gap-4 shrink-0">
-            {isRoto && rounds.length > 0 && (
-              <button type="button" onClick={() => setDraftOpen(true)} className="t1-label hover:text-t1-text">
-                Draft
-              </button>
-            )}
-            {onOpenRedraft && canRedraft(event) && (
-              <button type="button" onClick={() => onOpenRedraft(event.setCode)} className="t1-label hover:text-t1-text">
-                Redraft
-              </button>
-            )}
-            {event.status !== "cancelled" && (
-              <button type="button" onClick={() => setDisplayOpen(true)} className="t1-label hover:text-t1-text">
-                Display
-              </button>
-            )}
-            {onOpenPhotos && event.status !== "cancelled" && (
-              <button type="button" onClick={onOpenPhotos} className="t1-label hover:text-t1-text">
-                Deck photos
-              </button>
-            )}
-            {repairable && (
-              <button type="button" onClick={() => askRepair("menu")} className="t1-label hover:text-t1-text">
-                Re-pair {repairName}
-              </button>
-            )}
-            {phase !== "results" && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCancelError(null);
-                  setCancelling("");
-                }}
-                className="t1-label hover:text-t1-text"
-              >
-                Cancel event
-              </button>
-            )}
-          </div>
+          // A desktop bar names each action; a phone's has room for one, so they sit behind More.
+          desktop ? (
+            <div className="flex gap-4 shrink-0">
+              {barActions.map((a) => (
+                <button key={a.title} type="button" onClick={a.onClick} className="t1-label hover:text-t1-text">{a.title}</button>
+              ))}
+            </div>
+          ) : barActions.length > 0 ? (
+            <button type="button" onClick={() => setMoreOpen(true)} className="t1-label hover:text-t1-text shrink-0">More</button>
+          ) : undefined
         }
       />
 
@@ -249,6 +250,11 @@ export function Organizer({
           onSaved={() => void refetch()}
           onOpenLife={onOpenLife}
           playoff={(bundle?.rounds.find((r) => r.id === openMatch.roundId)?.stage ?? "swiss") !== "swiss"}
+          // Extra time for a table of the round being played (contract/room-tools-2026-11-13.md § 2).
+          extra={room && phase === "live" && activeRound?.id === openMatch.roundId && !openMatch.isBye
+            ? { eventId, seconds: room.extensions.find((x) => x.match_id === openMatch.id)?.extra_seconds ?? openMatch.extraSeconds ?? 0,
+                onChanged: () => { void reloadRoom(); void refetch(); } }
+            : undefined}
         />
       )}
 
@@ -289,7 +295,12 @@ export function Organizer({
           />
         </Dialog>
       )}
-      {displayOpen && <DisplayPanel eventId={eventId} onClose={() => setDisplayOpen(false)} />}
+      {displayOpen && <DisplayPanel eventId={eventId} onClose={() => setDisplayOpen(false)} room={room} onChanged={() => void reloadRoom()} />}
+      {moreOpen && <Menu title={event.name} items={barActions} onClose={() => setMoreOpen(false)} />}
+      {printOpen && onPrint && (
+        <Menu title="Print" onClose={() => setPrintOpen(false)}
+              items={PRINT_VIEWS.map((v) => ({ title: v.label, detail: v.detail, onClick: () => onPrint(v.value) }))} />
+      )}
       {draftOpen && (
         <RotoDraftOverlay eventId={eventId} title={event.name} isOrganizer pairing={event.pairing} onClose={() => setDraftOpen(false)} />
       )}

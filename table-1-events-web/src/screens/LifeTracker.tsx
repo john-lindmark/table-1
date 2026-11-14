@@ -58,6 +58,9 @@ import {
 } from "../lib/trackerTable";
 import { TrackerChooser, TrackerDicePanel, TrackerOptionsPanel, TrackerSetup } from "./TrackerOptions";
 import { paneStyle, useWindowFold } from "../lib/fold";
+import { Dialog } from "../components/kit";
+import { extensionText } from "../lib/leagues";
+import { judgeCall, judgeCallCancel, useEventRoom } from "../lib/room";
 
 /* ── model ─────────────────────────────────────────────────────────────────
    One board for both kinds of session. Local: no event, stored on this device, 2–5 players set up on Setup
@@ -83,6 +86,8 @@ interface Model {
   status?: string | null;
   /** The round clock; null for local sessions and matches without a timer. */
   clock: TrackerClock | null;
+  /** Synced, a player's own table: extra time the organizer gave it, "+5:00" (contract/room-tools-2026-11-13.md § 2). */
+  extra?: string;
 }
 
 interface Controller {
@@ -96,6 +101,8 @@ interface Controller {
   newMatch?: () => void;
   /** Local only: a new table from Setup (clears games and history, names the players). */
   configure?: (players: number, life: number) => void;
+  /** Synced, a player's own table in the round being played: Call a judge, or take the call back while it's open. */
+  judge?: { open: boolean; table: number | null; call: () => Promise<void>; cancel: () => Promise<void> };
 }
 
 const errorText = (e: unknown) =>
@@ -251,6 +258,11 @@ function useSyncedTracker(matchId: string, onNext?: (matchId: string) => void): 
   const [error, setError] = useState<string | null>(null);
   const syncRef = useRef<TrackerSync | null>(null);
   const nextNotice = useNextRound(matchId, snap?.meta.event_id, snap != null && snap.meta.my_side != null, onNext);
+  // The room for a player at this table: extra time and judge calls (null while the server has no room tools).
+  const eventId = snap?.meta.event_id ?? null;
+  const { room, reload: reloadRoom } = useEventRoom(snap?.meta.my_side != null ? eventId : null, null, matchId, true);
+  const mine = room?.my_match && room.my_match.match_id === matchId ? room.my_match : null;
+  const extra = extensionText(mine?.extra_seconds);
 
   useEffect(() => {
     const sync = new TrackerSync(matchId, () => uid.current, setSnap);
@@ -282,8 +294,9 @@ function useSyncedTracker(matchId: string, onNext?: (matchId: string) => void): 
       subtitle: [m.round ? `R${m.round}` : null, m.table ? `Table ${m.table}` : null, who].filter(Boolean).join(" | "),
       status,
       clock: m.clock ?? null,
+      extra,
     };
-  }, [snap, nextNotice]);
+  }, [snap, nextNotice, extra]);
 
   const add = useCallback((ops: TrackerOp[]) => syncRef.current?.add(ops), []);
   return {
@@ -295,6 +308,11 @@ function useSyncedTracker(matchId: string, onNext?: (matchId: string) => void): 
       await syncRef.current.recordGame(gameNo, winner, draw);
     },
     markReported: () => syncRef.current?.markResultIn(),
+    judge: mine && !model?.resultIn ? {
+      open: mine.call_open, table: mine.table_number,
+      call: async () => { await judgeCall(matchId, null, eventId ?? undefined); await reloadRoom(); },
+      cancel: async () => { await judgeCallCancel(matchId, null, eventId ?? undefined); await reloadRoom(); },
+    } : undefined,
     resetGame: () => {
       if (!model) return;
       add(resetOps(model.ops, currentGameNo(model.games), model.startingLife));
@@ -435,6 +453,9 @@ function Board({
   const [picker, setPicker] = useState<Side | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [panel, setPanel] = useState<"options" | "dice" | "chooser" | null>(null);
+  const [judgeAsk, setJudgeAsk] = useState(false);
+  const [judgeBusy, setJudgeBusy] = useState(false);
+  const [judgeError, setJudgeError] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [flow, setFlow] = useState<RecordFlow | null>(null);
   const [recording, setRecording] = useState(false);
@@ -603,6 +624,8 @@ function Board({
               {formatTrackerClock(remaining)}
             </span>
           )}
+          {m.extra && <span className={`${LABEL} tabular-nums shrink-0 text-t1-warning`} aria-label={`Your table has ${m.extra} extra`}>{m.extra}</span>}
+          {ctl.judge?.open && <span className={`${LABEL} shrink-0 pl-4 text-t1-accent`}>Judge called</span>}
           <span className={`${LABEL} flex-1 min-w-0 px-4 truncate text-right text-t1-disabled`}>{m.status || m.subtitle}</span>
         </div>
         <div className="relative h-1 bg-t1-surface">
@@ -661,6 +684,8 @@ function Board({
                   {formatTrackerClock(remaining)}
                 </span>
               )}
+              {m.extra && <span className={`${LABEL} tabular-nums text-t1-warning`}>{m.extra}</span>}
+              {ctl.judge?.open && <span className={`${LABEL} text-t1-accent`}>Judge called</span>}
               <span className={`${LABEL} truncate max-w-full text-t1-disabled`}>{m.status || m.subtitle}</span>
               <span className={`${LABEL} text-t1-muted`}>Game {gameNo} · {scoreText}</span>
             </div>
@@ -695,7 +720,18 @@ function Board({
           onHistory={() => setHistoryOpen(true)}
           onNewMatch={ctl.configure ? newTable : undefined}
           onLeave={onClose}
+          judge={ctl.judge ? { open: ctl.judge.open, run: () => (ctl.judge!.open ? void ctl.judge!.cancel().catch((e) => setJudgeError(errorText(e))) : setJudgeAsk(true)) } : undefined}
         />
+      )}
+      {judgeAsk && ctl.judge && (
+        <Dialog title="Call a judge?" message={`The organizers are told table ${ctl.judge.table ?? "–"} needs a judge.`} cancelLabel="Not now"
+                confirmLabel="Call a judge" busyLabel="Calling…" busy={judgeBusy} error={judgeError}
+                onCancel={() => setJudgeAsk(false)}
+                onConfirm={() => {
+                  setJudgeBusy(true);
+                  setJudgeError(null);
+                  ctl.judge!.call().then(() => setJudgeAsk(false), (e) => setJudgeError(errorText(e))).finally(() => setJudgeBusy(false));
+                }} />
       )}
       {panel === "dice" && <TrackerDicePanel onClose={() => setPanel(null)} />}
       {panel === "chooser" && <TrackerChooser onClose={() => setPanel(null)} />}

@@ -203,8 +203,61 @@ function PodsDemo() {
   );
 }
 
-type DemoScreen = "create" | "seating" | "live" | "team" | "photos" | "pods" | "podslive";
-const DEMO_SCREENS: DemoScreen[] = ["create", "seating", "live", "team", "photos", "pods", "podslive"];
+type DemoScreen = "create" | "seating" | "live" | "team" | "photos" | "pods" | "podslive" | "more";
+const DEMO_SCREENS: DemoScreen[] = ["create", "seating", "live", "team", "photos", "pods", "podslive", "more"];
+
+/** `?screen=more`: the stand-in events for fees, teams, the top 4 cut and the room tools (lib/phasesDemo.ts,
+ *  lib/leaguesDemo.ts, lib/displayDemo.ts), each on its real screen. Every link carries `?demo`. */
+const MORE: [title: string, links: [label: string, to: string][]][] = [
+  ["Entry fees", [
+    ["Setup · a $25 fee, mixed payments (Players, then Details → Entry fee)", "/e/demo-ev-up-1?demo"],
+    ["The same event as a player who hasn't paid", "/p/demo-ev-up-1?demo"],
+    ["Its public page: the fee and Prize pool", "/s/demo-ev-up-1?demo"],
+    ["Finished, with prizes (Results → Prizes)", "/e/demo-prizes?demo"],
+    ["Account → Payments", "/me?demo&payments"],
+    ["Stripe's return: /pay/done", "/pay/done?e=demo-ev-up-1&s=cs_demo&demo"],
+    ["Stripe's return: /pay/connected", "/pay/connected?demo"],
+    ["A league's prize pool", "/league/the-mountain-magic-series?demo"],
+    ["A league's dues (its organizers)", "/league/harbor-city-cube-league?view=dues&demo"],
+  ]],
+  ["Teams, Team Trios, top 4", [
+    ["Team Trios, teams signing themselves up (Setup → Teams, Details → Seats)", "/e/demo-trios?demo"],
+    ["Its event page: Sign up a team / Join a team", "/s/demo-trios?demo"],
+    ["Arriving by a team's link", "/s/demo-trios?team=STRM6Q2B&demo"],
+    ["Team Trios at the top 4: the team bracket", "/e/demo-trioslive?demo"],
+    ["Swiss is in: Cut to top 4", "/e/demo-top4?demo"],
+    ["A season's final: Setup → Players → Qualified", "/e/demo-ev-up-2?demo"],
+    ["Alerts for new public events", "/find?view=alerts&demo"],
+  ]],
+  ["The room", [
+    ["Round 2: a judge call and tables on extra time", "/e/demo-room?demo"],
+    ["That round as a player whose table has extra time", "/p/demo-room?demo"],
+    ["The display: an announcement and extra time", "/d/demo-room?demo"],
+    ["The display following the organizer's remote", "/d/demo-remote?demo"],
+    ["Print · pairings by table", "/e/demo-room/print/pairings?demo"],
+    ["Print · pairings A–Z", "/e/demo-room/print/pairings-az?demo"],
+    ["Print · standings", "/e/demo-room/print/standings?demo"],
+    ["Print · result slips", "/e/demo-room/print/slips?demo"],
+  ]],
+];
+
+function MoreDemo() {
+  return (
+    <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+      {MORE.map(([title, links]) => (
+        <div key={title} className="flex flex-col gap-px">
+          <div className="bg-t1-surface px-4 py-2 t1-label">{title}</div>
+          {links.map(([label, to]) => (
+            <a key={to} href={to} className="bg-t1-surface hover:bg-t1-surface-hover px-4 py-3 flex flex-col gap-0.5">
+              <span className="text-[13px]">{label}</span>
+              <span className="t1-label truncate normal-case! tracking-normal!">{to}</span>
+            </a>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function EventsDemo() {
   // `?screen=live` opens on that screen; `&bare` swaps the demo's picker for the organizer screen's own bar (the
@@ -231,9 +284,12 @@ export function EventsDemo() {
           { value: "photos", label: "Photos" },
           { value: "pods", label: "Pods" },
           { value: "podslive", label: "Pods live" },
+          { value: "more", label: "More" },
         ]}
       />}
-      {screen === "pods" ? (
+      {screen === "more" ? (
+        <MoreDemo />
+      ) : screen === "pods" ? (
         <PodsDemo />
       ) : screen === "photos" ? (
         <DeckPhotoDemo />

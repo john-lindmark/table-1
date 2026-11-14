@@ -656,6 +656,23 @@ alter table public.league_dues enable row level security;
 revoke all on public.event_fees, public.event_payments, public.event_prizes, public.league_dues from anon, authenticated;
 insert into t1_private.settings (name, value) values ('payments.fee_cents', '0') on conflict (name) do nothing;
 
+-- Payments, prize marks and the fee ping `event:<id>` like the other event tables, so screens follow at once.
+do $$
+declare t text;
+begin
+  foreach t in array array['event_fees', 'event_payments', 'event_prizes'] loop
+    execute format('drop trigger if exists %I on public.%I', t || '_ping_ins', t);
+    execute format('drop trigger if exists %I on public.%I', t || '_ping_upd', t);
+    execute format('drop trigger if exists %I on public.%I', t || '_ping_del', t);
+    execute format('create trigger %I after insert on public.%I referencing new table as new_rows '
+                   'for each statement execute function t1_private.event_ping(%L)', t || '_ping_ins', t, 'event_id');
+    execute format('create trigger %I after update on public.%I referencing old table as old_rows new table as new_rows '
+                   'for each statement execute function t1_private.event_ping(%L)', t || '_ping_upd', t, 'event_id');
+    execute format('create trigger %I after delete on public.%I referencing old table as old_rows '
+                   'for each statement execute function t1_private.event_ping(%L)', t || '_ping_del', t, 'event_id');
+  end loop;
+end $$;
+
 do $$
 declare f text;
 begin

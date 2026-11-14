@@ -163,7 +163,8 @@ export function sidebarOn(pathname: string): boolean {
   const p = pathname.replace(/\/+$/, "") || "/";
   if (p === "/life" || p.startsWith("/life/")) return false;
   if (["/sign-in", "/terms", "/privacy", "/delete-account"].includes(p)) return false;
-  if (/^\/(auth|s|d|dev)\//.test(p)) return false;
+  // Stripe's return pages (/pay/…) are plain pages, like the shared standings and the TV display.
+  if (/^\/(auth|s|d|dev|pay)\//.test(p)) return false;
   return true;
 }
 

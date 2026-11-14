@@ -5,8 +5,15 @@ import {
   filterLabels, filtersWire, findPickOf, finishLine, foundEventPath, isFiltered, isMissing, leagueEventLine, leagueLine,
   leaguesError, loadFindFilters, memberActions, multiplierText, orderedLeagueEvents, placePoints, pointsWords, presetOf, qualifyWords,
   resultsPublic, rowLabel, standingLine, whenText, whenWindow,
-  type Achievement, type FindFilters, type LeagueEvent,
+  SEAT_FORMATS, aboutRulesLine, alertLine, cutChoices, dueText, extensionText, finalInvitable, finalLine, finalStateLabel, judgeLine, rulesLine, seatLabel, teamLine,
+  type Achievement, type FinalRow, type FindFilters, type LeagueEvent,
 } from "./leagues";
+import {
+  PAYOUT_PRESETS, centsOf, centsText, feeLine, money, paidWord, payDoneState, payTag, paymentsMessage, payoutPresetOf, payoutTotal, payoutWords,
+  poolOf, prizeAt, prizePaidTag, prizeTable, stripeLine, unpaidConfirm, unpaidHeader, PaymentsError,
+  type KeepKind, type PayMode, type PayStatus, type PayMethod,
+} from "./money";
+import { memberMenu, movedOrder, leaveTeamMessage, teamError, teamLink, tidyTeamCode, type MyTeam } from "./teamSignup";
 
 // Finding events, leagues, boards and achievements (contract/public-events-leagues-2026-11-13.md). The wording and
 // small rules are shared cases (testdata/leagues/cases.json from make_cases.py), the same file iOS and Android run.
@@ -212,5 +219,190 @@ describe("leagues: organizers", () => {
     expect(after.league.organizers).toEqual(["Sam Reyes"]);
     // Someone who doesn't own the league can't change who runs it.
     expect(() => demo.leagueMemberSet(demo.leagueView("the-mountain-magic-series", null).league.id, theo.user_id, "organizer")).toThrow("Only the owner");
+  });
+});
+
+// Teams, the cut, alerts, fees and the room (contracts teams-finals-alerts, entry-fees and room-tools, 2026-11-13):
+// the same shared cases, the keys added for phases 2 to 4.
+describe("phases 2 to 4: shared cases (testdata/leagues)", () => {
+  it("money", () => {
+    expect(cases.money.length).toBeGreaterThan(0);
+    for (const c of cases.money) expect(money(c.cents), String(c.cents)).toBe(c.want);
+    expect(money(-750)).toBe("-$7.50");
+  });
+
+  it("the cuts a format can have", () => {
+    expect(cases.cut_choices.length).toBeGreaterThan(0);
+    for (const c of cases.cut_choices) expect(cutChoices(c.format_name, c.pairing), `${c.format_name} ${c.pairing}`).toEqual(c.want);
+  });
+
+  it("seat formats and seat labels", () => {
+    expect(SEAT_FORMATS).toEqual(cases.seat_formats);
+    for (const c of cases.seat_label) expect(seatLabel(c.slot, c.seat_formats), JSON.stringify(c)).toBe(c.want);
+  });
+
+  it("a team's line", () => {
+    for (const c of cases.team_line) expect(teamLine(c.team, c.team_size)).toBe(c.want);
+  });
+
+  it("the Alerts row", () => {
+    for (const c of cases.alert_line) expect(alertLine(c.alert), JSON.stringify(c.alert)).toBe(c.want);
+  });
+
+  it("the fee on a data line", () => {
+    for (const c of cases.fee_line) {
+      expect(feeLine(c.fee as { amount_cents: number; pay_mode: PayMode } | null), JSON.stringify(c.fee)).toBe(c.want);
+    }
+  });
+
+  it("payment tags", () => {
+    for (const c of cases.pay_tag) {
+      expect(payTag(c.payment as { status: PayStatus; method: PayMethod }), JSON.stringify(c.payment)).toBe(c.want);
+    }
+  });
+
+  it("payout presets, in words and in all", () => {
+    expect(PAYOUT_PRESETS).toEqual(cases.payout_presets);
+    expect(cases.payout_words.length).toBeGreaterThan(0);
+    for (const c of cases.payout_words) {
+      expect(payoutWords(c.payout), JSON.stringify(c.payout)).toBe(c.want);
+      expect(payoutTotal(c.payout), JSON.stringify(c.payout)).toBeCloseTo(c.total, 9);
+    }
+    expect(payoutPresetOf(cases.payout_presets.top4)).toBe("top4");
+    expect(payoutPresetOf([{ through: 1, percent: 50 }])).toBe("custom");
+    expect(payoutPresetOf([])).toBe("custom");
+  });
+
+  it("a place's prize", () => {
+    expect(cases.prize_at.length).toBeGreaterThan(0);
+    for (const c of cases.prize_at) expect(prizeAt(c.payout, c.pool_cents, c.place, c.share), JSON.stringify(c)).toBe(c.want);
+    expect(prizeTable(cases.payout_presets.top4, 4860)).toEqual([
+      { place: 1, amount_cents: 1944 }, { place: 2, amount_cents: 1215 }, { place: 3, amount_cents: 850 }, { place: 4, amount_cents: 850 }]);
+    expect(prizeTable([], 4860)).toEqual([]);
+  });
+
+  it("the pool", () => {
+    expect(cases.pool.length).toBeGreaterThan(0);
+    for (const c of cases.pool) {
+      expect(poolOf(c.entries, c.amount_cents, c.cut_cents, c.keep_kind as KeepKind, c.keep_value, c.added_cents), JSON.stringify(c)).toEqual(c.want);
+    }
+  });
+
+  it("extra time", () => {
+    for (const c of cases.extension_text) expect(extensionText(c.seconds), String(c.seconds)).toBe(c.want);
+    expect(extensionText(null)).toBe("");
+  });
+
+  it("a judge call's line", () => {
+    for (const c of cases.judge_line) expect(judgeLine(c.call, new Date(c.now)), JSON.stringify(c.call)).toBe(c.want);
+  });
+
+  it("the rules line", () => {
+    for (const c of cases.rules_line) expect(rulesLine(c.rel, c.due), JSON.stringify(c)).toBe(c.want);
+    // The deadline in the device's zone, 24-hour: the cases' "SAT 14 NOV 09:30".
+    expect(dueText("2026-11-14T16:30:00Z", "America/Denver")).toBe("SAT 14 NOV 09:30");
+    expect(aboutRulesLine({ rel: "competitive", decklist_due_at: "2026-11-14T16:30:00Z" }, "America/Denver")).toBe(cases.rules_line[0].want);
+    expect(aboutRulesLine({}, "UTC")).toBe("");
+    expect(aboutRulesLine(null)).toBe("");
+  });
+});
+
+describe("entry fees: the rest of the wording", () => {
+  it("amounts typed into a field", () => {
+    expect(centsOf("25")).toBe(2500);
+    expect(centsOf("$7.50")).toBe(750);
+    expect(centsOf("1,400")).toBe(140000);
+    expect(centsOf("0")).toBe(0);
+    expect(centsOf("7.505")).toBeNull();
+    expect(centsOf("abc")).toBeNull();
+    expect(centsOf("")).toBeNull();
+    expect(centsText(2500)).toBe("25");
+    expect(centsText(140050)).toBe("1400.50");
+  });
+
+  it("what a player and an organizer read", () => {
+    expect(paidWord({ method: "app" })).toBe("PAID");
+    expect(paidWord({ method: "door" })).toBe("PAID AT THE DOOR");
+    expect(paidWord({ method: "comp" })).toBe("COMP");
+    expect(unpaidHeader(4)).toBe("4 UNPAID");
+    expect(unpaidHeader(0)).toBe("");
+    expect(unpaidConfirm(4)).toBe("4 players haven't paid. Pair anyway?");
+    expect(unpaidConfirm(1)).toBe("1 player hasn't paid. Pair anyway?");
+    expect(prizePaidTag("cash")).toBe("PAID · CASH");
+    expect(prizePaidTag("store credit")).toBe("PAID · STORE CREDIT");
+    expect(prizePaidTag("other")).toBe("PAID");
+    expect(prizePaidTag(null)).toBe("PAID");
+    expect(stripeLine(null)).toBe("NOT CONNECTED");
+    expect(stripeLine({ connected: true, ready: false })).toBe("FINISH SETTING UP");
+    expect(stripeLine({ connected: true, ready: true })).toBe("READY");
+  });
+
+  it("a return from checkout proves nothing: the page says what event_money says", () => {
+    const me = (status: PayStatus) => ({ fee: null, me: { participant_id: "p", status, method: null, can_pay: true, can_refund: false } });
+    expect(payDoneState(false, me("paid"))).toBe("paid");
+    expect(payDoneState(true, me("paid"))).toBe("paid");          // paid in another tab, then Back from a second checkout
+    expect(payDoneState(false, me("pending"))).toBe("pending");
+    expect(payDoneState(false, me("unpaid"))).toBe("pending");
+    expect(payDoneState(true, me("unpaid"))).toBe("cancelled");
+    expect(payDoneState(false, null)).toBe("unknown");            // signed out here: the app can see it, this page can't
+    expect(payDoneState(false, { fee: null })).toBe("unknown");
+  });
+
+  it("the payments function's refusals: its own words, and the plain line before Table 1's keys exist", () => {
+    expect(paymentsMessage(new PaymentsError("whatever the function said", 503))).toBe("Payments aren't set up yet");
+    expect(new PaymentsError("x", 503).off).toBe(true);
+    expect(paymentsMessage(new PaymentsError("Connect Stripe before taking payments in the app", 409))).toBe("Connect Stripe before taking payments in the app");
+    expect(paymentsMessage(null)).toBe("Couldn't reach payments. Check your connection.");
+  });
+});
+
+describe("teams that sign themselves up", () => {
+  const team: MyTeam = {
+    id: "t", name: "Glacial Chasm", captain_id: "u1", join_code: "GLCH7K2M", complete: true,
+    members: [{ participant_id: "p1", user_id: "u1", name: "Ann", slot: 1 }, { participant_id: "p2", user_id: "u2", name: "Bo", slot: 2 },
+              { participant_id: "p3", user_id: null, name: "Cy", slot: 3 }],
+  };
+
+  it("a code as typed, pasted or carried by a link", () => {
+    expect(tidyTeamCode("glch7k2m")).toBe("GLCH7K2M");
+    expect(tidyTeamCode(" GLCH-7K2M ")).toBe("GLCH7K2M");
+    expect(tidyTeamCode("https://table-1.site/s/8f3c?team=glch7k2m")).toBe("GLCH7K2M");
+    expect(tidyTeamCode("GLCH7K2MEXTRA")).toBe("GLCH7K2M");
+    expect(teamLink("https://table-1.site", "8f3c", "GLCH7K2M")).toBe("https://table-1.site/s/8f3c?team=GLCH7K2M");
+  });
+
+  it("the captain's menu on a member", () => {
+    expect(memberMenu(team, team.members[0])).toEqual(["down"]);                       // the captain: only moving
+    expect(memberMenu(team, team.members[1])).toEqual(["up", "down", "captain", "remove"]);
+    expect(memberMenu(team, team.members[2])).toEqual(["up", "remove"]);               // a guest can't be captain
+    expect(movedOrder(team, "p2", -1)).toEqual(["p2", "p1", "p3"]);
+    expect(movedOrder(team, "p3", 1)).toEqual(["p1", "p2", "p3"]);
+  });
+
+  it("leaving: the captain's confirm says who takes over", () => {
+    expect(leaveTeamMessage(team, "u1")).toBe("You leave the event. Bo becomes captain.");
+    expect(leaveTeamMessage(team, "u2")).toBe("You leave the event. Your seat on the team opens.");
+    expect(leaveTeamMessage({ ...team, members: [team.members[0]] }, "u1")).toBe("You leave the event and the team closes.");
+  });
+
+  it("the server's refusals in words", () => {
+    expect(teamError({ code: "P0002", message: "x" })).toBe("No team has that code.");
+    expect(teamError({ code: "23505", message: "x" })).toBe("Another team has that name.");
+    expect(teamError({ code: "55000", message: "The event is full" })).toBe("The event is full");
+  });
+});
+
+describe("a season's final", () => {
+  const row = (state: FinalRow["state"], user = true): FinalRow =>
+    ({ key: `k-${state}-${user}`, user_id: user ? "u" : null, name: "N", rank: 1, points: 10, how: "winner", state });
+
+  it("the Qualified row and each player's state", () => {
+    const qualified = [row("in"), row("in"), row("invited"), row("declined"), row("none"), row("guest", false)];
+    expect(finalLine({ qualified })).toBe("2 of 6 in");
+    expect(finalStateLabel("in")).toBe("IN");
+    expect(finalStateLabel("guest")).toBe("GUEST");
+    expect(finalStateLabel("none")).toBeNull();          // the Invite button
+    // Invite the qualified reaches whoever has an account and isn't in, invited or declined already.
+    expect(finalInvitable(qualified).map((r) => r.state)).toEqual(["none"]);
   });
 });

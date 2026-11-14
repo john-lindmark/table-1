@@ -82,6 +82,43 @@ describe("universal links", () => {
     }
   });
 
+  // Stripe's return pages (contract/entry-fees-2026-11-13.md § 3) are plain web pages: Stripe sends people back to
+  // them from the apps' own in-app browser tab, where a claimed link would never load, and the page itself offers
+  // the way back into the app.
+  it("Stripe's return pages are pages here and stay in the browser", () => {
+    for (const host of ["table-1.site", "www.table-1.site"]) {
+      for (const path of ["/pay/done", "/pay/connected", "/pay/connect"]) {
+        const u = new URL(`https://${host}${path}?e=8f3c1d2e-0000-4000-8000-000000000000&s=cs_test_1`);
+        expect(appleClaims(u), path).toBe(false);
+        expect(androidClaims(u), path).toBe(false);
+        expect(routes.some((r) => matchPath(r, u.pathname)), path).toBe(true);
+      }
+    }
+  });
+
+  // The organizer's print views (contract/room-tools-2026-11-13.md § 5) are web pages only. iPhones keep them in the
+  // browser (the exclude sits before the /e/* claim). Android can only claim by prefix: its /e/ prefix still takes the
+  // link, and the app hands a path it has no screen for back to the browser.
+  it("the print views are pages here and stay in the browser on iPhone", () => {
+    for (const what of ["pairings", "pairings-az", "standings", "slips"]) {
+      const u = new URL(`https://table-1.site/e/8f3c1d2e-0000-4000-8000-000000000000/print/${what}`);
+      expect(appleClaims(u), what).toBe(false);
+      expect(routes.some((r) => matchPath(r, u.pathname)), what).toBe(true);
+    }
+    // The event itself, and its other pages, still open in the app.
+    for (const path of ["/e/8f3c1d2e-0000-4000-8000-000000000000", "/e/8f3c1d2e-0000-4000-8000-000000000000/add"]) {
+      expect(appleClaims(new URL(`https://table-1.site${path}`)), path).toBe(true);
+    }
+  });
+
+  // A team's link (contract/teams-finals-alerts-2026-11-13.md § 2) is the event page with the code: the same claim as
+  // the event page, and a page here with the code filled in.
+  it("a team's link is the event page", () => {
+    const u = new URL("https://table-1.site/s/8f3c1d2e-0000-4000-8000-000000000000?team=GLCH7K2M");
+    expect(routes.some((r) => matchPath(r, u.pathname))).toBe(true);
+    expect(appleClaims(u)).toBe(appleClaims(new URL("https://table-1.site/s/8f3c1d2e-0000-4000-8000-000000000000")));
+  });
+
   it("claims both hosts", () => {
     expect(androidClaims(new URL("https://www.table-1.site/library"))).toBe(true);
     expect(read("../../../apps/ios/project.yml")).toContain('"applinks:table-1.site", "applinks:www.table-1.site"');

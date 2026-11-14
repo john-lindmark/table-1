@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabaseClient";
 import {
   createEventV2,
   setEventPods,
+  setEventTrios,
   fetchEventsHome,
   savedEventsHome,
   formatLabelOf,
@@ -17,7 +18,9 @@ import {
   errorMessage,
   myDisplayName,
 } from "../lib/api";
-import type { DraftableSet, FormatName, HomeData, HomeEvent, HomeInvite, LiveSnapshot, TrackerMode } from "../lib/types";
+import type { DraftableSet, FormatName, HomeData, HomeEvent, HomeInvite, LiveSnapshot, TopCut, TrackerMode } from "../lib/types";
+import { SeatsRow } from "../components/SeatsRow";
+import { cutFor } from "../lib/organizer";
 import { JoinByCode } from "../components/JoinByCode";
 import { Landing } from "./Landing";
 import { FormatPicker, PlayersEditor, ProductPicker, RoundTimerSwitch, cubeUrlProblem } from "../components/EventFormFields";
@@ -28,13 +31,13 @@ import { draftAutoLabel, type PodPairing } from "../lib/draftPods";
 import { defaultPairing } from "../lib/rotoMath";
 import { RotoPairingFields, linkRotoCube } from "./roto/lazy";
 import { claimAutoOpen, useTrackerMode } from "../lib/settings";
-import { eventNamePreview, isTeamFormat, typeOfFormat } from "../lib/formats";
+import { eventNamePreview, isTeamFormat, isTriosFormat, typeOfFormat } from "../lib/formats";
 import { useDesktop } from "../lib/desktop";
 import { ageOf, isNetworkError, offlineNotice } from "../lib/offline";
 import { capture } from "../lib/telemetry";
 import { BAR_ICON, Icon } from "../components/icons";
 import { TextPanel } from "../components/EventListing";
-import { ADDRESS_MAX, DESCRIPTION_MAX, FIND_PICKS, counter, demoPath, eventListingSet, listingsLive, type FindPick } from "../lib/leagues";
+import { ADDRESS_MAX, DEFAULT_SEAT_FORMATS, DESCRIPTION_MAX, FIND_PICKS, counter, cutChoices, demoPath, eventListingSet, listingsLive, type FindPick } from "../lib/leagues";
 import {
   Bar,
   BigAction,
@@ -589,7 +592,9 @@ export function NewEvent({
   /** The older picker: Nearby + QR (players within 150 m, and alerts) or QR only. */
   const [nearby, setNearby] = useState(true);
   const [autoRounds, setAutoRounds] = useState(true);
-  const [topCut, setTopCut] = useState<0 | 8>(0);
+  const [topCut, setTopCut] = useState<TopCut>(0);
+  /** Team Trios: the format each seat plays (contract/teams-finals-alerts-2026-11-13.md § 1). */
+  const [seats, setSeats] = useState<string[]>([...DEFAULT_SEAT_FORMATS]);
   const [decklists, setDecklists] = useState<DecklistMode>("off");
   /** Drafts: null = automatic pods (up to 8 each); how rounds 2+ pair (contract/draft-pods-2026-11-09.md). */
   const [podsPick, setPodsPick] = useState<number | null>(null);
@@ -609,6 +614,8 @@ export function NewEvent({
 
   const limited = typeOfFormat(format) === "limited";
   const team = isTeamFormat(format);
+  const trios = isTriosFormat(format);
+  const cuts = cutChoices(format, roto ? shownPairing : "swiss");
   const cubeProduct = product === "cube" || roto;
   const productName = !limited ? null : cubeProduct ? cubeName.trim() || null : set?.name ?? (setNameText.trim() || null);
   const preview = eventNamePreview(format, { other: formatOther, product: productName },
@@ -640,7 +647,7 @@ export function NewEvent({
         setName: limited && !cubeProduct ? set?.name ?? (setNameText.trim() || null) : null,
         cubeName: limited && cubeProduct ? cubeName.trim().slice(0, 80) : null,
         cubeUrl: limited && cubeProduct && cubeUrl.trim() ? cubeUrl.trim() : null,
-        teamSize: team ? teamSize : null,
+        teamSize: trios ? 3 : team ? teamSize : null,
         formatOther: format === "other_constructed" ? formatOther.trim().slice(0, 40) : null,
         playerNames: guests,
         includeMe,
@@ -649,12 +656,14 @@ export function NewEvent({
         startsAt: schedule.startsAt,
         venueName: schedule.venueName,
         capacity: schedule.capacity,
-        topCut: swiss ? topCut : 0,
+        topCut: cutFor(format, roto ? shownPairing : "swiss", topCut),
         autoRounds: swiss && autoRounds,
         decklists: limited ? "off" : decklists,
       });
       // Roto: the pool comes from a Library cube. Use the one with this name, or import the Cube Cobra link.
       if (roto) void linkRotoCube(eventId, cubeName, cubeUrl);
+      // Team Trios: the seats' formats, when not the defaults (Modern / Standard / Pioneer). Setup → Details can change them.
+      if (trios && seats.join() !== DEFAULT_SEAT_FORMATS.join()) await setEventTrios(eventId, seats).catch(() => {});
       // Drafts: the pods, when not the defaults (automatic, inside pods). Setup → Seating can change them.
       if (hasPods && (podsPick != null || podPairing !== "pod")) await setEventPods(eventId, podsPick, podPairing).catch(() => {});
       // Pin it where the organizer stands. For nearby events this also alerts opted-in players around. A scheduled
@@ -713,7 +722,8 @@ export function NewEvent({
           </Notice>
         )}
 
-        {team && (
+        {trios && <SeatsRow seats={seats} onChange={setSeats} />}
+        {team && !trios && (
           <Segmented
             label="Players per team"
             value={teamSize}
@@ -734,7 +744,7 @@ export function NewEvent({
         <Section title="Rounds" />
         {!(roto && shownPairing === "round_robin") && (
           <CutAndRoundsFields autoRounds={autoRounds} onAutoRounds={setAutoRounds} rounds={rounds} onRounds={setRounds}
-                              topCut={topCut} onTopCut={setTopCut} players={playerCount} swiss={swiss}
+                              topCut={topCut} onTopCut={setTopCut} players={playerCount} swiss={swiss} cuts={cuts} teams={team}
                               autoDetail={hasPods ? draftAutoLabel(playerCount, podsPick, podPairing) : undefined} />
         )}
         {roto && <RotoPairingFields pairing={shownPairing} onPairing={setPairing} players={playerCount} />}

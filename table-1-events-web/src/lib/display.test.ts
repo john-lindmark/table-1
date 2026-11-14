@@ -23,7 +23,13 @@ import {
   resultsCount,
   scaled,
   showForKey,
+  MESSAGE_BAND,
+  effectiveShow,
+  extensionsLine,
+  messageType,
+  pinnedShow,
   type DisplayMatch,
+  type DisplayRoom,
   type DisplayTimer,
 } from "./display";
 import { DEMO_DISPLAYS, demoDisplay } from "./displayDemo";
@@ -291,5 +297,57 @@ describe("display: demo events (dev)", () => {
     expect([welcome.event.currentRound, welcome.event.signUp, !!welcome.event.startsAt]).toEqual([0, "open", true]);
     const final = demoDisplay("demo-final")!;
     expect([final.event.status, final.event.round, final.standings.rows[0].rank]).toEqual(["completed", null, 1]);
+  });
+});
+
+// The room tools on the display (contract/room-tools-2026-11-13.md §§ 1, 2).
+describe("display: the organizer's remote, the announcement, extra time", () => {
+  const room = (show: DisplayRoom["display"]["show"], message: string | null = null, extensions: DisplayRoom["extensions"] = []): DisplayRoom =>
+    ({ display: { show, message }, extensions });
+
+  it("follows the remote unless the address carries ?show= (the address wins)", () => {
+    expect(effectiveShow(null, room("standings"))).toBe("standings");
+    expect(effectiveShow("clock", room("standings"))).toBe("clock");
+    // ?show=auto pins the display to auto whatever the remote says.
+    expect(effectiveShow("auto", room("standings"))).toBe("auto");
+    // No room (a server before the room tools, or a failed read): auto, as before.
+    expect(effectiveShow(null, null)).toBe("auto");
+    expect(effectiveShow(null, undefined)).toBe("auto");
+  });
+
+  it("reads the pin from the address", () => {
+    expect(pinnedShow("pairings")).toBe("pairings");
+    expect(pinnedShow("AUTO")).toBe("auto");
+    expect(pinnedShow(null)).toBeNull();
+    expect(pinnedShow("")).toBeNull();
+    expect(pinnedShow("scores")).toBeNull();
+  });
+
+  it("the announcement: as large as fits one line, never under the size that wraps onto two", () => {
+    const short = messageType("Lunch is in the back room", 1824, 1);
+    expect(short).toBe(40);
+    const long = messageType("x".repeat(140), 1824, 1);
+    expect(long).toBe(26);
+    // 140 characters at the smallest size fit two lines of the band.
+    expect(Math.ceil((140 * long * 0.61) / 1824)).toBeLessThanOrEqual(2);
+    expect(2 * long * 1.18).toBeLessThanOrEqual(MESSAGE_BAND);
+    expect(messageType("Round 3 at 14:30", 912, 0.5)).toBe(20);
+  });
+
+  it("lists the tables on extra time in table order, for under the clock", () => {
+    expect(extensionsLine(room("auto", null, [{ table_number: 9, extra_seconds: 300 }, { table_number: 5, extra_seconds: 180 }])))
+      .toBe("TABLE 5 +3:00 · TABLE 9 +5:00");
+    expect(extensionsLine(room("auto", null, [{ table_number: 4, extra_seconds: 0 }, { table_number: null, extra_seconds: 300 }]))).toBe("");
+    expect(extensionsLine(null)).toBe("");
+  });
+
+  it("the demo displays carry a room: an announcement, extra time, the remote's pick", () => {
+    const made = demoDisplay("demo-room", { now: Date.UTC(2026, 10, 13, 12) })!;
+    expect(made.room?.display.message).toBeTruthy();
+    expect(extensionsLine(made.room)).toBe("TABLE 9 +5:00 · TABLE 12 +3:00");
+    expect(effectiveShow(null, demoDisplay("demo-remote")!.room)).toBe("standings");
+    // Events without the room tools have no room at all, and `&message=` gives any of them an announcement.
+    expect(demoDisplay("demo")!.room).toBeNull();
+    expect(demoDisplay("demo", { message: "Hello" })!.room?.display).toEqual({ show: "auto", message: "Hello" });
   });
 });

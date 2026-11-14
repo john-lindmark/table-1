@@ -2,10 +2,11 @@
 // Spec: contract/organizer-phases-2026-10-14.md. Nothing here touches the network or the DOM.
 
 import type { EventDetailsInput } from "./api";
-import { isDraftFormat, isTeamFormat, typeOfFormat } from "./formats";
+import { isDraftFormat, isTeamFormat, isTriosFormat, typeOfFormat } from "./formats";
+import { cutChoices } from "./leagues";
 import { nextStep } from "./playoffs";
 import type { TeamClinch } from "./teams";
-import type { DraftableSet, EventStatus, FormatName, Match, Participant, RoundWithMatches, Table1Event } from "./types";
+import type { DraftableSet, EventStatus, FormatName, Match, Participant, RoundWithMatches, Table1Event, TopCut } from "./types";
 
 /* ── phase ──────────────────────────────────────────────────────────────── */
 
@@ -23,7 +24,7 @@ export function derivePhase(status: EventStatus, roundCount: number): Phase {
   return "live";
 }
 
-export type OrganizerTab = "players" | "seating" | "teams" | "details" | "round" | "schedule" | "standings" | "rounds";
+export type OrganizerTab = "players" | "seating" | "teams" | "details" | "round" | "schedule" | "standings" | "rounds" | "prizes";
 
 export const TAB_LABELS: Record<OrganizerTab, string> = {
   players: "Players",
@@ -34,12 +35,13 @@ export const TAB_LABELS: Record<OrganizerTab, string> = {
   schedule: "Schedule",
   standings: "Standings",
   rounds: "Rounds",
+  prizes: "Prizes",
 };
 
 /** The tabs of each phase, first tab first (it's where a phase change lands). */
 export function phaseTabs(
   phase: Phase,
-  opts: { isTeam: boolean; isDraft: boolean; isRoto?: boolean; roundRobin?: boolean; earlier?: boolean },
+  opts: { isTeam: boolean; isDraft: boolean; isRoto?: boolean; roundRobin?: boolean; earlier?: boolean; prizes?: boolean },
 ): OrganizerTab[] {
   if (phase === "setup") {
     // Roto: Seating is the pick order list.
@@ -51,7 +53,8 @@ export function phaseTabs(
     return ["round", ...(opts.earlier ? (["rounds"] as const) : []), ...(opts.roundRobin ? (["schedule"] as const) : []),
             "standings", "players", ...(opts.isTeam ? (["teams"] as const) : [])];
   }
-  return ["standings", "rounds", "players"];
+  // Prizes: a finished event with a fee or added prize money (contract/entry-fees-2026-11-13.md § 4).
+  return ["standings", "rounds", "players", ...(opts.prizes ? (["prizes"] as const) : [])];
 }
 
 /**
@@ -225,7 +228,9 @@ export function setupSubtitle(event: Table1Event, players: number): string {
 export function liveSubtitle(event: Table1Event, rounds: RoundWithMatches[], now: number): string {
   const active = activeRoundOf(rounds);
   const r = active?.number ?? lastRoundNumber(rounds);
-  const head = `Round ${r} of ${event.numberOfRounds}`;
+  // A playoff round reads as its stage ("Semifinals"), never "Round 4 of 3".
+  const stage = active?.stage ?? rounds.find((x) => x.number === r)?.stage ?? "swiss";
+  const head = stage === "quarterfinal" ? "Quarterfinals" : stage === "semifinal" ? "Semifinals" : stage === "final" ? "Final" : `Round ${r} of ${event.numberOfRounds}`;
   if (!active || !event.showClock) return `${head} · ${event.formatLabel}`;
   const left = remainingSeconds(active, now);
   const clock = active.timerStatus === "paused" ? "paused" : left <= 0 ? "time" : `${formatMmSs(left)} left`;
@@ -294,7 +299,7 @@ export type LiveAction =
  * then "Pair round R+1", or "Finish event" on the last round.
  */
 export function liveAction(event: Table1Event, rounds: RoundWithMatches[], clinch: TeamClinch | null = null,
-                           activePlayers = 0): LiveAction {
+                           activePlayers = 0, activeTeams: number | null = null): LiveAction {
   const active = activeRoundOf(rounds);
   const open = openMatchCount(active);
   const current = active?.number ?? lastRoundNumber(rounds);
@@ -306,11 +311,15 @@ export function liveAction(event: Table1Event, rounds: RoundWithMatches[], clinc
       : { kind: "finish", label: "Finish event", clinch };
   }
   if (open > 0) return { kind: "waiting", open, label: `Waiting on ${plural(open, "result")}` };
-  // Swiss, then the top 8 (contract/scheduled-events-2026-10-27.md §6): the shared next step decides.
+  // Swiss, then the top 8 or top 4 (contract/scheduled-events-2026-10-27.md §6, contract/teams-finals-alerts-2026-11-13.md
+  // § 1): the shared next step decides. Team sealed and Team Trios cut between teams, so they count active teams.
   const stages = rounds.map((r) => r.stage ?? "swiss");
-  if (stages.some((st) => st !== "swiss") || (event.topCut === 8 && event.pairing === "swiss" && !isTeamFormat(event.formatName))) {
-    const step = nextStep({ stages, waiting: false, numberOfRounds: event.numberOfRounds, topCut: event.topCut, activePlayers });
+  const cut = event.topCut > 0 && cutChoices(event.formatName, event.pairing).includes(event.topCut);
+  if (stages.some((st) => st !== "swiss") || cut) {
+    const step = nextStep({ stages, waiting: false, numberOfRounds: event.numberOfRounds, topCut: event.topCut, activePlayers,
+                            activeTeams: isTeamFormat(event.formatName) ? activeTeams ?? 0 : null });
     if (step === "cut") return { kind: "cut", label: "Cut to top 8" };
+    if (step === "cut4") return { kind: "cut", label: "Cut to top 4" };
     if (step === "semifinals") return { kind: "playoff", stage: "semifinal", label: "Pair semifinals" };
     if (step === "final") return { kind: "playoff", stage: "final", label: "Pair the final" };
     if (step === "finish") return { kind: "finish", label: "Finish event" };
@@ -362,10 +371,14 @@ export interface DetailsState {
   autoName: boolean;
   /** Roto only. */
   pairing: "swiss" | "round_robin";
-  topCut: 0 | 8;
+  topCut: TopCut;
   autoRounds: boolean;
   decklists: "off" | "optional" | "required";
 }
+
+/** The cut a format keeps when the organizer changes format: the pick if the format can have it, else none. */
+export const cutFor = (formatName: FormatName, pairing: string | null | undefined, topCut: number): TopCut =>
+  (cutChoices(formatName, pairing).includes(topCut) ? topCut : 0) as TopCut;
 
 export function detailsFromEvent(e: Table1Event): DetailsState {
   return {
@@ -401,7 +414,7 @@ export function detailsToInput(s: DetailsState): EventDetailsInput {
   return {
     name: name || null,
     autoName: !name,
-    topCut: swiss ? s.topCut : 0,
+    topCut: cutFor(s.formatName, roto ? s.pairing : "swiss", s.topCut),
     autoRounds: swiss && s.autoRounds,
     decklists: limited ? "off" : s.decklists,
     formatName: s.formatName,
@@ -411,7 +424,7 @@ export function detailsToInput(s: DetailsState): EventDetailsInput {
     setName: set ? s.set?.name ?? (s.setNameText.trim() || null) : null,
     cubeName: cube,
     cubeUrl: cube && s.cubeUrl.trim() ? s.cubeUrl.trim() : null,
-    teamSize: isTeamFormat(s.formatName) ? s.teamSize : null,
+    teamSize: isTriosFormat(s.formatName) ? 3 : isTeamFormat(s.formatName) ? s.teamSize : null,
     formatOther: s.formatName === "other_constructed" ? s.formatOther.trim().slice(0, 40) || null : null,
     pairing: roto ? s.pairing : undefined,
   };

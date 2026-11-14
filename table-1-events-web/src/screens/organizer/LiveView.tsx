@@ -23,7 +23,13 @@ import { BigAction, BigNumber, Columns, Dialog, GhostAction, Notice, PodHeader, 
 import { playerSections, podRefs, type PodRef } from "../../lib/draftPods";
 import { useDesktop } from "../../lib/desktop";
 import { TeamsPanel } from "../../components/TeamsPanel";
-import { teamClinch } from "../../lib/teams";
+import { activeTeams, teamClinch } from "../../lib/teams";
+import { extensionText, seatLabel } from "../../lib/leagues";
+import { JudgeCalls } from "../../components/RoomTools";
+import { extraByMatch } from "../../lib/room";
+import { roundName } from "../../lib/scheduledEvents";
+import { PaymentMenu, payDetail, paymentsById } from "./Money";
+import { unpaidHeader, type PlayerPayment } from "../../lib/money";
 import { capture } from "../../lib/telemetry";
 import { toTeams } from "../../lib/useEventExtras";
 import { matchPodSections, podOfParticipants, RoundsList, StandingsBlock, type PhaseViewProps } from "./shared";
@@ -42,13 +48,20 @@ export function LiveView(
     onRepair: () => void;
   },
 ) {
-  const { eventId, bundle, tab, isTeam, teams, refetch, onOpenMatch, setActionError, mutate, onRepair } = props;
+  const { eventId, bundle, tab, isTeam, teams, refetch, onOpenMatch, setActionError, mutate, onRepair, money = null, reloadMoney, room = null, reloadRoom } = props;
   const { event, rounds, participants } = bundle;
   const active = activeRoundOf(rounds);
   const currentRound = active?.number ?? lastRoundNumber(rounds);
   // Team events: once one team can't be caught, the organizer may finish without the rest of the matches.
   const clinch = isTeam && teams ? teamClinch(toTeams(teams), participants, rounds, event.numberOfRounds) : null;
-  const action = liveAction(event, rounds, clinch);
+  // The cut counts active players, or active teams in a team event (contract/teams-finals-alerts-2026-11-13.md § 1).
+  const action = liveAction(event, rounds, clinch, participants.filter((p) => p.status === "active").length,
+                            isTeam && teams ? activeTeams(toTeams(teams), participants).length : null);
+  const stageName = active ? roundName(active.stage, active.number, event.numberOfRounds) : null;
+  const extras = extraByMatch(room);
+  const pays = paymentsById(money);
+  const [payFor, setPayFor] = useState<PlayerPayment | null>(null);
+  const unpaid = money?.fee && money.fee.amount_cents > 0 ? money.organizer?.unpaid ?? 0 : 0;
   const nameOf = nameLookup(participants);
   const pods = podRefs(event.formatName, bundle.pods);
   const { userId } = useSession();
@@ -123,7 +136,7 @@ export function LiveView(
   const dropped = participants.filter((p) => p.status === "dropped");
   const open = openMatchCount(active);
   const teamTag = (p: Participant) =>
-    isTeam && p.teamId ? `${props.teamNames.get(p.teamId) ?? "Team"} · ${slotLetter(p.teamSlot)}` : undefined;
+    isTeam && p.teamId ? `${props.teamNames.get(p.teamId) ?? "Team"} · ${event.seatFormats ? seatLabel(p.teamSlot, event.seatFormats) : slotLetter(p.teamSlot)}` : undefined;
 
   return (
     <>
@@ -136,6 +149,7 @@ export function LiveView(
               <StandingsBlock bundle={bundle} isTeam={isTeam} teams={teams} teamNames={props.teamNames} />
             </>
           ) : undefined}>
+            <JudgeCalls eventId={eventId} calls={room?.calls} onChanged={() => reloadRoom?.()} />
             {prompt && active && (
               <div className="flex flex-col gap-px">
                 <Notice tone="info">{prompt.text}</Notice>
@@ -148,16 +162,19 @@ export function LiveView(
             {active ? (
               <>
                 {event.showClock ? (
-                  <RoundClock round={active} caption={roundCaption(event, active)} onClock={clock} />
+                  <RoundClock round={active} caption={stageCaption(roundCaption(event, active), active, stageName)} onClock={clock} />
                 ) : (
                   // Round timer off: no clock anywhere for this event (rounds still run 50 minutes).
-                  <Notice tone="info">{roundCaption(event, active)}</Notice>
+                  <Notice tone="info">{stageCaption(roundCaption(event, active), active, stageName)}</Notice>
                 )}
-                <MatchList round={active} nameOf={nameOf} onOpenMatch={onOpenMatch} pods={pods} participants={participants} />
+                <MatchList round={active} nameOf={nameOf} onOpenMatch={onOpenMatch} pods={pods} participants={participants}
+                           extras={extras} seatFormats={isTeam ? event.seatFormats : null} />
               </>
             ) : (
               <Notice tone="info">
-                {currentRound >= event.numberOfRounds
+                {action.kind === "cut" ? `Swiss is in. ${action.label} to pair the playoff.`
+                  : action.kind === "playoff" ? `${action.label} when the tables are ready.`
+                  : currentRound >= event.numberOfRounds
                   ? `All ${event.numberOfRounds} rounds are in. Finish the event to send final standings.`
                   : `Round ${currentRound} recorded. Pair round ${currentRound + 1} when the table is ready.`}
               </Notice>
@@ -202,7 +219,7 @@ export function LiveView(
                 <Row
                   key={p.id}
                   title={p.displayName}
-                  detail={[seat != null ? `Seat ${seat}` : null, teamTag(p)].filter(Boolean).join(" · ") || undefined}
+                  detail={payDetail(pays.get(p.id), setPayFor, [seat != null ? `Seat ${seat}` : null, teamTag(p)].filter(Boolean).join(" · "))}
                   avatar={<Avatar name={p.displayName} userId={p.userId} opens="event_players" />}
                   action={{
                     label: "Drop",
@@ -222,7 +239,7 @@ export function LiveView(
                 </div>
               )) : (
                 <>
-                  <Section title="Playing" count={playing.length} />
+                  <Section title="Playing" count={playing.length} right={unpaid > 0 ? <span className="text-t1-warning">{unpaidHeader(unpaid)}</span> : undefined} />
                   {playing.map((p) => row(p))}
                 </>
               );
@@ -264,7 +281,8 @@ export function LiveView(
         busy={busy}
         disabled={action.kind === "waiting"}
         onClick={() => {
-          if (action.kind === "pair") void pairNext();
+          // The cut and each playoff stage are paired by the same call: the engine knows which stage is next.
+          if (action.kind === "pair" || action.kind === "cut" || action.kind === "playoff") void pairNext();
           else if (action.kind === "finish") {
             setFinishError(null);
             setConfirmFinish(true);
@@ -288,6 +306,9 @@ export function LiveView(
         />
       )}
 
+      {payFor && money?.fee && (
+        <PaymentMenu eventId={eventId} payment={payFor} amountCents={money.fee.amount_cents} onClose={() => setPayFor(null)} onChanged={() => reloadMoney?.()} />
+      )}
       {dropping && (
         <Dialog
           title={`Drop ${dropping.displayName}?`}
@@ -336,6 +357,12 @@ function RoundClock({
 
 const playersCount = (n: number) => `${n} player${n === 1 ? "" : "s"}`;
 
+/** A playoff round's caption says its stage ("Semifinals · 1 of 2 results in"), not "Round 4 of 3". */
+function stageCaption(caption: string, round: RoundWithMatches, stageName: string | null): string {
+  if (!stageName || (round.stage ?? "swiss") === "swiss") return caption;
+  return caption.replace(/Round \d+ of \d+/, stageName);
+}
+
 /** "2 of 4 in · 1 disputed", "All in" for a pod's matches (byes don't count). */
 function podProgress(matches: Match[]): string {
   const g = groupMatches(matches);
@@ -356,22 +383,34 @@ function MatchList({
   onOpenMatch,
   pods,
   participants,
+  extras,
+  seatFormats,
 }: {
+  /** Tables with extra time this round: match id → seconds (`+5:00` on the row). */
+  extras?: Map<string, number>;
+  /** Team events: the seat each match is played in (`A · MODERN` in Team Trios). */
+  seatFormats?: string[] | null;
   round: RoundWithMatches;
   nameOf: (id: string | null | undefined) => string;
   onOpenMatch: (m: Match) => void;
   pods: PodRef[];
   participants: Participant[];
 }) {
-  const row = (m: Match) => (
-    <Row
-      key={m.id}
-      title={matchTitle(m, nameOf)}
-      detail={matchDetail(m, nameOf) || undefined}
-      value={matchValue(m)}
-      onClick={m.isBye ? undefined : () => onOpenMatch(m)}
-    />
-  );
+  const slotOf = new Map(participants.map((p) => [p.id, p.teamId ? p.teamSlot ?? null : null]));
+  const row = (m: Match) => {
+    const extra = extensionText(extras?.get(m.id) ?? m.extraSeconds ?? 0);
+    const slot = slotOf.get(m.sides[0]?.participantId ?? "");
+    const detail = [slot ? seatLabel(slot, seatFormats) : null, matchDetail(m, nameOf) || null].filter(Boolean).join(" · ");
+    return (
+      <Row
+        key={m.id}
+        title={matchTitle(m, nameOf)}
+        detail={detail || undefined}
+        value={extra ? <span className="flex items-center gap-3"><span className="text-t1-warning">{extra}</span><span>{matchValue(m)}</span></span> : matchValue(m)}
+        onClick={m.isBye ? undefined : () => onOpenMatch(m)}
+      />
+    );
+  };
   const byPod = matchPodSections(round.matches, pods, podOfParticipants(participants), round.stage);
   if (byPod) {
     return (

@@ -2,8 +2,13 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import { T1Logo, useNow } from "../components/kit";
 import { fetchPublicEvent, fetchPublicStandingsAndBracket, subscribeToEvent, type PublicEvent, type PublicStandingRow, type PublicTeamRow } from "../lib/api";
 import {
+  MESSAGE_BAND,
   PAGE_SECONDS,
   RELOAD_SECONDS,
+  effectiveShow,
+  extensionsLine,
+  messageType,
+  pinnedShow,
   clockWord,
   displayClock,
   displayPages,
@@ -22,6 +27,7 @@ import {
   showForKey,
   type ClockState,
   type DisplayData,
+  type DisplayRoom,
   type DisplayShow,
   type DisplaySize,
   type DisplayView,
@@ -29,6 +35,9 @@ import {
   type TableRow,
 } from "../lib/display";
 import { roundName, when } from "../lib/scheduledEvents";
+import { extensionText } from "../lib/leagues";
+import { eventRoom } from "../lib/room";
+import { getLocalParticipant } from "../lib/session";
 import { formatPct } from "../lib/standings";
 import { capture } from "../lib/telemetry";
 import { useQr } from "../lib/useQr";
@@ -41,13 +50,16 @@ import { useWakeLock } from "../lib/useWakeLock";
  * time and sign-up QR; after the finish, the final standings. It reads what the shared standings page reads
  * (event_public and the engine's standings), so it works signed out for public and link events, and reloads on the
  * event's broadcast and every 15 s. `?show=auto|clock|pairings|standings`; keys 1 2 3 A F and the arrows.
+ * With the room tools (contract/room-tools-2026-11-13.md § 1) it follows the organizer's remote unless its address
+ * carries `?show=` (the address wins), draws the announcement along the bottom of every view, and shows extra time.
  */
 export function DisplayScreen({ eventId }: { eventId: string }) {
   const params = new URLSearchParams(window.location.search);
   const demo = import.meta.env.DEV && params.has("demo");
   const [data, setData] = useState<DisplayData | null>(null);
   const [missing, setMissing] = useState(false);
-  const [show, setShow] = useState<DisplayShow>(() => parseShow(params.get("show")));
+  // What the address pins the display to (null: follow the organizer's remote, then auto).
+  const [pinned, setPinned] = useState<DisplayShow | null>(() => pinnedShow(params.get("show")));
   const [turns, setTurns] = useState({ pairings: 0, standings: 0 });
   // Bumped by an arrow key, so the next automatic page turn waits a full 10 s again.
   const [nudge, setNudge] = useState(0);
@@ -63,12 +75,15 @@ export function DisplayScreen({ eventId }: { eventId: string }) {
         const { demoDisplay } = await import("../lib/displayDemo");
         const q = new URLSearchParams(window.location.search);
         const num = (k: string) => (q.has(k) ? Number(q.get(k)) : undefined);
-        const made = demoDisplay(eventId, { now: opened.current, elapsed: num("elapsed"), resultsIn: num("in") });
+        const made = demoDisplay(eventId, { now: opened.current, elapsed: num("elapsed"), resultsIn: num("in"), message: q.get("message") });
         if (!made) throw new Error("That event isn't available");
         setData(made);
       } else {
-        const [event, standings] = await Promise.all([fetchPublicEvent(eventId), fetchPublicStandingsAndBracket(eventId)]);
-        setData({ event, standings });
+        // The room is an extra: a server without it (or a failed read) answers null and the display runs as before.
+        const [event, standings, room] = await Promise.all([
+          fetchPublicEvent(eventId), fetchPublicStandingsAndBracket(eventId), eventRoom(eventId, getLocalParticipant(eventId)?.token),
+        ]);
+        setData({ event, standings, room });
       }
       setMissing(false);
     } catch {
@@ -108,6 +123,7 @@ export function DisplayScreen({ eventId }: { eventId: string }) {
 
   const event = data?.event ?? null;
   const size = displaySize(window_.width, window_.height);
+  const show = effectiveShow(pinned, data?.room);
   const view = event ? viewOf(show, event, now, opened.current) : null;
 
   // Lists longer than the screen turn a page every 10 s, each from where it left off the last time it showed.
@@ -126,7 +142,8 @@ export function DisplayScreen({ eventId }: { eventId: string }) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const picked = showForKey(e.key);
       if (picked) {
-        setShow(picked);
+        // A picks auto by dropping the pin, so the display follows the organizer's remote again.
+        setPinned(picked === "auto" ? null : picked);
         // The address keeps the pick, so a reload (or the TV's browser restoring the tab) comes back to it.
         const q = new URLSearchParams(window.location.search);
         if (picked === "auto") q.delete("show");
@@ -151,7 +168,9 @@ export function DisplayScreen({ eventId }: { eventId: string }) {
 
   if (!data || !view) return <DisplayMessage size={size}>{missing ? "This event isn't available" : null}</DisplayMessage>;
   if (data.event.status === "cancelled") return <DisplayMessage size={size}>This event was cancelled</DisplayMessage>;
-  return <DisplayFrame data={data} view={view} now={now} size={size} height={window_.height} width={window_.width}
+  // The announcement takes a band off the bottom; the views lay themselves out in what's left.
+  const band = data.room?.display.message ? Math.round(MESSAGE_BAND * size.unit) : 0;
+  return <DisplayFrame data={data} view={view} now={now} size={size} height={window_.height - band} width={window_.width}
                        turns={turns} origin={window.location.origin} />;
 }
 
@@ -189,11 +208,14 @@ export function DisplayFrame({ data, view, now, size, width, height, turns, orig
   const clock = displayClock(event.round, now, event.showClock);
   const { resultsIn, matches } = resultsCount(roundMatches(event));
   const counted = matches > 0 ? `${resultsIn}/${matches} IN` : null;
+  const room = data.room ?? null;
+  const announcement = room?.display.message ? <Announcement text={room.display.message} size={size} width={width} /> : null;
 
   if (view === "welcome") {
     return (
       <Shell>
         <Welcome event={event} size={size} origin={origin} />
+        {announcement}
       </Shell>
     );
   }
@@ -218,9 +240,10 @@ export function DisplayFrame({ data, view, now, size, width, height, turns, orig
       </div>
       <div className="flex-1 min-h-0 flex flex-col">
         {view === "clock" && (
-          <ClockView label={roundLabel(event)} clock={clock} counted={counted} size={size} width={width} height={height - u(96) - u(64)} />
+          <ClockView label={roundLabel(event)} clock={clock} counted={counted} size={size} width={width} height={height - u(96) - u(64)}
+                     extensions={extensionsLine(room)} />
         )}
-        {view === "pairings" && <PairingsView event={event} size={size} width={width} height={height} turns={turns.pairings} />}
+        {view === "pairings" && <PairingsView event={event} size={size} width={width} height={height} turns={turns.pairings} tools={room} />}
         {view === "standings" && (
           standings.teams
             ? <TeamStandings teams={standings.teams} size={size} width={width} height={height} turns={turns.standings} />
@@ -233,6 +256,7 @@ export function DisplayFrame({ data, view, now, size, width, height, turns, orig
           {[event.formatLabel, event.venueName].filter(Boolean).join(" · ")}
         </p>
       </div>
+      {announcement}
     </Shell>
   );
 }
@@ -242,6 +266,18 @@ function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="t1-display fixed inset-0 z-40 bg-t1-bg text-t1-text flex flex-col gap-px overflow-hidden select-none">
       {children}
+    </div>
+  );
+}
+
+/** The organizer's announcement: one line along the bottom of every view (two when it's long), in the accent's outline. */
+function Announcement({ text, size, width }: { text: string; size: DisplaySize; width: number }) {
+  const u = (n: number) => Math.round(n * size.unit);
+  const type = messageType(text, width - 2 * u(48), size.unit);
+  return (
+    <div role="status" className="shrink-0 bg-t1-surface flex items-center justify-center text-center overflow-hidden"
+         style={{ height: u(MESSAGE_BAND) - 1, padding: `0 ${u(48)}px`, borderTop: `${Math.max(2, u(3))}px solid var(--t1-accent)` }}>
+      <p className="[overflow-wrap:anywhere]" style={{ fontSize: type, lineHeight: 1.18, letterSpacing: u(0.5), maxHeight: type * 1.18 * 2, overflow: "hidden" }}>{text}</p>
     </div>
   );
 }
@@ -270,14 +306,16 @@ export function DisplayMessage({ size, children }: { size: DisplaySize; children
 
 /* ── clock ─────────────────────────────────────────────────────────────── */
 
-function ClockView({ label: round, clock, counted, size, width, height }: {
+function ClockView({ label: round, clock, counted, size, width, height, extensions = "" }: {
   label: string; clock: { text: string | null; state: ClockState }; counted: string | null; size: DisplaySize; width: number; height: number;
+  /** "TABLE 5 +5:00 · TABLE 9 +3:00": tables whose time runs past the round's. */
+  extensions?: string;
 }) {
   const u = (n: number) => Math.round(n * size.unit);
   const word = clockWord(clock.state);
   // "Round timer off": the round is the subject, as large as the clock would be.
   const big = clock.text ?? round;
-  const type = fitType(big, width * 0.92, height * (clock.text ? 0.62 : 0.34));
+  const type = fitType(big, width * 0.92, height * (clock.text ? (extensions ? 0.54 : 0.62) : 0.34));
   return (
     <div className="flex-1 min-h-0 flex flex-col items-center justify-center" style={{ gap: u(24) }}>
       {clock.text && <p className={LABEL} style={label(u(44))}>{round}</p>}
@@ -289,6 +327,9 @@ function ClockView({ label: round, clock, counted, size, width, height }: {
         {word && <p className={`uppercase ${CLOCK_COLOR[clock.state]}`} style={label(u(44))}>{word}</p>}
         {counted && <p className="uppercase tabular-nums" style={label(u(52))}>{counted}</p>}
       </div>
+      {extensions && (
+        <p className="uppercase tabular-nums text-t1-warning text-center" style={{ ...label(u(34)), padding: `0 ${u(48)}px` }}>{extensions}</p>
+      )}
     </div>
   );
 }
@@ -329,8 +370,13 @@ const BETWEEN = 48;
 /** The longest of some names, in characters (held to 28: past that a name is cut either way). */
 const longest = (names: string[]) => Math.min(28, Math.max(0, ...names.map((n) => n.length)));
 
-function PairingsView({ event, size: base, width, height, turns }: { event: PublicEvent; size: DisplaySize; width: number; height: number; turns: number }) {
+function PairingsView({ event, size: base, width, height, turns, tools = null }: {
+  event: PublicEvent; size: DisplaySize; width: number; height: number; turns: number; tools?: DisplayRoom | null;
+}) {
   const matches = roundMatches(event);
+  // Tables on extra time this round: "+5:00" where the row would say VS, and beside the table in the A–Z list.
+  const extra = new Map((tools?.extensions ?? []).filter((x) => x.table_number != null && x.extra_seconds > 0)
+    .map((x) => [String(x.table_number), extensionText(x.extra_seconds)]));
   const tables = pairingsByTable(matches);
   const players = pairingsByPlayer(matches);
   const t = displayPages(tables.length, height, base.row, base.header);
@@ -351,8 +397,9 @@ function PairingsView({ event, size: base, width, height, turns }: { event: Publ
           <span className="flex-1 min-w-0 truncate">{r.a}</span>
           {!r.bye && (
             <>
-              <span className={`shrink-0 text-center tabular-nums ${r.score ? "text-t1-accent" : "text-t1-muted"}`} style={{ width: u(110), fontSize: u(r.score ? 30 : 22) }}>
-                {r.score ?? "VS"}
+              <span className={`shrink-0 text-center tabular-nums ${r.score ? "text-t1-accent" : extra.get(r.table) ? "text-t1-warning" : "text-t1-muted"}`}
+                    style={{ width: u(110), fontSize: u(r.score ? 30 : extra.get(r.table) ? 26 : 22) }}>
+                {r.score ?? extra.get(r.table) ?? "VS"}
               </span>
               <span className="flex-1 min-w-0 truncate text-right">{r.b}</span>
             </>
@@ -371,7 +418,9 @@ function PairingsView({ event, size: base, width, height, turns }: { event: Publ
         <ListRow key={`${page}-${i}`} size={size}>
           <span className="flex-1 min-w-0 truncate">{r.name}</span>
           <span className={`shrink-0 text-right tabular-nums ${r.bye ? "text-t1-muted" : "font-bold"}`} style={{ width: u(110), fontSize: u(r.bye ? 24 : 34) }}>{r.table}</span>
-          <span className="flex-1 min-w-0 truncate text-t1-muted">{r.opponent ?? ""}</span>
+          <span className="flex-1 min-w-0 truncate text-t1-muted">
+            {r.opponent ?? ""}{!r.bye && extra.get(r.table) && <span className="text-t1-warning tabular-nums"> · {extra.get(r.table)}</span>}
+          </span>
         </ListRow>
       ))}
     </div>

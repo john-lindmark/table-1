@@ -10,6 +10,8 @@ export const CONSTRUCTED_FORMATS: { value: FormatName; label: string }[] = [
   { value: "premodern", label: "Premodern" },
   { value: "canadian_highlander", label: "Canadian Highlander" },
   { value: "other_constructed", label: "Other" },
+  // Three players a team, each seat its own constructed format (contract/teams-finals-alerts-2026-11-13.md § 1).
+  { value: "team_trios", label: "Team Trios" },
 ];
 
 export const LIMITED_FORMATS: { value: FormatName; label: string }[] = [
@@ -20,7 +22,9 @@ export const LIMITED_FORMATS: { value: FormatName; label: string }[] = [
   { value: "roto", label: "Roto" },
 ];
 
-export const isTeamFormat = (f: FormatName | null | undefined) => f === "team_draft" || f === "team_sealed";
+export const isTeamFormat = (f: FormatName | null | undefined) => f === "team_draft" || f === "team_sealed" || f === "team_trios";
+/** Team Trios: always three a team, a format a seat. */
+export const isTriosFormat = (f: FormatName | null | undefined) => f === "team_trios";
 /** Roto: every card face up, players take turns picking any card (always a cube). */
 export const isRotoFormat = (f: FormatName | null | undefined) => f === "roto";
 export const isDraftFormat = (f: FormatName | null | undefined) => f === "draft" || f === "team_draft";

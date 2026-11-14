@@ -63,6 +63,10 @@ describe("QR join links", () => {
     expect(redactSearch("?player=g%3Abea+lindqvist&view=standings")).toBe("?view=standings");
     expect(redactSearch(`?view=season&sid=${UUID}`)).toBe("?view=season");
     expect(redactSearch("?tab=leagues")).toBe("?tab=leagues");
+    // Stripe's return (the event and the checkout session), a team's join code, the alerts view.
+    expect(redactSearch(`?e=${UUID}&s=cs_test_a1b2&cancelled=1`)).toBe("?cancelled=1");
+    expect(redactSearch("?team=GLCH7K2M")).toBe("");
+    expect(redactSearch("?view=alerts")).toBe("?view=alerts");
   });
 });
 

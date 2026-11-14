@@ -4,6 +4,7 @@ import { matchGroupOf, matchTitle, nameLookup } from "../../lib/organizer";
 import type { Match, Participant } from "../../lib/types";
 import { GhostAction, Modal, Notice } from "../../components/kit";
 import { MatchRow, matchState } from "../../components/MatchRow";
+import { ExtraTime } from "../../components/RoomTools";
 
 /**
  * The organizer's set-result panel: tap a side to cycle its game wins (the existing MatchRow editing),
@@ -17,7 +18,10 @@ export function ResultPanel({
   onSaved,
   onOpenLife,
   playoff = false,
+  extra,
 }: {
+  /** The round being played: Extra time for this table. */
+  extra?: { eventId: string; seconds: number; onChanged: () => void };
   match: Match;
   /** Quarterfinals, semifinals and the final can't end in a draw. */
   playoff?: boolean;
@@ -69,6 +73,7 @@ export function ResultPanel({
       <MatchRow match={draft} participants={byId} canEdit onCycle={cycle} />
       {playoff && state === "draw" && <Notice tone="error">Playoff matches need a winner.</Notice>}
       {error && <Notice tone="error">{error}</Notice>}
+      {extra && <ExtraTime eventId={extra.eventId} matchId={match.id} seconds={extra.seconds} onChanged={extra.onChanged} />}
       {onOpenLife && (
         <GhostAction label="Watch life tracker" onClick={() => onOpenLife(match.id)} />
       )}

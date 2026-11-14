@@ -8,12 +8,13 @@ import { playerSections, podRefs } from "../../lib/draftPods";
 import { RoundsList, StandingsBlock, type PhaseViewProps } from "./shared";
 import { Avatar } from "../../components/Avatar";
 import { useOpenProfile } from "../../lib/personLink";
+import { PrizesTab } from "./Money";
 
 const wld = (w: number, l: number, d: number) => (d > 0 ? `${w}-${l}-${d}` : `${w}-${l}`);
 
 /** Results: Standings (winner card, final standings) | Rounds (newest first, tap to correct) | Players. */
 export function ResultsView(props: PhaseViewProps) {
-  const { bundle, tab, isTeam, teams, teamNames, onOpenMatch } = props;
+  const { eventId, bundle, tab, isTeam, teams, teamNames, onOpenMatch, money = null, reloadMoney } = props;
   const { event, rounds, participants } = bundle;
   const cancelled = event.status === "cancelled";
   const standings = playoffStandings(participants, rounds);
@@ -49,6 +50,8 @@ export function ResultsView(props: PhaseViewProps) {
           )}
         </>
       )}
+
+      {tab === "prizes" && money?.fee && <PrizesTab eventId={eventId} money={money} onChanged={() => reloadMoney?.()} />}
 
       {tab === "players" && (
         <>

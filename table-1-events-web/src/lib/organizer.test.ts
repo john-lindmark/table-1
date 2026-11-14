@@ -24,6 +24,7 @@ import {
   setupSubtitle,
   startBlocker,
   startDialog,
+  cutFor,
 } from "./organizer";
 import type { EventStatus, Match, Participant, RoundWithMatches, Table1Event } from "./types";
 
@@ -52,7 +53,7 @@ function event(extra: Partial<Table1Event> = {}): Table1Event {
     roundLengthSeconds: 3000, allowPlayerReporting: true, createdBy: "u1", cancelReason: null, formatName: "draft",
     formatLabel: "Draft", eventType: "limited", teamSize: null, setName: null, cubeName: null, cubeUrl: null, setCode: null,
     formatOther: null, cancelledAt: null, updatedAt: "2026-10-12T20:00:00Z", showClock: true, autoName: false, pairing: "swiss", topCut: 0, autoRounds: false, seatEnds: false, visibility: "link_only",
-    capacity: null, startsAt: null, venueName: null, decklists: "off", pods: null, podPairing: "cross", ...extra,
+    capacity: null, startsAt: null, venueName: null, decklists: "off", pods: null, podPairing: "cross", seatFormats: null, teamSignup: false, ...extra,
   };
 }
 
@@ -282,6 +283,52 @@ describe("big actions", () => {
     expect(liveAction(e, [done(1), done(2), done(3, "quarterfinal")], null, 12).label).toBe("Pair semifinals");
     expect(liveAction(e, [done(1), done(2), done(3, "quarterfinal"), done(4, "semifinal")], null, 12).label).toBe("Pair the final");
     expect(liveAction(e, [done(1), done(2), done(3, "quarterfinal"), done(4, "semifinal"), done(5, "final")], null, 12).kind).toBe("finish");
+  });
+});
+
+describe("live action: top 4 and team events (contract/teams-finals-alerts-2026-11-13.md § 1)", () => {
+  const done = (n: number, stage: RoundWithMatches["stage"] = "swiss") =>
+    round(n, [match(1, "Alex", 2, "Brit", 0)], { status: "recorded", stage });
+
+  it("a top 4 event cuts after Swiss, straight to the semifinals", () => {
+    const e = event({ formatName: "modern", numberOfRounds: 2, topCut: 4 });
+    expect(liveAction(e, [done(1)], null, 8).label).toBe("Pair round 2");
+    expect(liveAction(e, [done(1), done(2)], null, 8)).toEqual({ kind: "cut", label: "Cut to top 4" });
+    // Four or fewer active players: nothing to cut, the event finishes after Swiss.
+    expect(liveAction(e, [done(1), done(2)], null, 4)).toEqual({ kind: "finish", label: "Finish event" });
+    expect(liveAction(e, [done(1), done(2), done(3, "semifinal")], null, 8).label).toBe("Pair the final");
+    expect(liveAction(e, [done(1), done(2), done(3, "semifinal"), done(4, "final")], null, 8).kind).toBe("finish");
+  });
+
+  it("team sealed and Team Trios cut between teams: active teams count, never players", () => {
+    for (const formatName of ["team_trios", "team_sealed"] as const) {
+      const e = event({ formatName, teamSize: 3, numberOfRounds: 2, topCut: 4 });
+      expect(liveAction(e, [done(1), done(2)], null, 18, 6), formatName).toEqual({ kind: "cut", label: "Cut to top 4" });
+      expect(liveAction(e, [done(1), done(2)], null, 12, 4), formatName).toEqual({ kind: "finish", label: "Finish event" });
+      expect(liveAction(e, [done(1), done(2), done(3, "semifinal")], null, 18, 6).label).toBe("Pair the final");
+    }
+  });
+
+  it("a cut the format can't have is never offered", () => {
+    // A team draft has no cut; team events never cut to 8; a round robin roto has none.
+    expect(liveAction(event({ formatName: "team_draft", teamSize: 3, numberOfRounds: 2, topCut: 4 }), [done(1), done(2)], null, 6, 2).kind).toBe("finish");
+    expect(liveAction(event({ formatName: "team_trios", teamSize: 3, numberOfRounds: 2, topCut: 8 }), [done(1), done(2)], null, 30, 10).kind).toBe("finish");
+    expect(liveAction(event({ formatName: "roto", pairing: "round_robin", numberOfRounds: 2, topCut: 8 }), [done(1), done(2)], null, 12).kind).toBe("finish");
+  });
+
+  it("the Prizes tab joins Results when there are prizes", () => {
+    expect(phaseTabs("results", { isTeam: false, isDraft: false })).toEqual(["standings", "rounds", "players"]);
+    expect(phaseTabs("results", { isTeam: false, isDraft: false, prizes: true })).toEqual(["standings", "rounds", "players", "prizes"]);
+  });
+
+  it("details keep a cut only where the format can have it, and Team Trios is always three a team", () => {
+    const base = detailsFromEvent(event({ formatName: "modern", topCut: 4 }));
+    expect(detailsToInput(base).topCut).toBe(4);
+    expect(detailsToInput({ ...base, formatName: "team_trios", teamSize: 4, topCut: 4 })).toMatchObject({ topCut: 4, teamSize: 3 });
+    expect(detailsToInput({ ...base, formatName: "team_trios", topCut: 8 }).topCut).toBe(0);
+    expect(detailsToInput({ ...base, formatName: "team_draft", topCut: 4 }).topCut).toBe(0);
+    expect(detailsToInput({ ...base, formatName: "team_sealed", topCut: 4 }).topCut).toBe(4);
+    expect(cutFor("roto", "round_robin", 8)).toBe(0);
   });
 });
 

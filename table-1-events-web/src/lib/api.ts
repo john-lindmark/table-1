@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { isLibraryDemo } from "./libraryDemo";
 import type { TrackerNextAnswer } from "./trackerNext";
 import { getLocalParticipant } from "./session";
 import { loadSaved, saveAnswer } from "./offline";
@@ -22,6 +23,7 @@ import type {
   EventFormat,
   EventTeam,
   FormatName,
+  TopCut,
   HomeData,
   LiveSnapshot,
   Match,
@@ -109,8 +111,10 @@ const toEvent = (r: any): Table1Event => ({
   showClock: r.show_clock ?? true,
   autoName: r.auto_name ?? false,
   pairing: r.pairing === "round_robin" ? "round_robin" : "swiss",
-  topCut: r.top_cut === 8 ? 8 : 0,
+  topCut: r.top_cut === 8 ? 8 : r.top_cut === 4 ? 4 : 0,
   autoRounds: r.auto_rounds ?? false,
+  seatFormats: Array.isArray(r.seat_formats) && r.seat_formats.length ? r.seat_formats : null,
+  teamSignup: r.team_signup ?? false,
   seatEnds: r.seat_ends ?? false,
   visibility: ["public", "friends", "nearby", "private"].includes(r.visibility) ? r.visibility : "link_only",
   capacity: r.capacity ?? null,
@@ -158,6 +162,7 @@ const toMatch = (r: any): Match => ({
   reportedByParticipant: r.reported_by_participant ?? null,
   resultSource: r.result_source ?? null,
   updatedAt: r.updated_at ?? null,
+  extraSeconds: r.extra_seconds ?? 0,
 });
 
 const toRound = (r: any): RoundWithMatches => ({
@@ -224,6 +229,11 @@ export function toPreview(r: any): EventPreview | null {
 /** The whole event in one call. event_bundle lets in organizers, players and (with the claim token kept on this
  *  device) walk-in guests; anyone else gets "That event isn't available". */
 export async function fetchBundle(eventId: string): Promise<EventBundle> {
+  // Dev server, `?demo`: the phases 2 to 4 stand-in events (lib/phasesDemo.ts) open on the real screens.
+  if (import.meta.env.DEV && isLibraryDemo() && eventId.startsWith("demo-")) {
+    const made = (await import("./phasesDemo")).demoBundle(eventId);
+    if (made) return made;
+  }
   const token = getLocalParticipant(eventId)?.token ?? null;
   const { data, error } = await supabase.rpc("event_bundle", { p_event_id: eventId, p_token: token });
   if (error) throw error;
@@ -389,7 +399,21 @@ export interface PublicTeamRow {
   draws: number;
   /** Individual match wins across the team's members. */
   matchWins: number;
-  members: { participantId: string; displayName: string; matchWins: number; matchLosses: number; matchDraws: number; status: string }[];
+  members: { participantId: string; displayName: string; matchWins: number; matchLosses: number; matchDraws: number; status: string; slot?: number | null }[];
+  /** Top 4 between teams: `rank` is the final order once it is cut; this is the Swiss standing and how far the team went. */
+  swissRank?: number;
+  playoff?: "winner" | "final" | "semifinal" | "quarterfinal" | null;
+}
+
+/** A team event's top 4 as events-engine draws it (teams.ts `teamBracket`): team against team, with the seats' matches. */
+export interface PublicTeamBracketStage {
+  stage: "quarterfinal" | "semifinal" | "final";
+  matches: {
+    table_number: number | null; status: string; winner: string | null;
+    sides: { seed: number | null; team_id: string; name: string | null; match_wins: number }[];
+    matches: { match_id: string; table_number: number | null; is_bye: boolean; status: string; winner: string | null;
+               sides: { participant_id: string | null; display_name: string | null; slot: number | null; game_wins: number }[] }[];
+  }[];
 }
 
 export interface PublicStandings {
@@ -398,6 +422,8 @@ export interface PublicStandings {
   pods: { id: string; name: string | null }[];
   /** Team events only; null otherwise. */
   teams: PublicTeamRow[] | null;
+  /** Team events with a top 4, once the semifinals are paired ([] until then and for every other event). */
+  teamBracket: PublicTeamBracketStage[];
 }
 
 export async function fetchPublicStandingsAndBracket(eventId: string): Promise<PublicStandings> {
@@ -408,6 +434,7 @@ export async function fetchPublicStandingsAndBracket(eventId: string): Promise<P
 /** events-engine's `standings` answer, as the public pages read it. */
 export function toPublicStandings(data: {
   standings?: any[]; bracket?: PublicBracketStage[]; seating?: SeatingPod[] | null; teams?: any[] | null;
+  team_bracket?: PublicTeamBracketStage[] | null;
 }): PublicStandings {
   // Drafts: the pods in order (engine seating), for Matchups by pod.
   const pods = (data.seating ?? []).map((p) => ({ id: p.pod_id, name: p.name ?? null }));
@@ -417,11 +444,12 @@ export function toPublicStandings(data: {
         draws: t.draws ?? 0, matchWins: t.match_wins ?? 0,
         members: (t.members ?? []).map((m: any) => ({
           participantId: m.participant_id, displayName: m.display_name, matchWins: m.match_wins ?? 0,
-          matchLosses: m.match_losses ?? 0, matchDraws: m.match_draws ?? 0, status: m.status ?? "active",
+          matchLosses: m.match_losses ?? 0, matchDraws: m.match_draws ?? 0, status: m.status ?? "active", slot: m.slot ?? null,
         })),
+        swissRank: t.swiss_rank ?? t.rank, playoff: t.playoff ?? null,
       }))
     : null;
-  return { bracket: data.bracket ?? [], pods, teams, rows: (data.standings ?? []).map((s) => ({
+  return { bracket: data.bracket ?? [], teamBracket: data.team_bracket ?? [], pods, teams, rows: (data.standings ?? []).map((s) => ({
     podId: s.pod_id ?? null,
     rank: s.rank,
     participantId: s.participant_id,
@@ -442,6 +470,8 @@ export function toPublicStandings(data: {
  * many rows (seating updates every participant), so a burst of changes becomes one refetch.
  */
 export function subscribeToEvent(eventId: string, onChange: () => void) {
+  // Dev server, `?demo`: a stand-in event has no channel to listen on.
+  if (import.meta.env.DEV && isLibraryDemo() && eventId.startsWith("demo-")) return () => {};
   // The server pings the public topic event:<id> (event `changed`, no data) on every write, so guests hear it too;
   // the data itself comes from event_bundle / event_public, which check who's asking. A rejoin also refetches, since
   // a ping sent while away is lost.
@@ -903,7 +933,7 @@ export interface EventDetailsInput {
   formatOther: string | null;
   /** Roto only (null keeps). */
   pairing?: "swiss" | "round_robin" | null;
-  topCut?: 0 | 8;
+  topCut?: TopCut;
   autoRounds?: boolean;
   decklists?: "off" | "optional" | "required";
   /** true = the automatic name (name ignored), false = name. */
@@ -1050,7 +1080,7 @@ export interface CreateEventV2Input {
   startsAt?: string | null;
   venueName?: string | null;
   capacity?: number | null;
-  topCut?: 0 | 8;
+  topCut?: TopCut;
   autoRounds?: boolean;
   decklists?: "off" | "optional" | "required";
 }
@@ -1093,6 +1123,13 @@ export async function createEventV2(input: CreateEventV2Input): Promise<{ eventI
     pairing: input.pairing ?? "swiss",
   });
   return { eventId: data.event_id, shortCode: data.short_code };
+}
+
+/** Team Trios before round 1: the format each seat plays, A first (22023 for a bad list, 55000 once round 1 is paired). */
+export async function setEventTrios(eventId: string, seatFormats: string[]): Promise<string[]> {
+  const { data, error } = await supabase.rpc("set_event_trios", { p_event_id: eventId, p_seat_formats: seatFormats });
+  if (error) throw error;
+  return (data?.seat_formats ?? seatFormats) as string[];
 }
 
 /** The device's calendar date (YYYY-MM-DD), so the event's name says the day it is here. */
@@ -1275,6 +1312,7 @@ export async function fetchEngineStandings(eventId: string): Promise<EngineStand
 }
 
 export async function fetchEventTeams(eventId: string): Promise<EventTeam[]> {
+  if (import.meta.env.DEV && isLibraryDemo() && eventId.startsWith("demo-")) return (await import("./phasesDemo")).demoTeams(eventId);
   const token = getLocalParticipant(eventId)?.token ?? null;
   const { data, error } = await supabase.rpc("get_event_teams", { p_event_id: eventId, p_token: token });
   if (error) throw error;

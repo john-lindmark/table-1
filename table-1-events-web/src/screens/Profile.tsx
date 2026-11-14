@@ -18,6 +18,9 @@ import { useOpenProfile } from "../lib/personLink";
 import type { AccountOverview } from "../lib/types";
 import { useSession } from "../lib/useSession";
 import { isLibraryDemo } from "../lib/libraryDemo";
+
+/** Account → Payments: its chunk loads with the row. */
+const PaymentsAccountRow = lazy(() => import("./Pay").then((m) => ({ default: m.PaymentsAccountRow })));
 import { DEMO_OVERVIEW } from "../lib/profileDemo";
 import { loadMyDeckPhotos, myDeckPhotoSummary } from "../lib/deckPhotos";
 import { Bar, Menu, Notice, Row, Screen, Segmented, TabNav, type MenuItem } from "../components/kit";
@@ -269,6 +272,8 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
             {onNotices && onReview && <ModerationAccountRows onNotices={onNotices} onReview={onReview} />}
           </Suspense>
         )}
+        {/* Entry fees go to a host's own Stripe account (contract/entry-fees-2026-11-13.md § 1); hidden until the server has payments. */}
+        {(userId || demoAccount) && <Suspense fallback={null}><PaymentsAccountRow /></Suspense>}
 
         {onDiscord && (
           <>
