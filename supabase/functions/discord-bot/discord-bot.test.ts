@@ -248,6 +248,7 @@ Deno.test("team results: each team on its own, members best first under it", () 
   assert(sofar.fields?.[0].name.startsWith("1. Team"), "no trophy before the end");
   assertEquals(sofar.footer.text, "Table 1 · After round 2 of 3");
   assert(isTeamFormat("team_draft") && isTeamFormat("team_sealed") && !isTeamFormat("draft") && !isTeamFormat(null));
+  assert(isTeamFormat("team_trios") && !isTeamFormat("sealed") && !isTeamFormat("modern"), "Team Trios results post by team");
   assert(resultsEmbed(done, players, true, []).description?.startsWith("🏆 P0"), "no teams: the players' list");
 });
 

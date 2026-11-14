@@ -26,6 +26,12 @@
 // Team sealed and Team Trios (team_trios: three seats, a constructed format
 // each): Swiss between teams; seat A plays seat A, B plays B, and so on.
 //
+// A team a player short. Team sealed: its remaining players move up (with
+// seat B gone, seat C plays the other team's seat B) and the other team's
+// last seat has the bye. Team Trios: seats never move, since each seat is a
+// format: seat C still plays seat C, and the dropped seat's opponent has the
+// bye. Either way the bye is a match win for its team.
+//
 // Top 4 (team sealed and Team Trios with top_cut 4; never a team draft, never
 // a top 8). After the Swiss rounds, with 5 or more active teams:
 //
@@ -89,6 +95,8 @@ const MIN_PCT = 1 / 3;
 export const isTeamSwiss = (format: string | null | undefined) => format === "team_sealed" || format === "team_trios";
 /** Every team format: team draft (two teams), team sealed, Team Trios. */
 export const isTeamEvent = (format: string | null | undefined) => format === "team_draft" || isTeamSwiss(format);
+/** Team Trios: a seat is a format, so seat A only ever plays seat A, whoever has dropped. */
+export const pairsBySeat = (format: string | null | undefined) => format === "team_trios";
 
 const isSwissRound = (r: RoundWithMatches) => stageOf(r as StagedRound) === "swiss";
 
@@ -337,22 +345,42 @@ export function activeTeams(teams: Team[], participants: Participant[]): Team[] 
 }
 
 /**
- * The matches of team matches: slot against slot among each team's active members, the first team of a pair on
- * side 0. A member without an opponent (the other team is a player short) gets a bye, as does every member of
- * `byeTeam`. Byes take the last tables.
+ * The matches of team matches, the first team of a pair on side 0: each team's active members in seat order, first
+ * against first and so on, so a team a player short moves its later seats up. With `bySeat` (Team Trios) seats never
+ * move: a member only plays the other team's member on the same seat. A member without an opponent gets a bye, as
+ * does every member of `byeTeam`. Byes take the last tables.
  */
-function seatMatches(pairs: [string, string][], byeTeam: string | null, participants: Participant[]): ProposedMatch[] {
+function seatMatches(
+  pairs: [string, string][], byeTeam: string | null, participants: Participant[], bySeat = false,
+): ProposedMatch[] {
   const matches: ProposedMatch[] = [];
   const byes: string[] = [];
   for (const [ta, tb] of pairs) {
-    const a = membersOf(ta, participants);
-    const b = membersOf(tb, participants);
+    let a: (Participant | undefined)[] = membersOf(ta, participants);
+    let b: (Participant | undefined)[] = membersOf(tb, participants);
+    if (bySeat) {
+      // Line both teams up by seat number, leaving a gap where a seat has nobody active.
+      const seatOf = (p: Participant | undefined) => p!.teamSlot ?? 99;
+      const [ma, mb] = [a, b];
+      const lined = (members: (Participant | undefined)[], seat: number, nth: number) =>
+        members.filter((p) => seatOf(p) === seat)[nth];
+      a = [];
+      b = [];
+      for (const seat of [...new Set([...ma, ...mb].map(seatOf))].sort((x, y) => x - y)) {
+        const most = Math.max(ma.filter((p) => seatOf(p) === seat).length, mb.filter((p) => seatOf(p) === seat).length);
+        for (let nth = 0; nth < most; nth++) {
+          a.push(lined(ma, seat, nth));
+          b.push(lined(mb, seat, nth));
+        }
+      }
+    }
     const n = Math.max(a.length, b.length);
     for (let i = 0; i < n; i++) {
-      if (a[i] && b[i]) {
-        matches.push({ tableNumber: matches.length + 1, side0ParticipantId: a[i].id, side1ParticipantId: b[i].id, isBye: false });
+      const [x, y] = [a[i], b[i]];
+      if (x && y) {
+        matches.push({ tableNumber: matches.length + 1, side0ParticipantId: x.id, side1ParticipantId: y.id, isBye: false });
       } else {
-        byes.push((a[i] ?? b[i]).id);
+        byes.push((x ?? y)!.id);
       }
     }
   }
@@ -363,13 +391,17 @@ function seatMatches(pairs: [string, string][], byeTeam: string | null, particip
   return matches;
 }
 
-/** Team sealed / Team Trios round: Swiss between teams, then slot vs slot inside each team match. */
+/**
+ * Team sealed / Team Trios round: Swiss between teams, then slot vs slot inside each team match. `bySeat` (Team
+ * Trios) keeps every player on their own seat when a team is a player short.
+ */
 export function pairTeamSwissRound(
   teams: Team[],
   participants: Participant[],
   rounds: RoundWithMatches[],
   roundNumber: number,
   rng: () => number = Math.random,
+  bySeat = false,
 ): ProposedMatch[] {
   const live = activeTeams(teams, participants);
   if (live.length === 0) return [];
@@ -400,7 +432,7 @@ export function pairTeamSwissRound(
     pool.splice(pool.indexOf(byeTeam), 1);
   }
   const pairs = solveTeams(pool, played) ?? solveTeams(pool, new Set()) ?? [];
-  return seatMatches(pairs, byeTeam, participants);
+  return seatMatches(pairs, byeTeam, participants, bySeat);
 }
 
 // ── Top 4 between teams ──────────────────────────────────────────────────────────────────────────────────────
@@ -450,10 +482,29 @@ export function teamSeeds(teams: Team[], participants: Participant[], rounds: Ro
   const semis = rounds.find((r) => stageOf(r as StagedRound) === "semifinal");
   if (semis) {
     const teamOf = new Map(participants.map((p) => [p.id, p.teamId ?? null]));
-    teamPairsIn(semis, teamOf).slice(0, SEMIS.length).forEach(([hi, lo], i) => {
-      out.set(hi, SEMIS[i][0]);
-      out.set(lo, SEMIS[i][1]);
-    });
+    const pairs = teamPairsIn(semis, teamOf).slice(0, SEMIS.length);
+    if (pairs.length === SEMIS.length) {
+      pairs.forEach(([hi, lo], i) => {
+        out.set(hi, SEMIS[i][0]);
+        out.set(lo, SEMIS[i][1]);
+      });
+      return out;
+    }
+    // A semifinal where no seat met (Team Trios: two teams each short of the seats the other still has) is all
+    // byes and names no pair. The teams in the round, in Swiss order, say the rest: the pair that did meet is
+    // 1 v 4 when its higher seed stands above both other teams, else 2 v 3.
+    const there = new Set(semis.matches.flatMap((m) => m.sides.map((x) => (x.participantId ? teamOf.get(x.participantId) : null))));
+    const order = teamSwissStandings(teams, participants, rounds).map((t) => t.teamId).filter((id) => there.has(id));
+    if (pairs.length === 0) {
+      order.slice(0, 4).forEach((id, i) => out.set(id, i + 1));
+      return out;
+    }
+    const [hi, lo] = pairs[0];
+    const rest = order.filter((id) => id !== hi && id !== lo).slice(0, 2);
+    const slot = rest.length === 0 || order.indexOf(hi) < order.indexOf(rest[0]) ? 0 : 1;
+    out.set(hi, SEMIS[slot][0]);
+    out.set(lo, SEMIS[slot][1]);
+    rest.forEach((id, i) => out.set(id, SEMIS[1 - slot][i]));
     return out;
   }
   const active = new Set(activeTeams(teams, participants).map((t) => t.id));
@@ -537,25 +588,25 @@ export function teamPlayoffMatches(teams: Team[], participants: Participant[], r
   return out;
 }
 
-/** Pairings for a team playoff stage. Throws when the stage before it isn't finished. */
+/** Pairings for a team playoff stage. Throws when the stage before it isn't finished. `bySeat`: see seatMatches. */
 export function pairTeamPlayoff(
-  stage: "semifinal" | "final", teams: Team[], participants: Participant[], rounds: RoundWithMatches[],
+  stage: "semifinal" | "final", teams: Team[], participants: Participant[], rounds: RoundWithMatches[], bySeat = false,
 ): ProposedMatch[] {
   const seed = teamSeeds(teams, participants, rounds);
   if (stage === "semifinal") {
     const bySeed = new Map([...seed].map(([id, n]) => [n, id]));
     if (bySeed.size < 4) throw new Error("Top 4 needs 5 or more teams");
-    return seatMatches(SEMIS.map(([x, y]) => [bySeed.get(x)!, bySeed.get(y)!]), null, participants);
+    return seatMatches(SEMIS.map(([x, y]) => [bySeed.get(x)!, bySeed.get(y)!]), null, participants, bySeat);
   }
   const semis = teamPlayoffMatches(teams, participants, rounds).filter((m) => m.stage === "semifinal");
   if (semis.length !== 2 || semis.some((m) => !m.winner)) throw new Error("Every playoff match needs a winner first");
   const [a, b] = semis.map((m) => m.winner!);
-  return seatMatches([(seed.get(a) ?? 99) <= (seed.get(b) ?? 99) ? [a, b] : [b, a]], null, participants);
+  return seatMatches([(seed.get(a) ?? 99) <= (seed.get(b) ?? 99) ? [a, b] : [b, a]], null, participants, bySeat);
 }
 
 /**
  * Pairings for a team event's next round, whatever its format and stage: a team draft's rotation, Swiss between
- * teams (team sealed, Team Trios), or the top 4's team semifinals and final.
+ * teams (team sealed, Team Trios), or the top 4's team semifinals and final. Team Trios pairs by seat number.
  */
 export function pairTeamStage(
   format: string | null | undefined, stage: Stage, teams: Team[], participants: Participant[], rounds: RoundWithMatches[],
@@ -565,10 +616,10 @@ export function pairTeamStage(
     if (format === "team_draft") {
       return pairTeamDraftRound(membersOf(teams[0].id, participants), membersOf(teams[1].id, participants), roundNumber);
     }
-    return pairTeamSwissRound(teams, participants, rounds.filter(isSwissRound), roundNumber, rng);
+    return pairTeamSwissRound(teams, participants, rounds.filter(isSwissRound), roundNumber, rng, pairsBySeat(format));
   }
   if (stage === "quarterfinal" || !isTeamSwiss(format)) throw new Error(teamCutProblem(format, 8) ?? "Team events cut to top 4");
-  return pairTeamPlayoff(stage, teams, participants, rounds);
+  return pairTeamPlayoff(stage, teams, participants, rounds, pairsBySeat(format));
 }
 
 export interface TeamBracketStage {

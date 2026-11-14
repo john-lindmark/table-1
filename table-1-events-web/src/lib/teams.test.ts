@@ -3,9 +3,9 @@ import { acrossTheTable, podSizes, seatDraft, seatTeamDraft, passDirection } fro
 import { mulberry32, pairRound, type ProposedMatch } from "./pairings";
 import { bracket, nextStep, playoffStandings, swissRounds, type Stage, type StagedRound } from "./playoffs";
 import {
-  activeTeams, computeTeamStandings, isTeamEvent, isTeamSwiss, nextTeamStage, pairTeamDraftRound, pairTeamPlayoff,
-  pairTeamStage, pairTeamSwissRound, teamBracket, teamClinch, teamCutProblem, teamPlayoffMatches, teamProblems, teamSeeds,
-  teamSwissStandings, type Team,
+  activeTeams, computeTeamStandings, isTeamEvent, isTeamSwiss, nextTeamStage, pairsBySeat, pairTeamDraftRound, pairTeamPlayoff,
+  pairTeamStage, pairTeamSwissRound, teamBracket, teamClinch, teamCutProblem, teamPlayoffMatches, teamProblems, teamRoundResults,
+  teamSeeds, teamSwissStandings, type Team,
 } from "./teams";
 import type { Match, Participant, RoundWithMatches } from "./types";
 
@@ -302,11 +302,10 @@ describe("Team Trios", () => {
     expect(teamProblems(teams, makePlayers(teams, 3), 3, "team_trios")).toBeNull();
   });
 
-  it("pairs and ranks exactly as team sealed does for the same results", () => {
+  it("pairs and ranks exactly as team sealed does for the same results (full teams)", () => {
     for (const count of [2, 3, 5, 6, 8, 11]) {
-      const dropper = (r: number, ps: Participant[]) => (r === 1 && count > 5 ? dropWhere(ps, (x) => x.id === "t02b", 1) : ps);
-      const sealed = teamSwiss("team_sealed", count, 3, 40 + count, dropper);
-      const trios = teamSwiss("team_trios", count, 3, 40 + count, dropper);
+      const sealed = teamSwiss("team_sealed", count, 3, 40 + count);
+      const trios = teamSwiss("team_trios", count, 3, 40 + count);
       expect(trios.pairings, `${count} teams`).toEqual(sealed.pairings);
       for (const m of sealed.pairings[0].filter((x) => !x.isBye)) expect(m.side0ParticipantId.at(-1)).toBe(m.side1ParticipantId!.at(-1));
       expect(computeTeamStandings(trios.teams, trios.ps, trios.rounds).map((t) => [t.teamId, t.rank, t.points, t.matchWins, t.gameWinPct]))
@@ -384,18 +383,74 @@ describe("team top 4", () => {
     }
   });
 
-  it("a short-handed seed: its seats move up, the other team's last seat has a bye that counts as a win", () => {
+  /** Six teams of 3, scripted so t01 finishes first: the lower team id wins every Swiss match. */
+  function scripted(format: string) {
     const teams = makeTeams(6);
-    let ps = makePlayers(teams, 3);
+    const ps = makePlayers(teams, 3);
     const rounds: StagedRound[] = [];
     const total = swissRounds(6);
     for (let r = 1; r <= total; r++) {
-      rounds.push(playStage("swiss", r, pairTeamStage("team_trios", "swiss", teams, ps, rounds, r, mulberry32(r)), (a, b) => (a < b ? a : b)));
+      rounds.push(playStage("swiss", r, pairTeamStage(format, "swiss", teams, ps, rounds, r, mulberry32(r)), (a, b) => (a < b ? a : b)));
     }
     const top = teamSwissStandings(teams, ps, rounds).slice(0, 4).map((t) => t.teamId);
     expect(top[0]).toBe("t01");
-    ps = dropWhere(ps, (x) => x.id === "t01b", total);
+    return { teams, ps, rounds, total, top };
+  }
+
+  it("Team Trios pairs by seat number: a dropped seat never moves the others up, in Swiss or in the semifinals", () => {
+    expect(["team_trios", "team_sealed", "team_draft", null].map(pairsBySeat)).toEqual([true, false, false, false]);
+    const seatsOf = (ms: ProposedMatch[]) => ({
+      matches: ms.filter((m) => !m.isBye).map((m) => [m.side0ParticipantId, m.side1ParticipantId!].sort().join("-")).sort(),
+      byes: ms.filter((m) => m.isBye).map((m) => m.side0ParticipantId).sort(),
+    });
+    // Swiss, seat B of t01 dropped: C still plays C, and t02's seat B has the bye. Team sealed is as it always was.
+    const two = makeTeams(2);
+    const short = dropWhere(makePlayers(two, 3), (x) => x.id === "t01b", 1);
+    for (const seed of [1, 2, 3]) {
+      expect(seatsOf(pairTeamStage("team_trios", "swiss", two, short, [], 2, mulberry32(seed)))).toEqual({ matches: ["t01a-t02a", "t01c-t02c"], byes: ["t02b"] });
+      const sealed = pairTeamStage("team_sealed", "swiss", two, short, [], 2, mulberry32(seed));
+      expect(seatsOf(sealed)).toEqual({ matches: ["t01a-t02a", "t01c-t02b"], byes: ["t02c"] });
+      expect(pairTeamSwissRound(two, short, [], 2, mulberry32(seed))).toEqual(sealed);
+    }
+    // The bye is a match win for its team.
+    const r1 = playStage("swiss", 1, pairTeamStage("team_trios", "swiss", two, short, [], 1, mulberry32(1)),
+      (a, b) => ([a, b].includes("t01a") ? "t01a" : [a, b].find((id) => id.startsWith("t02"))!));
+    expect(teamRoundResults(two, short, [r1]).get(1)!.get("t02")).toEqual({ result: "win", opponent: "t01", won: 2, lost: 1 });
+    // Both teams missing different seats: only the A seats meet, a bye each. Team sealed moves both up.
+    const both = dropWhere(short, (x) => x.id === "t02c", 1);
+    expect(seatsOf(pairTeamStage("team_trios", "swiss", two, both, [], 2, mulberry32(7)))).toEqual({ matches: ["t01a-t02a"], byes: ["t01c", "t02b"] });
+    expect(seatsOf(pairTeamStage("team_sealed", "swiss", two, both, [], 2, mulberry32(7)))).toEqual({ matches: ["t01a-t02a", "t01c-t02b"], byes: [] });
+
+    // Semifinal, seat B of seed 1 dropped: A v A, C v C, seed 4's seat B has the bye on the last table.
+    const { teams, rounds, total, top, ...rest } = scripted("team_trios");
+    const [one, four] = [top[0], top[3]];
+    const mine = (ms: ProposedMatch[]) => ms.filter((m) => [one, four].includes(teamOfId(m.side0ParticipantId)))
+      .map((m) => [m.tableNumber, m.side0ParticipantId, m.side1ParticipantId]);
+    let ps = dropWhere(rest.ps, (x) => x.id === `${one}b`, total);
+    const sf = pairTeamStage("team_trios", "semifinal", teams, ps, rounds, total + 1);
+    expect(sf).toEqual(pairTeamPlayoff("semifinal", teams, ps, rounds, true));
+    expect(mine(sf)).toEqual([[1, `${one}a`, `${four}a`], [2, `${one}c`, `${four}c`], [6, `${four}b`, null]]);
+    expect(mine(pairTeamStage("team_sealed", "semifinal", teams, ps, rounds, total + 1)))
+      .toEqual([[1, `${one}a`, `${four}a`], [2, `${one}c`, `${four}b`], [6, `${four}c`, null]]);
+    const split = playStage("semifinal", total + 1, sf, (a, b) => (a === `${one}c` ? b : a));
+    expect(teamPlayoffMatches(teams, ps, [...rounds, split])[0]).toMatchObject({ teamIds: [one, four], wins: [1, 2], winner: four });
+    // No seat meets (seed 1 down to seat A, seed 4 to seat B): a bye each, level, so the higher seed goes on, and
+    // the seeds are still read back right.
+    ps = dropWhere(ps, (x) => [`${one}c`, `${four}a`, `${four}c`].includes(x.id), total);
+    const none = playStage("semifinal", total + 1, pairTeamStage("team_trios", "semifinal", teams, ps, rounds, total + 1), (a) => a);
+    expect(none.matches.filter((m) => m.isBye).map((m) => m.sides[0].participantId)).toEqual([`${one}a`, `${four}b`]);
+    expect([...teamSeeds(teams, ps, [...rounds, none])].sort((a, b) => a[1] - b[1]).map(([id]) => id)).toEqual(top);
+    expect(teamPlayoffMatches(teams, ps, [...rounds, none]).map((m) => [m.teamIds, m.wins, m.winner]))
+      .toEqual([[[one, four], [1, 1], one], [[top[1], top[2]], [3, 0], top[1]]]);
+    expect(pairTeamStage("team_trios", "final", teams, ps, [...rounds, none], total + 2).map((m) => [m.side0ParticipantId, m.side1ParticipantId]))
+      .toEqual([[`${one}a`, `${top[1]}a`], [`${top[1]}b`, null], [`${top[1]}c`, null]]);
+  });
+
+  it("team sealed, a short-handed seed: its seats move up, the other team's last seat has a bye that counts as a win", () => {
+    const { teams, rounds, total, top, ...rest } = scripted("team_sealed");
+    let ps = dropWhere(rest.ps, (x) => x.id === "t01b", total);
     const sf = pairTeamPlayoff("semifinal", teams, ps, rounds);
+    expect(pairTeamStage("team_sealed", "semifinal", teams, ps, rounds, total + 1)).toEqual(sf);
     expect(sf.filter((m) => teamOfId(m.side0ParticipantId) === "t01").map((m) => [m.side0ParticipantId, m.side1ParticipantId]))
       .toEqual([["t01a", `${top[3]}a`], ["t01c", `${top[3]}b`]]);
     expect(sf.filter((m) => m.isBye).map((m) => [m.tableNumber, m.side0ParticipantId])).toEqual([[6, `${top[3]}c`]]);
@@ -407,7 +462,7 @@ describe("team top 4", () => {
     expect([...teamSeeds(teams, gone, rounds).keys()]).not.toContain(top[1]);
     expect(teamSeeds(teams, gone, rounds).size).toBe(4);
     const four = dropWhere(gone, (x) => x.teamId === top[2], total);
-    expect(nextTeamStage("team_trios", teams, four, rounds, total, 4)).toBeNull();
+    expect(nextTeamStage("team_sealed", teams, four, rounds, total, 4)).toBeNull();
   });
 
   it("refuses a top 8 between teams and any cut in a team draft", () => {

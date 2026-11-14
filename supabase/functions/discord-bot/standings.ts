@@ -3,7 +3,7 @@
 // Deploying through the MCP needs these cross-folder imports copied in next to index.ts (as insight-brief does).
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { playoffStandings, type PlayoffStanding, type StagedRound } from "../events-engine/playoffs.ts";
-import { computeTeamStandings, type Team, type TeamStanding } from "../events-engine/teams.ts";
+import { computeTeamStandings, isTeamEvent, type Team, type TeamStanding } from "../events-engine/teams.ts";
 import type { Match, MatchSide, Participant } from "../events-engine/types.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -86,10 +86,11 @@ export function toTeamRows(teams: TeamStanding[]): TeamResultRow[] {
   }));
 }
 
-export const isTeamFormat = (format: string | null | undefined) => format === "team_draft" || format === "team_sealed";
+/** Team draft, team sealed and Team Trios (the engine's own list): their results post by team. */
+export const isTeamFormat = (format: string | null | undefined) => isTeamEvent(format);
 
-/** The players' standings, and for a team event (team draft, team sealed) the teams' too; null otherwise. A draft
- *  with two or more pods tags each player with their pod. */
+/** The players' standings, and for a team event (team draft, team sealed, Team Trios) the teams' too, in final
+ *  order once a top 4 is cut; null otherwise. A draft with two or more pods tags each player with their pod. */
 export async function loadStandings(
   admin: SupabaseClient,
   eventId: string,
