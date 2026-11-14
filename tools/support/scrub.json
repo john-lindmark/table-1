@@ -73,6 +73,10 @@
     {
       "section": "web",
       "starts": "Same as the apps"
+    },
+    {
+      "section": "boards",
+      "starts": "On all three platforms."
     }
   ],
   "replace": [
@@ -154,6 +158,11 @@
     {
       "section": "after",
       "from": "The live reader read the 24 photos posted so far in 11 to 30 seconds each: 18 came to exactly 40 cards in the main deck, the others to 27 to 41 (photos cut off at the frame or shot from far away), and it agreed with an earlier independent read on about 95% of the cards. ",
+      "to": ""
+    },
+    {
+      "section": "find",
+      "from": " Seen on made-up events on all three; no real public event has been listed yet.",
       "to": ""
     }
   ],

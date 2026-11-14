@@ -95,16 +95,16 @@
     "join"
    ],
    "partial": false,
-   "count": 35,
+   "count": 40,
    "top": [
     "faq:play-join:9",
+    "faq:play-team-signup:9",
+    "guide:play-21:6",
     "guide:links-3:6",
     "guide:web-2:6",
     "faq:start-same-account:3",
-    "faq:play-no-account:3",
-    "faq:play-waitlist:3",
-    "faq:organize-create:3",
-    "faq:organize-drop:3"
+    "faq:play-find-visibility:3",
+    "faq:play-no-account:3"
    ]
   },
   {
@@ -114,16 +114,16 @@
     "event"
    ],
    "partial": false,
-   "count": 27,
+   "count": 32,
    "top": [
     "faq:play-join:23",
+    "faq:play-team-signup:13",
+    "faq:play-find-visibility:11",
     "faq:play-waitlist:11",
     "faq:organize-create:11",
+    "guide:play-21:10",
     "guide:play-8:8",
-    "guide:links-3:8",
-    "guide:web-8:8",
-    "guide:discord-10:8",
-    "faq:play-no-account:7"
+    "guide:links-3:8"
    ]
   },
   {
@@ -185,11 +185,11 @@
     "faq:organize-pods:9",
     "guide:create-9:6",
     "guide:run-4:6",
-    "guide:run-13:6",
-    "guide:run-31:6",
+    "guide:run-16:6",
+    "guide:run-39:6",
     "guide:run-3:2",
-    "guide:run-16:2",
-    "guide:run-17:2"
+    "guide:run-19:2",
+    "guide:run-20:2"
    ]
   },
   {
@@ -199,9 +199,9 @@
     "pair"
    ],
    "partial": false,
-   "count": 36,
+   "count": 40,
    "top": [
-    "guide:run-21:18",
+    "guide:run-24:18",
     "faq:play-standings:15",
     "faq:organize-fix-result:15",
     "faq:play-dispute:11",
@@ -218,16 +218,16 @@
     "8"
    ],
    "partial": false,
-   "count": 21,
+   "count": 28,
    "top": [
     "faq:organize-top8:23",
-    "guide:run-22:18",
+    "guide:run-25:18",
     "faq:play-standings:13",
     "guide:create-11:8",
-    "guide:run-24:4",
-    "guide:run-31:4",
-    "guide:run-33:4",
-    "guide:play-3:4"
+    "faq:play-leagues:5",
+    "faq:friends-achievements:5",
+    "guide:run-32:4",
+    "guide:run-39:4"
    ]
   },
   {
@@ -259,7 +259,7 @@
    "top": [
     "faq:trades-price-alerts:23",
     "guide:binders-27:18",
-    "guide:push-8:18",
+    "guide:push-12:18",
     "guide:binders-24:14",
     "guide:binders-28:14",
     "guide:binders-26:10",
@@ -298,10 +298,10 @@
     "faq:play-report:3",
     "faq:organize-pair:3",
     "faq:tracker-result-in:3",
-    "guide:run-12:2",
-    "guide:run-13:2",
-    "guide:run-21:2",
-    "guide:run-23:2"
+    "guide:run-15:2",
+    "guide:run-16:2",
+    "guide:run-24:2",
+    "guide:run-31:2"
    ]
   },
   {
@@ -365,7 +365,7 @@
     "decklist"
    ],
    "partial": false,
-   "count": 24,
+   "count": 26,
    "top": [
     "faq:play-decklist:9",
     "faq:play-deck-photo-list:9",
@@ -404,14 +404,14 @@
    "partial": false,
    "count": 50,
    "top": [
+    "faq:play-find-visibility:9",
     "faq:friends-add:9",
     "faq:friends-follow:9",
+    "guide:find-2:6",
     "guide:rankings-20:6",
     "guide:friends-1:6",
     "guide:friends-4:6",
-    "guide:friends-9:6",
-    "guide:sharing-10:6",
-    "guide:sharing-11:6"
+    "guide:friends-9:6"
    ]
   },
   {
@@ -421,16 +421,16 @@
     "link"
    ],
    "partial": false,
-   "count": 27,
+   "count": 29,
    "top": [
     "guide:run-7:18",
     "guide:links-7:18",
     "faq:organize-schedule:17",
     "faq:friends-link:15",
-    "guide:sharing-18:10",
-    "guide:sharing-19:10",
     "guide:sharing-20:10",
-    "guide:sharing-24:10"
+    "guide:sharing-21:10",
+    "guide:sharing-22:10",
+    "guide:sharing-26:10"
    ]
   },
   {
@@ -458,16 +458,16 @@
     "dont"
    ],
    "partial": false,
-   "count": 24,
+   "count": 28,
    "top": [
     "faq:organize-guests:9",
+    "faq:play-team-signup:3",
     "faq:trades-deck-cards:3",
-    "guide:run-23:2",
+    "guide:run-31:2",
     "guide:play-3:2",
     "guide:play-10:2",
     "guide:play-11:2",
-    "guide:widgets-1:2",
-    "guide:widgets-24:2"
+    "guide:leagues-4:2"
    ]
   },
   {
@@ -535,11 +535,11 @@
     "faq:start-sign-in:9",
     "faq:start-keyboard:9",
     "faq:play-join:9",
-    "faq:play-report:9",
-    "faq:play-leave:9",
-    "faq:play-decklist:9",
-    "faq:play-tiebreakers:9",
-    "faq:play-deck-photo:9"
+    "faq:play-find:9",
+    "faq:play-leagues:9",
+    "faq:play-boards:9",
+    "faq:play-team-signup:9",
+    "faq:play-judge:9"
    ]
   },
   {
@@ -638,7 +638,7 @@
     "faq:friends-block:17",
     "faq:organize-pods:5",
     "guide:friends-9:4",
-    "guide:sharing-25:4"
+    "guide:sharing-27:4"
    ]
   },
   {
@@ -661,12 +661,12 @@
    "top": [
     "faq:start-platforms:11",
     "faq:notifications-on:11",
-    "guide:widgets-40:10",
-    "guide:push-12:10",
+    "guide:widgets-44:10",
+    "guide:push-16:10",
     "guide:account-8:8",
-    "guide:widgets-41:6",
-    "guide:widgets-44:6",
-    "guide:push-7:6"
+    "guide:widgets-45:6",
+    "guide:widgets-48:6",
+    "guide:push-11:6"
    ]
   },
   {

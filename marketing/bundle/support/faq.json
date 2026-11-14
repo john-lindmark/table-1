@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-13",
+  "updated": "2026-11-14",
   "contact": {
     "discord": "https://discord.gg/SEYnjHTGVr",
     "email": "privacy@table-1.site"
@@ -184,7 +184,7 @@
       "id": "play-join",
       "topic": "play",
       "q": "How do I join an event?",
-      "a": "Scan the organizer's QR code, open their link, tap Nearby on the Events tab for open events within 150 m, or type the 4-character event code and tap Join.\n\nCopied the code or a message with it? Paste finds the code in what you copied and joins straight away.",
+      "a": "Scan the organizer's QR code, open their link, tap Nearby on the Events tab for open events within 150 m, or type the 4-character event code and tap Join.\n\nCopied the code or a message with it? Paste finds the code in what you copied and joins straight away.\n\nPublic events, and your friends' Friends events, are also listed under Find events on the Events tab: open one and tap Sign up.",
       "keywords": [
         "join",
         "code",
@@ -193,6 +193,111 @@
         "enter event",
         "sign up",
         "paste"
+      ],
+      "guide": "play"
+    },
+    {
+      "id": "play-find",
+      "topic": "play",
+      "q": "How do I find events near me?",
+      "a": "On the Events tab, scroll to Find events, or tap the search icon in the bar to open Find. Use the filters: Format, Where (Everywhere, or within 25, 50, 100 or 250 km), When (Today, This weekend, This week, This month) and More (Public or Friends events, Team events, League events, Seats left). Picking a distance asks for your location, only then, and it isn't kept.\n\nEach row shows the day and time, format, venue and how far away it is. Tap one for its page, and Sign up there.\n\nOnly events set to Public, and Friends events run by your friends, are listed. For an event that's right where you are, Nearby on the Events tab still lists open events within 150 m.",
+      "keywords": [
+        "find",
+        "near me",
+        "nearby",
+        "search events",
+        "public events",
+        "local",
+        "distance",
+        "filter",
+        "browse"
+      ],
+      "guide": "find"
+    },
+    {
+      "id": "play-find-visibility",
+      "topic": "play",
+      "q": "What do Public, Friends and Private mean on an event?",
+      "a": "They say who can find the event in Find events. Public: everyone on Table 1, and the website signed out. Friends: the organizers' friends. Private: nobody; people join by QR code, event code, link or invitation. New events start Private.\n\nIt's about finding the event, not opening it: a Friends event's link still opens for whoever has it. The organizer picks it under Who can find it when creating the event, and can change it in Setup → Details.\n\nResults in public events are public: standings, league points and the format leaderboards.",
+      "keywords": [
+        "public",
+        "friends",
+        "private",
+        "visibility",
+        "who can find it",
+        "listed",
+        "hidden event",
+        "invitation only"
+      ],
+      "guide": "find"
+    },
+    {
+      "id": "play-leagues",
+      "topic": "play",
+      "q": "How do league points and standings work?",
+      "a": "A league runs seasons. Each event in a season gives points for where you finish (for example 12 for first, 10 for second, 8 for top 4, 6 for top 8, 3 for top 16 and 1 for playing), and some leagues add points per match won. A bigger event can count 1.5, 2 or 3 times. A season can count only your best few results.\n\nStandings go by points, then your best finish, then your second best, and so on. A Q marks players who have qualified for the season's final: usually each event's winner (the next best finisher when the winner has already qualified), then the top players on points.\n\nOpen a league from Find → Leagues, or from the league row on an event's page. The list icon shows the league's own points rule; tap a player's row to see their events. Follow the league to hear about new events, results and when you qualify.",
+      "keywords": [
+        "league",
+        "season",
+        "points",
+        "standings",
+        "qualify",
+        "qualified",
+        "final",
+        "series",
+        "championship",
+        "follow league"
+      ],
+      "guide": "leagues"
+    },
+    {
+      "id": "play-boards",
+      "topic": "play",
+      "q": "How do I get on or off a leaderboard?",
+      "a": "Each format has a board in Find → Boards. Your rating comes from matches against other players with accounts in finished events that are Public or in a league and had six or more players. Everyone starts at 1500; wins move you up, losses down. You're listed after 10 rated matches on a board, with one in the last year. Until then the board says how many you have to go.\n\nTo come off, go to Account → Sharing → Leaderboards and pick Hidden. That takes you off every board and takes your board ranks off your profile for everyone else. Your results in public events still count for the people you played. Pick Listed to come back.",
+      "keywords": [
+        "leaderboard",
+        "board",
+        "rating",
+        "rank",
+        "elo",
+        "listed",
+        "hidden",
+        "opt out",
+        "format board"
+      ],
+      "guide": "boards"
+    },
+    {
+      "id": "play-team-signup",
+      "topic": "play",
+      "q": "How do I sign up a team, or join one?",
+      "a": "On the page of a team event whose organizer lets teams sign themselves up, tap Sign up a team and give it a name. You're signed up as its captain in seat A, and the team gets a code. Share the code or the team's link from Your team.\n\nTo join a team, tap Join a team and type or paste the code, or open the link your captain sent: you get the next free seat.\n\nUntil round 1 the captain can reorder the seats, rename the team, make someone else captain or remove a member. Anyone can leave; if the captain leaves, the next member takes over. If you don't see Sign up a team, the organizer is building the teams: ask them to add you.",
+      "keywords": [
+        "team",
+        "captain",
+        "team code",
+        "join team",
+        "sign up team",
+        "teammates",
+        "trios",
+        "seat"
+      ],
+      "guide": "play"
+    },
+    {
+      "id": "play-judge",
+      "topic": "play",
+      "q": "How do I call a judge?",
+      "a": "On your match on the event screen, or in the life tracker under Options, tap Call a judge and confirm. The organizers get a notification with your table number, and your screen reads JUDGE CALLED until they've handled it. Tap Cancel to take the call back. Guests can call a judge too.\n\nIf the organizer gives your table extra time, it shows as \"+5:00\" beside the round clock.",
+      "keywords": [
+        "judge",
+        "call judge",
+        "help",
+        "ruling",
+        "organizer",
+        "extra time",
+        "time extension"
       ],
       "guide": "play"
     },
@@ -442,14 +547,17 @@
     {
       "id": "organize-top8",
       "topic": "organize",
-      "q": "How does a top 8 work?",
-      "a": "Pick Top 8 when you create the event (it needs 9 or more players). After the last Swiss round the button reads Cut to top 8, which pairs 1 v 8, 4 v 5, 2 v 7 and 3 v 6, the higher seed choosing to play or draw. Then semifinals and the final. Playoff matches can't end in a draw.",
+      "q": "How does a top 8 or top 4 work?",
+      "a": "Pick Top 8 when you create the event (it needs 9 or more players). After the last Swiss round the button reads Cut to top 8, which pairs 1 v 8, 4 v 5, 2 v 7 and 3 v 6, the higher seed choosing to play or draw. Then semifinals and the final. Playoff matches can't end in a draw.\n\nTop 4 needs 5 or more players, or teams in team sealed and Team Trios: Cut to top 4 pairs 1 v 4 and 2 v 3, then the final.",
       "keywords": [
         "top 8",
         "top cut",
         "playoffs",
         "elimination",
-        "bracket"
+        "bracket",
+        "top 4",
+        "semifinals",
+        "cut"
       ],
       "guide": "run"
     },
@@ -472,16 +580,71 @@
     {
       "id": "organize-teams",
       "topic": "organize",
-      "q": "Can I run a team draft or team sealed?",
-      "a": "Yes: pick Team draft or Team sealed, with teams of 3 or 4. In Setup you can randomize teams, move players and rename teams. A team wins a round by winning more of its matches. When one team can no longer be caught, the event offers Finish event straight away.",
+      "q": "Can I run a team draft, team sealed or Team Trios?",
+      "a": "Yes: pick Team draft or Team sealed, with teams of 3 or 4. In Setup you can randomize teams, move players and rename teams. A team wins a round by winning more of its matches. When one team can no longer be caught, the event offers Finish event straight away.\n\nTeam Trios is the constructed one: teams of three, each seat playing its own format (Modern, Standard and Pioneer to start; change them in the Seats row). Team sealed and Team Trios can cut to a top 4 of teams.\n\nTo let players make their own teams, switch on Teams sign up under Setup → Teams.",
       "keywords": [
         "team",
         "team draft",
         "team sealed",
         "3v3",
-        "4v4"
+        "4v4",
+        "trios",
+        "team trios",
+        "seats",
+        "team sign up"
       ],
       "guide": "run"
+    },
+    {
+      "id": "organize-display",
+      "topic": "organize",
+      "q": "How do I show the round on a TV?",
+      "a": "Every event has a display page made for a TV or projector. While the event runs, open Display (under More on phones, in the bar on the website) for its address, a QR code and Copy link, then open that address in a browser on the TV or on a laptop plugged into it. On Android, with a second screen connected, the panel can fill it for you; otherwise mirror your screen.\n\nThe display shows the round clock, the pairings by table and by name, and the standings, and changes by itself as the round goes. Showing in the Display panel picks Auto, Clock, Pairings or Standings for every open display, and Announcement puts a line along the bottom.\n\nOn the website you can also Print pairings, standings and result slips.",
+      "keywords": [
+        "tv",
+        "display",
+        "projector",
+        "screen",
+        "cast",
+        "pairings board",
+        "clock",
+        "announcement",
+        "print",
+        "second screen"
+      ],
+      "guide": "web"
+    },
+    {
+      "id": "organize-extra-time",
+      "topic": "organize",
+      "q": "How do I give a table extra time, or answer a judge call?",
+      "a": "On the Round tab, open a match's menu and tap Extra time: +3 min, +5 min or +10 min, or Take it back. The table shows \"+5:00\" on your screen, on the display and for both players.\n\nWhen a table calls a judge you get a notification, and the call sits at the top of the Round tab with its table and who called. Tap Done once it's handled.",
+      "keywords": [
+        "extra time",
+        "time extension",
+        "judge",
+        "judge call",
+        "extend",
+        "minutes"
+      ],
+      "guide": "run"
+    },
+    {
+      "id": "organize-league",
+      "topic": "organize",
+      "q": "How do I run a league?",
+      "a": "Open Find → Leagues and tap + to make one: a name, region, description and link. From the organizer button on its page, add a season with its dates and a points rule (by place, by match wins, or your own brackets), how many best results count and who qualifies for the final. Add other organizers from your friends.\n\nTo put an event in the season, open the event's Setup → Details → League and pick the league, the season, a multiplier for a bigger event and whether it's the final. On the final, Setup → Players has a Qualified list to invite everyone who qualified. Private events can't be in a league.",
+      "keywords": [
+        "league",
+        "season",
+        "create league",
+        "points rule",
+        "qualify",
+        "final",
+        "series",
+        "organize league"
+      ],
+      "guide": "leagues"
     },
     {
       "id": "organize-guests",
@@ -1203,6 +1366,22 @@
       "guide": "sharing"
     },
     {
+      "id": "friends-achievements",
+      "topic": "friends",
+      "q": "What are the achievements on a profile?",
+      "a": "Small tiles under the name: league finishes (CHAMPION, TOP 8, QUALIFIED, event wins) and ranks on the format leaderboards (#14 over Modern). Tap one to open that league or board.\n\nWho sees yours is the Achievements choice in Account → Sharing: Anyone to start, or Friends or Private. Hiding yourself from the leaderboards also takes your board ranks off your profile for everyone else.",
+      "keywords": [
+        "achievements",
+        "badges",
+        "tiles",
+        "champion",
+        "rank",
+        "profile",
+        "trophy"
+      ],
+      "guide": "friends"
+    },
+    {
       "id": "friends-link",
       "topic": "friends",
       "q": "How do I share a deck with someone who isn't on Table 1?",
@@ -1260,7 +1439,7 @@
       "id": "notifications-what",
       "topic": "notifications",
       "q": "What will Table 1 notify me about?",
-      "a": "Pairings and results, invitations, a place opening on a waitlist, cancelled events, events you follow, friend requests, changes to lists you follow, friends putting up cards you want, price drops on your wants, a finished deck finder search and notices from Table 1. Organizers also hear about sign-ups and drops. The website has no notifications.",
+      "a": "Pairings and results, invitations, a place opening on a waitlist, cancelled events, events you follow, friend requests, changes to lists you follow, friends putting up cards you want, price drops on your wants, a finished deck finder search and notices from Table 1. Leagues you follow tell you about new events, results, qualifying and the end of a season, and with Alerts on in Find you hear about new public events in your formats and area. Organizers also hear about sign-ups and drops, and when a table calls a judge. The website has no notifications.",
       "keywords": [
         "notifications",
         "which",
@@ -1268,6 +1447,23 @@
         "alerts"
       ],
       "guide": "push"
+    },
+    {
+      "id": "notifications-new-events",
+      "topic": "notifications",
+      "q": "Can I be told when a new event is posted near me?",
+      "a": "Yes. Open Find and scroll to the end of the Events list for Alerts. Switch it on, pick the formats you care about (none means all), set your area with Use where I am now, and choose a distance. You'll get a notification about ten minutes after a matching event becomes public, at most five a week, and never for an event you run or are already in. Forget area removes the place you set.\n\nThere's also an Upcoming events widget for your home screen, with its own Formats and Where settings.",
+      "keywords": [
+        "alerts",
+        "new events",
+        "near me",
+        "notify",
+        "public events",
+        "area",
+        "widget",
+        "upcoming"
+      ],
+      "guide": "find"
     },
     {
       "id": "offline-sync",

@@ -22,6 +22,18 @@
    "title": "Playing in an event"
   },
   {
+   "id": "find",
+   "title": "Finding events"
+  },
+  {
+   "id": "leagues",
+   "title": "Leagues"
+  },
+  {
+   "id": "boards",
+   "title": "Leaderboards"
+  },
+  {
    "id": "widgets",
    "title": "Widgets and quick actions"
   },
@@ -164,7 +176,7 @@
    "id": "overview-2",
    "s": "overview",
    "h": "Events",
-   "x": "A live card for the event you're in, invitations, upcoming events, and past events tucked away. + New creates an event; Life opens the life tracker for the match you're playing, or a local one."
+   "x": "A live card for the event you're in, invitations, upcoming events, and past events tucked away, then Find events for public events and your friends' (the search icon opens Find: Events, Leagues and Boards). + New creates an event; Life opens the life tracker for the match you're playing, or a local one."
   },
   {
    "id": "overview-3",
@@ -317,7 +329,7 @@
    "id": "create-6",
    "s": "create",
    "t": "Format",
-   "x": "Constructed offers Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Premodern, Canadian Highlander or Other (type a name). Limited offers Draft, Team draft, Sealed, Team sealed and Roto."
+   "x": "Constructed offers Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Premodern, Canadian Highlander or Other (type a name), and Team Trios: teams of three where each seat plays its own format. A Seats row of three cells (\"A · MODERN\", \"B · STANDARD\", \"C · PIONEER\") picks each seat's format, changeable until round 1. Limited offers Draft, Team draft, Sealed, Team sealed and Roto."
   },
   {
    "id": "create-7",
@@ -347,7 +359,7 @@
    "id": "create-11",
    "s": "create",
    "t": "Top cut",
-   "x": "(Swiss events of players): No top cut or Top 8. Top 8 needs 9 or more players; with fewer the event ends after Swiss."
+   "x": "(Swiss events): No top cut, Top 4 or Top 8. Top 8 is for events of players and needs 9 or more; Top 4 is for those and for team sealed and Team Trios, and needs 5 or more players or teams. With fewer the event ends after Swiss. Team drafts, rotos and round robins have no cut."
   },
   {
    "id": "create-12",
@@ -377,7 +389,13 @@
    "id": "create-16",
    "s": "create",
    "t": "Who can find it",
-   "x": "Nearby + QR (players within 150 m can find and join it, and nearby players with alerts on are told) or QR only; an event that starts now is pinned where you stand. Setup → Details sets Nearby, Link only or Private later. On all three; the website asks for your location once, when you create the event."
+   "x": "Public (everyone on Table 1 finds it in Find events, and so does the website signed out), Friends (your friends, and the friends of anyone else who runs it with you) or Private (nobody finds it: people join by QR, code, link or invitation; new events start here). This is about finding the event, not opening it: a Friends event's link still opens for whoever has it. Setup → Details can change it later, and keeps the two older choices under a line: Nearby + QR (players within 150 m can find and join it) and Invitation only."
+  },
+  {
+   "id": "create-17",
+   "s": "create",
+   "t": "Description",
+   "x": "and Address (optional): up to 2,000 characters of plain text for what players should know (links starting https:// can be tapped), and the venue's address. Players read them under About on the event's page."
   },
   {
    "id": "run-1",
@@ -451,149 +469,205 @@
    "id": "run-11",
    "s": "run",
    "h": "1 · Setup",
+   "t": "More in Details",
+   "x": "Who can find it, Description and Address (see Creating an event); Rules (Not said, Casual or Competitive) and, when decklists are on, Decklists due with a day and time, both shown at the top of the event's About (\"COMPETITIVE · DECKLISTS DUE SAT 14 NOV 09:30\"); and, if you run a league, League: pick the league and season, a multiplier for a bigger event (1×, 1.5×, 2×, 3×) and whether This is the final (see Leagues)."
+  },
+  {
+   "id": "run-12",
+   "s": "run",
+   "h": "1 · Setup",
+   "t": "Teams sign up",
+   "x": "(Teams, team events): a switch that lets players make and join their own teams until round 1. Each team then shows its code and how full it is (\"2/3\"). Off, you build the teams yourself as before. The player cap counts every signed-up team whole, so a team's seats are held for its members."
+  },
+  {
+   "id": "run-13",
+   "s": "run",
+   "h": "1 · Setup",
+   "t": "Qualified",
+   "x": "(Players, on a league season's final you run): a row like \"3 of 23 in\" opens everyone who qualified, each marked WINNER or POINTS, with where they stand: IN, INVITED, DECLINED, GUEST (no account: add them by hand) or an Invite button. Invite the qualified invites everyone at once; Next in line lists the next eight on points, to pass an invitation down."
+  },
+  {
+   "id": "run-14",
+   "s": "run",
+   "h": "1 · Setup",
    "t": "Start event · pair round 1",
    "x": ", with a confirmation. Details and teams lock, and so does the round count when it's automatic."
   },
   {
-   "id": "run-12",
+   "id": "run-15",
    "s": "run",
    "h": "2 · Live",
    "t": "Round",
    "x": "a big countdown clock with Pause and +5 min, and matches grouped as Disputed, Waiting and Results in. Tap any match to set its result."
   },
   {
-   "id": "run-13",
+   "id": "run-16",
    "s": "run",
    "h": "2 · Live",
    "t": "Pods",
    "x": "(drafts with two or more pods): the Round tab shows each pod as its own block instead, its tables in order with disputes in place, under \"Pod 1 · 2 of 4 in · 1 disputed\" (\"All in\" once every result is in); matches between pods sit under Across pods at the end, and a bye under its player's pod. Playoff rounds stay one list."
   },
   {
-   "id": "run-14",
+   "id": "run-17",
    "s": "run",
    "h": "2 · Live",
    "t": "Your match · Table N",
    "x": "when you're playing too: your opponent, Open life tracker and Set result, right under the clock."
   },
   {
-   "id": "run-15",
+   "id": "run-18",
    "s": "run",
    "h": "2 · Live",
    "t": "Guest matches",
    "x": "when neither player has an account, your phone keeps score with the life tracker and reports the result."
   },
   {
-   "id": "run-16",
+   "id": "run-19",
    "s": "run",
    "h": "2 · Live",
    "t": "Standings",
    "x": "updating as results arrive (teams first for team events). With two or more pods, each player shows their pod (P1, P2) and a filter (All · Pod 1 · Pod 2) shows one pod in overall order."
   },
   {
-   "id": "run-17",
+   "id": "run-20",
    "s": "run",
    "h": "2 · Live",
    "t": "Players",
    "x": "drop a player (they're not paired again but their results still count) or reinstate them. With two or more pods, players are listed pod by pod by seat (\"Pod 1 · 8 players\", \"Seat 3\" on each row), then Not seated; the same in Setup's Players once the draft is seated."
   },
   {
-   "id": "run-18",
+   "id": "run-21",
    "s": "run",
    "h": "2 · Live",
    "t": "Deck photos",
    "x": "(More on phones, the top bar on the website) to photograph any player's deck, and to turn any player's photo upright (a tap on it: Rotate right / Rotate left)."
   },
   {
-   "id": "run-19",
+   "id": "run-22",
    "s": "run",
    "h": "2 · Live",
    "x": "The big button moves from \"Waiting on 2 results\" to Pair round 3 to Finish event."
   },
   {
-   "id": "run-20",
+   "id": "run-23",
    "s": "run",
    "h": "2 · Live",
    "t": "Earlier",
    "x": "a tab after Round with every earlier round, newest first; tap a match to correct its result. With pods, each round is split by pod: \"Round 1 · Pod 1 · 4 matches\", \"Round 2 · Across pods\"."
   },
   {
-   "id": "run-21",
+   "id": "run-24",
    "s": "run",
    "h": "2 · Live",
    "t": "Re-pair round N",
    "x": "(More; the bar on the website): pairs the running round again from the standings as they are now, with a fresh clock. It asks first and says when results already in will be cleared. A notice on the Round tab offers it when an earlier result was corrected after the round was paired (\"A round 2 result changed after round 3 was paired.\"). Only the latest round, while it runs, with no open dispute in earlier rounds; the old pairings stay in the event's log, and players are told \"Round 3 re-paired\"."
   },
   {
-   "id": "run-22",
+   "id": "run-25",
    "s": "run",
    "h": "2 · Live",
    "t": "Top 8",
    "x": "after the last Swiss round the button is Cut to top 8 (it asks first), which pairs the quarterfinals by Swiss standings: 1 v 8, 4 v 5, 2 v 7, 3 v 6, the higher seed choosing to play or draw. Then Pair semifinals, Pair the final and Finish event. Playoff matches need a winner: draws can't be entered. Rounds are named Quarterfinals, Semifinals and Final, and the standings gain a Top 8 bracket with each seed and score."
   },
   {
-   "id": "run-23",
+   "id": "run-26",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Top 4",
+   "x": "with a top 4 the button is Cut to top 4, which pairs the semifinals 1 v 4 and 2 v 3, then the final. In team sealed and Team Trios the playoff is team against team, seat against seat, drawn as a team bracket; a 2–2 split between teams of four goes to the higher seed."
+  },
+  {
+   "id": "run-27",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Display",
+   "x": "(More on phones, the bar on the website): the address of the event's display page for a TV or projector, its QR code and Copy link; Showing (Auto, Clock, Pairings or Standings) changes what every open display shows; Announcement puts up to 140 characters along the bottom of the display (Show, Clear). On Android, with a second screen connected (a cable or a wireless display), Show on that screen fills it with the display while your phone keeps the organizer screen; without one the panel says to mirror your screen or open the address on the TV. On iPhone, mirror your screen or open the address on the TV."
+  },
+  {
+   "id": "run-28",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Extra time",
+   "x": "a match's menu on the Round tab adds +3 min, +5 min or +10 min for that table (up to an hour in all), or Take it back. The row, the display and both players show \"+5:00\"."
+  },
+  {
+   "id": "run-29",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Judge calls",
+   "x": "when a table calls a judge you get a notification (\"Judge! Table 7\"), and the call leads the Round tab (\"JUDGE · TABLE 7 · BEA · 2 MIN\") until you tap Done."
+  },
+  {
+   "id": "run-30",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Print",
+   "x": "(the website's bar): Pairings by table, Pairings A–Z, Standings, or Result slips, one per match with the round, table, both players, boxes for game wins and draws and a line to sign. Sized for Letter and A4."
+  },
+  {
+   "id": "run-31",
    "s": "run",
    "h": "2 · Live",
    "t": "Team clinched",
    "x": "in a team event with two teams, once one team has more match wins than the other could reach with every match still to play (5 of 9 in a 3-on-3 over three rounds, 7 of 12 in a 4-on-4), the round shows \"Team Alpha has clinched it: 5–1 in match wins with 3 matches left to play\" and the big button is Finish event straight away. Matches not yet played don't count for anyone. If the round is in, Play on · pair round N keeps going instead. A dispute still has to be settled first."
   },
   {
-   "id": "run-24",
+   "id": "run-32",
    "s": "run",
    "h": "3 · Results",
    "x": "A winner card (or winning team) above the final standings. With a top 8 the order is the winner, the finalist, the semifinalists, the quarterfinalists (each by seed), then everyone else by their Swiss standing."
   },
   {
-   "id": "run-25",
+   "id": "run-33",
    "s": "run",
    "h": "3 · Results",
    "x": "Every round's matches, newest first, split by pod in a draft with pods. Results can still be corrected; standings and records update. The Players tab goes pod by pod too, in final order inside each."
   },
   {
-   "id": "run-26",
+   "id": "run-34",
    "s": "run",
    "h": "3 · Results",
    "x": "Cancelled events show standings after the last completed round and the reason."
   },
   {
-   "id": "run-27",
+   "id": "run-35",
    "s": "run",
    "h": "How results work",
    "x": "One player's report counts. If the opponent reports the same score it's confirmed; a different score is a dispute."
   },
   {
-   "id": "run-28",
+   "id": "run-36",
    "s": "run",
    "h": "How results work",
    "x": "Results auto-confirm at round end. Disputes must be settled before the next round can be paired."
   },
   {
-   "id": "run-29",
+   "id": "run-37",
    "s": "run",
    "h": "How results work",
    "x": "The organizer can set any result; every change is recorded. A correction made after the next round was paired can be followed by Re-pair on that round."
   },
   {
-   "id": "run-30",
+   "id": "run-38",
    "s": "run",
    "h": "How results work",
    "x": "Scoring follows the Magic Tournament Rules: 3 points for a win, 1 for a draw, a bye counts as a win; tiebreakers are opponents' match-win %, game-win % and opponents' game-win %, each with a 33% floor."
   },
   {
-   "id": "run-31",
+   "id": "run-39",
    "s": "run",
    "h": "How results work",
    "t": "Drafts with pods",
    "x": "round 1 is across each table; odd pods' last seats play each other, pod 1's against pod 2's, and only an odd event has a bye. Inside pods, later rounds pair each pod by its own standings; an odd pod's lowest-ranked player (one who can cross without a rematch) plays another pod's, and the bye, if any, goes to one of them who hasn't had one. Across pods, later rounds are ordinary Swiss. Standings are one list either way, and the top 8 cuts from it."
   },
   {
-   "id": "run-32",
+   "id": "run-40",
    "s": "run",
    "h": "How results work",
    "x": "Team events: a team wins a round by winning more of its matches; teams are ordered by those round results, then total match wins. Inside each team, players are listed best first by record, then game-win %, then opponents' match-win %, each with their record (\"2-0\")."
   },
   {
-   "id": "run-33",
+   "id": "run-41",
    "s": "run",
    "h": "How results work",
    "x": "Older app versions still run these events, but show Finish where newer ones show Cut to top 8. The organizer's match and guest scorekeeping are on iOS; Seat the ends on iOS, Android and the website."
@@ -701,19 +775,286 @@
   {
    "id": "play-19",
    "s": "play",
+   "t": "Find an event",
+   "x": "public events, and your friends' Friends events, are listed under Find events on the Events tab (see Finding events). The first time you sign up for a public or league event, the app says once that results in public events are public: standings, league points and the format boards."
+  },
+  {
+   "id": "play-20",
+   "s": "play",
+   "t": "About",
+   "x": "when the organizer wrote a description or an address, an About row on the event's page opens it, starting with the rules level and the decklist deadline when they're set. An event in a league has a row with the league and season, which opens the league."
+  },
+  {
+   "id": "play-21",
+   "s": "play",
+   "t": "Sign up a team, or join one",
+   "x": "(team events whose organizer switched on Teams sign up): on the event's page, Sign up a team asks for its name, signs you up and makes you captain in seat A. Join a team takes the team's code (type it or Paste), or open the link your captain shared and the code is filled in; you get the next free seat. Your team then shows the name, the members by seat, how full it is (\"2/3\") and the code with Copy and Share. The captain can move members up and down the seats, Make captain, Remove a member and Rename team, until round 1. Anyone can Leave team: if the captain leaves, the next member takes over, and an empty team closes. Everyone sees Teams, each with \"2/3\" or COMPLETE."
+  },
+  {
+   "id": "play-22",
+   "s": "play",
+   "t": "Team Trios",
+   "x": "your team, the pairings and your own match show your seat and its format (\"A · MODERN\"). You play the other team's player in the same seat."
+  },
+  {
+   "id": "play-23",
+   "s": "play",
+   "t": "Call a judge",
+   "x": "on your match on the event screen, and in the life tracker's Options. It asks first, then tells the organizers your table. While the call is open the screen reads JUDGE CALLED, with Cancel to take it back. Guests can call one too."
+  },
+  {
+   "id": "play-24",
+   "s": "play",
+   "t": "Extra time",
+   "x": "when the organizer gives your table more time, \"+5:00\" shows beside the round clock on the event screen and in the life tracker; your table's time runs that much past the round's."
+  },
+  {
+   "id": "play-25",
+   "s": "play",
+   "x": "With a top 4, your playoff rounds are the Semifinals and the Final."
+  },
+  {
+   "id": "play-26",
+   "s": "play",
    "t": "An event you're not in",
    "x": "(signed in, in the apps): its link opens the event page in the app, never the website: the sign-up page before round 1, then Standings | Matchups (top 8, teams and pods included; every round's tables and scores), refreshing every 20 seconds. Its notifications open the same page."
   },
   {
-   "id": "play-20",
+   "id": "play-27",
    "s": "play",
    "t": "Follow",
    "x": "on that page, for anyone signed in who isn't its organizer or a player (and can see it by its link). It's listed on the Events tab under Following (running first, then upcoming, then finished in the last week), with a notification when each round is paired, when it finishes and if it's cancelled. Following → turn notifications off, or Unfollow. Up to 200; nobody sees who follows."
   },
   {
-   "id": "play-21",
+   "id": "play-28",
    "s": "play",
    "x": "On the website, the event screen has a back arrow to Events (or wherever you came from). So does the event's shared link page (sign-up, standings and matchups, signed in or out): opened straight from a link, the arrow goes to the home page."
+  },
+  {
+   "id": "find-1",
+   "s": "find",
+   "x": "Events set to Public, and your friends' events set to Friends, can be found from the Events tab without a link or a code."
+  },
+  {
+   "id": "find-2",
+   "s": "find",
+   "t": "Public, Friends, Private",
+   "x": "the organizer's Who can find it. Public events show to everyone on Table 1, and on the website signed out. Friends events show to the organizers' friends. Private events show to nobody; you join by QR, code, link or invitation."
+  },
+  {
+   "id": "find-3",
+   "s": "find",
+   "t": "Find events",
+   "x": "on the Events tab, under your own events: a row of filters, the first five events, soonest first, and All N. The search icon in the bar opens Find, whose tabs are Events | Leagues | Boards, with a search box over names, venues, addresses and leagues."
+  },
+  {
+   "id": "find-4",
+   "s": "find",
+   "t": "Filters",
+   "x": "Format (several at once: Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Premodern, Canadian Highlander, Limited, Cube, Other; Any clears), Where (Everywhere, or within 25, 50, 100 or 250 km), When (Any time, Today, This weekend, This week, This month) and More (All, Public or Friends events; Team events; League events; Seats left). Your picks are kept on the device."
+  },
+  {
+   "id": "find-5",
+   "s": "find",
+   "t": "Distance",
+   "x": "picking a distance asks for your location, only then; say no and it goes back to Everywhere. Your location is used for that search and not kept."
+  },
+  {
+   "id": "find-6",
+   "s": "find",
+   "t": "Each row",
+   "x": "a small label over the name (the league, or FRIENDS for a friends event), then a line like \"SUN 29 MAR · 10:00 · MODERN · MEH GAMES · 19 KM\", in your own time zone. A running event reads \"NOW · ROUND 3\"; a capped one shows \"12/32\"; IN marks events you're signed up for. A tap opens the event's page, with Sign up before round 1 and standings after."
+  },
+  {
+   "id": "find-7",
+   "s": "find",
+   "x": "Events you run, events that are over, and events by anyone you've blocked or who blocked you aren't listed. Nothing matching reads \"No events match\" with Clear filters."
+  },
+  {
+   "id": "find-8",
+   "s": "find",
+   "t": "Alerts",
+   "x": "the Events list ends with an Alerts row (\"OFF\", or \"MODERN, LIMITED · 50 KM\"). Switch it on, pick Formats (none means all), an Area (Use where I am now, asked only on that tap and kept as a rough area of about 10 km; Forget area removes it) and a Distance (Anywhere, or 25 to 250 km). About ten minutes after an event that fits becomes public you get one notification, \"New Modern event near you\"; never for an event you run or are in, and at most five a week."
+  },
+  {
+   "id": "find-9",
+   "s": "find",
+   "x": "On all three platforms. On the website, table-1.site/find works signed out and lists public events. Find, league and board links open in the browser for now, not in the apps."
+  },
+  {
+   "id": "leagues-1",
+   "s": "leagues",
+   "x": "A league ties events together into seasons: every event gives points, the standings add them up, and the best players qualify for the season's final."
+  },
+  {
+   "id": "leagues-2",
+   "s": "leagues",
+   "h": "Following a league",
+   "t": "Find → Leagues",
+   "x": "lists Yours and Following, then a search by name or region. A row reads \"2026 · DENVER, COLORADO · NEXT MODERN OPEN\"."
+  },
+  {
+   "id": "leagues-3",
+   "s": "leagues",
+   "h": "Following a league",
+   "t": "The league's page",
+   "x": "opens on the standings: the season (a dropdown when there are several), your own row outlined, then rank, name and points, with a Q beside everyone who has qualified. All N opens the whole table."
+  },
+  {
+   "id": "leagues-4",
+   "s": "leagues",
+   "h": "Following a league",
+   "t": "A player's season",
+   "x": "tap a row for their events, each with their place and points; a dot marks results that don't count toward their best. Their picture opens their profile."
+  },
+  {
+   "id": "leagues-5",
+   "s": "leagues",
+   "h": "Following a league",
+   "t": "Events",
+   "x": "upcoming ones soonest first, then finished ones with their winner. A tap opens the event."
+  },
+  {
+   "id": "leagues-6",
+   "s": "leagues",
+   "h": "Following a league",
+   "t": "Follow",
+   "x": "in the bar; hold it, or open details, to turn the league's notifications on or off. Signing up for a league event, or finishing one, follows the league for you once; unfollowing sticks."
+  },
+  {
+   "id": "leagues-7",
+   "s": "leagues",
+   "h": "Following a league",
+   "t": "Details",
+   "x": "(the list icon): the description, region, link, organizers, and the points rule and qualification in words (\"1st 12 · 2nd 10 · Top 4 8 · Top 8 6 · Top 16 3 · Others 1\", \"Event winners and the top 10 on points\")."
+  },
+  {
+   "id": "leagues-8",
+   "s": "leagues",
+   "h": "Points and standings",
+   "t": "Points",
+   "x": "your finish earns the points for its bracket (first, second, top 4, top 8…), or the points for playing when it's outside them; some leagues add points per match won. A bigger event can count 1.5, 2 or 3 times. The season's final earns no points."
+  },
+  {
+   "id": "leagues-9",
+   "s": "leagues",
+   "h": "Points and standings",
+   "t": "Best results",
+   "x": "a season can count only each player's best few results; the rest still show, marked as not counted."
+  },
+  {
+   "id": "leagues-10",
+   "s": "leagues",
+   "h": "Points and standings",
+   "t": "Order",
+   "x": "points, then your best finish, then your second best, and so on. Players level on all of it share a rank."
+  },
+  {
+   "id": "leagues-11",
+   "s": "leagues",
+   "h": "Points and standings",
+   "t": "Qualifying",
+   "x": "a league can send each event's winner to the final (when the winner has already qualified, the next best finisher goes instead, down to 8th; a winning team goes together), then the top players on points among the rest. You're told at once when you qualify by a win, and when the season closes if it's on points."
+  },
+  {
+   "id": "leagues-12",
+   "s": "leagues",
+   "h": "Points and standings",
+   "x": "Standings follow the events' final places, so a corrected result changes them too. Guests are on the table by name."
+  },
+  {
+   "id": "leagues-13",
+   "s": "leagues",
+   "h": "Running a league",
+   "t": "+",
+   "x": "on Find → Leagues makes one: name, region, description and a link. You can own three. Names and descriptions are checked like other public text."
+  },
+  {
+   "id": "leagues-14",
+   "s": "leagues",
+   "h": "Running a league",
+   "t": "The organizer button",
+   "x": "on your league's page: Edit league, Seasons and Organizers."
+  },
+  {
+   "id": "leagues-15",
+   "s": "leagues",
+   "h": "Running a league",
+   "t": "Seasons",
+   "x": "a name, start and end dates, and a points rule from a preset: Places (12 for first, 10 for second, 8 for top 4, 6 for top 8, 3 for top 16, 1 for playing), Match wins (1 a win and 1 for playing) or Custom brackets. Then how many best results count, whether winners qualify, and how many qualify on points. Close season asks first and tells followers who finished first."
+  },
+  {
+   "id": "leagues-16",
+   "s": "leagues",
+   "h": "Running a league",
+   "t": "Organizers",
+   "x": "add up to 20 from your friends (on iPhone also from people you've played); the league always keeps an owner."
+  },
+  {
+   "id": "leagues-17",
+   "s": "leagues",
+   "h": "Running a league",
+   "t": "Add an event",
+   "x": "on an event you run, Setup → Details → League picks the league, the season, the multiplier and whether it's the final. Private and cancelled events can't be in a league. Followers are told once about a new upcoming event."
+  },
+  {
+   "id": "leagues-18",
+   "s": "leagues",
+   "h": "Running a league",
+   "t": "The final",
+   "x": "see Qualified under Running an event."
+  },
+  {
+   "id": "leagues-19",
+   "s": "leagues",
+   "h": "Running a league",
+   "x": "On all three platforms. A league's page (table-1.site/league/…) opens signed out too, with names only."
+  },
+  {
+   "id": "boards-1",
+   "s": "boards",
+   "x": "One board per format ranks players by a rating from their matches in public and league events."
+  },
+  {
+   "id": "boards-2",
+   "s": "boards",
+   "t": "Find → Boards",
+   "x": "lists every board: Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Premodern, Canadian Highlander, Limited and Cube. A row reads \"124 LISTED · YOU 1612 · #14\", or \"YOU 1540 · 4 TO GO\" before you're listed."
+  },
+  {
+   "id": "boards-3",
+   "s": "boards",
+   "t": "A board",
+   "x": "your rating large, with your rank and record once you have one, then rank, name and rating for everyone listed, each with their record (\"8-4-0\"). A row opens that player's profile."
+  },
+  {
+   "id": "boards-4",
+   "s": "boards",
+   "t": "What counts",
+   "x": "a match between two players with accounts (no byes, no guests) in a finished event that is Public or in a league and had six or more players. Rotos and events in formats Table 1 doesn't name don't count."
+  },
+  {
+   "id": "boards-5",
+   "s": "boards",
+   "t": "The rating",
+   "x": "everyone starts at 1500. A win moves you up and your opponent down, more when you beat a higher-rated player; a draw counts as half. Your first ten matches on a board move it faster. A corrected result corrects the ratings too."
+  },
+  {
+   "id": "boards-6",
+   "s": "boards",
+   "t": "Getting listed",
+   "x": "after 10 rated matches on a board, with one in the last year. Players with the same rating share a rank."
+  },
+  {
+   "id": "boards-7",
+   "s": "boards",
+   "t": "Getting off",
+   "x": "Account → Sharing → Leaderboards, Listed or Hidden. Hidden takes you off every board and takes your board ranks off your profile for everyone else. Your results in public events still count for the people you played."
+  },
+  {
+   "id": "boards-8",
+   "s": "boards",
+   "x": "People you've blocked, or who blocked you, aren't in the rows you see. Signed out on the website a board shows names only."
   },
   {
    "id": "widgets-1",
@@ -969,33 +1310,59 @@
   {
    "id": "widgets-40",
    "s": "widgets",
+   "h": "Upcoming events",
+   "x": "A home screen widget with the next events you can find: public ones, and your friends' Friends events when you're signed in."
+  },
+  {
+   "id": "widgets-41",
+   "s": "widgets",
+   "h": "Upcoming events",
+   "t": "Settings",
+   "x": "Formats (any of them; none picked shows all) and Where: Near me (within 100 km of the rough place the app last knew, only when you've allowed location; the widget never asks) or Everywhere."
+  },
+  {
+   "id": "widgets-42",
+   "s": "widgets",
+   "h": "Upcoming events",
+   "t": "Sizes",
+   "x": "iPhone small (the next event: its day and time large, the name, format and venue), medium (3 events) and large (6); Android any size from 2×1."
+  },
+  {
+   "id": "widgets-43",
+   "s": "widgets",
+   "h": "Upcoming events",
+   "x": "A row reads \"SUN 29 · 10:00\", \"Modern Open\", \"MODERN · MEH GAMES\", with IN when you're signed up. A tap opens the event; the top line opens Find. It refreshes every 30 minutes."
+  },
+  {
+   "id": "widgets-44",
+   "s": "widgets",
    "h": "On Android",
    "t": "A live notification",
    "x": "for each event you play in or run, in its own quiet Live events group (alerts still come as ordinary notifications). Playing: \"T3 · vs Ana\" with the round (\"R2/4\") and the round clock counting down, and no result buttons, ranks or records (results go in from the app; a bye or waiting shows that line instead). Running: \"5/8 in\" with a bar, the next step, disputes and results to enter yourself, and the clock. A tap opens the event. When the event ends the last line stays half an hour, then goes. On Android 16 both show as Live Updates."
   },
   {
-   "id": "widgets-41",
+   "id": "widgets-45",
    "s": "widgets",
    "h": "On Android",
    "t": "Home screen widgets",
    "x": "Next event, Collection value and Current match, drawn like the iPhone's (same labels, order, colors and buttons) with the same rules. Current match ticks the round clock and, from the wider size, reports (2-0 to 0-2), confirms or disputes without opening the app. Android has no lock screen widgets; the live notification covers the match there."
   },
   {
-   "id": "widgets-42",
+   "id": "widgets-46",
    "s": "widgets",
    "h": "On Android",
    "t": "Any size",
    "x": "long-press a widget and drag its edges, from one row up to the full width and any height. One row: Next event shows when and the name, Collection value the amount (wide: with the line and the week's change), Current match the round, table and clock. 2×2 and 4×2 are the iPhone's small and medium. Three rows and up: Next event lists the later events that fit under the first (tap one to open it, \"+2 more\" for the rest), Collection value grows the amount and the 30-day line, and Current match shows the big clock, where the result stands and all five result buttons (on a narrow one, Confirm above Dispute)."
   },
   {
-   "id": "widgets-43",
+   "id": "widgets-47",
    "s": "widgets",
    "h": "On Android",
    "t": "Quick Settings tiles",
    "x": "and long-press shortcuts on the app icon: Life tracker and Scan cards."
   },
   {
-   "id": "widgets-44",
+   "id": "widgets-48",
    "s": "widgets",
    "h": "On Android",
    "x": "The app refreshes them whenever it reads your events, when it comes back to the front, and when a notification about an event arrives. A widget fetches for itself when its copy is old (Next event 15 minutes, Collection value 6 hours, Current match 5 minutes). Signing out clears them."
@@ -3317,11 +3684,17 @@
   {
    "id": "friends-11",
    "s": "friends",
+   "t": "Achievements",
+   "x": "right under the name and record, a row of small tiles that scrolls sideways. One per league season: CHAMPION (won the final), 1ST, TOP 4 or TOP 8 in a finished season, the place so far in a running one (\"#4\"), QUALIFIED, or event wins (\"2 WINS\"), over the league and season. One per format board that lists them: the rank over the format (\"#14\" over Modern). A champion and a first place are outlined in teal. A league tile opens that league; a board tile opens the board. On your own profile, boards that don't list you yet show your rating alone. Who sees them is the Achievements choice in Sharing."
+  },
+  {
+   "id": "friends-12",
+   "s": "friends",
    "t": "Avatars",
    "x": "initials on a muted tile picked from your account, or a photo (take one or choose from your library). Shown on your profile and next to names in players lists and standings."
   },
   {
-   "id": "friends-12",
+   "id": "friends-13",
    "s": "friends",
    "t": "Add players",
    "x": "to an event lists friends first."
@@ -3382,104 +3755,116 @@
   {
    "id": "sharing-10",
    "s": "sharing",
+   "t": "Achievements",
+   "x": "Starts as: Anyone. What it shows: Your league finishes and board ranks on your profile. Widening asks first, like the other parts."
+  },
+  {
+   "id": "sharing-11",
+   "s": "sharing",
+   "t": "Leaderboards",
+   "x": "Starts as: Listed. What it shows: Listed or Hidden: whether you show on the format boards. Your results in public events count either way."
+  },
+  {
+   "id": "sharing-12",
+   "s": "sharing",
    "t": "Friends",
    "x": "Starts as: Friends. What it shows: Your friends list on your profile (each friend shows only as their own setting allows)."
   },
   {
-   "id": "sharing-11",
+   "id": "sharing-13",
    "s": "sharing",
    "t": "You in friends' lists",
    "x": "Starts as: Friends (friends of friends). What it shows: Who sees you when they open one of your friends' lists: Friends means friends of friends (your friends and that friend's friends); Anyone, anyone who can see that list; Private, only you and that friend. Only a Private profile holds it back. The apps still call the middle choice \"Friends\"."
   },
   {
-   "id": "sharing-12",
+   "id": "sharing-14",
    "s": "sharing",
    "x": "The choices read Private · Friends · Anyone, where Anyone means anyone signed in to Table 1. Each one says what it does in a line underneath."
   },
   {
-   "id": "sharing-13",
+   "id": "sharing-15",
    "s": "sharing",
    "t": "Widening asks first",
    "x": "any change that shows more to more people lists what newly shows (\"Friends will see: All cards, Wants, 3 decks, 2 binders\") with Show / Cancel. Narrowing applies at once."
   },
   {
-   "id": "sharing-14",
+   "id": "sharing-16",
    "s": "sharing",
    "x": "When your profile caps a part, the row says so: \"Set to Anyone, but only friends see it: your profile is Friends.\""
   },
   {
-   "id": "sharing-15",
+   "id": "sharing-17",
    "s": "sharing",
    "t": "Friends",
    "x": "sits in its own section under Record, with both friends settings. Widening either asks first: \"Friends will see: your friends.\", \"Anyone on Table 1 will see: you in your friends' lists.\" The summary at the top names \"your friends\" when your list reaches someone."
   },
   {
-   "id": "sharing-16",
+   "id": "sharing-18",
    "s": "sharing",
    "x": "The app offers to share just once, when it helps: when you mark a binder For trade, when trade matches have nothing to work with, and after your first event (your record)."
   },
   {
-   "id": "sharing-17",
+   "id": "sharing-19",
    "s": "sharing",
    "x": "Anything hidden or gone reads \"This isn't available\", never which. A profile you can't see past its name and photo says only friends can see it, under Add friend."
   },
   {
-   "id": "sharing-18",
+   "id": "sharing-20",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "Share",
    "x": "is on All cards, Wants, Binders (to share For trade), and every binder, deck and cube. It opens one screen with everything about who can see that part."
   },
   {
-   "id": "sharing-19",
+   "id": "sharing-21",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "Anyone with the link",
    "x": "Make a link (it asks first, saying what the link shows) and send it anywhere. Whoever opens it sees that part and nothing else on your profile, even without a Table 1 account and even if your profile is Friends or Private. Your settings stay as they are: a deck can be Private on Table 1 and still have a link."
   },
   {
-   "id": "sharing-20",
+   "id": "sharing-22",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "One link per part.",
    "x": "Share link and Copy link send it; New link makes a fresh one and the old one stops working; Stop sharing link turns it off at once. Deleting the deck, cube or binder, or your account, ends its link too."
   },
   {
-   "id": "sharing-21",
+   "id": "sharing-23",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "On Table 1",
    "x": "the same screen shows who sees the part there (Private, Friends or Anyone) and, when it reaches someone, Send profile link, which only those people can open."
   },
   {
-   "id": "sharing-22",
+   "id": "sharing-24",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "As a copy",
    "x": "(decks and cubes): Export and Deck image, as on the deck's own screen."
   },
   {
-   "id": "sharing-23",
+   "id": "sharing-25",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "x": "\"Who sees this\" says Link on while a part has a live link, and so does its Share row."
   },
   {
-   "id": "sharing-24",
+   "id": "sharing-26",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "Opening a link",
    "x": "the part's name, \"Shared by\" with the owner's name and photo, then the cards with search, View and Group by. Decks and cubes can be exported, and signed in you can Copy to my Library. A link that's off reads \"This isn't available\"."
   },
   {
-   "id": "sharing-25",
+   "id": "sharing-27",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "Never through a link",
    "x": "your handle, your total value or your max prices. If you've blocked someone (or they you), your links don't open for them while they're signed in."
   },
   {
-   "id": "sharing-26",
+   "id": "sharing-28",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "x": "A deck, cube or binder name behind a link is checked like any name others can see."
@@ -3675,51 +4060,75 @@
   {
    "id": "push-5",
    "s": "push",
-   "t": "You're in",
-   "x": "when a place opens in an event you're waiting for. A top 8 round's alert says \"Quarterfinals is up\", \"Semifinals is up\" or \"The final is up\"."
+   "t": "Leagues",
+   "x": "(for leagues you follow, with notifications on, and leagues you organize; titled with the league and season): a new event (\"New event: Modern Open · Modern · MeH Games\", or \"The final is set: …\"), results (\"Bea won Modern Open. Standings are updated.\"), qualifying (\"You qualified for the final by winning Modern Open.\", or \"… on points.\"), and the end of the season (\"The season is over. Bea finished first.\"). A tap opens the event or the league. Off per league from its Follow button."
   },
   {
    "id": "push-6",
    "s": "push",
-   "x": "Alerts arrive within seconds: invitations, a new round's pairing, results reported, disputed or changed, a cancelled event, a new event from an organizer you've played with in the last 90 days (never for private events), friend requests and accepts, and notices from Table 1."
+   "t": "New public events",
+   "x": "with Alerts on in Find, \"New Modern event near you\" about ten minutes after an event in your formats and area becomes public. Once per event, at most five a week, never for an event you run or are in."
   },
   {
    "id": "push-7",
+   "s": "push",
+   "t": "Judge!",
+   "x": "(organizers): \"Judge! Table 7\", with the event and who called. A tap opens the event on its live round."
+  },
+  {
+   "id": "push-8",
+   "s": "push",
+   "t": "An invitation to a final",
+   "x": "when a league's organizer invites the qualified, it arrives as an ordinary event invitation."
+  },
+  {
+   "id": "push-9",
+   "s": "push",
+   "t": "You're in",
+   "x": "when a place opens in an event you're waiting for. A top 8 round's alert says \"Quarterfinals is up\", \"Semifinals is up\" or \"The final is up\"."
+  },
+  {
+   "id": "push-10",
+   "s": "push",
+   "x": "Alerts arrive within seconds: invitations, a new round's pairing, results reported, disputed or changed, a cancelled event, a new event from an organizer you've played with in the last 90 days (never for private events), friend requests and accepts, and notices from Table 1."
+  },
+  {
+   "id": "push-11",
    "s": "push",
    "t": "New in Insights",
    "x": "a new format, set data, Arena cube run or set to rank, once each, for people who've opened Insights in the last 60 days. A tap opens Insights on it (or the set's Rankings). Off with the switch at the bottom of Insights → Limited; on Android it has its own group, New in Insights."
   },
   {
-   "id": "push-8",
+   "id": "push-12",
    "s": "push",
    "t": "Price alerts",
    "x": "one a day at most, when wants got meaningfully cheaper or reached your max (see Binders and wants). Off with the Price alerts switch on Wants."
   },
   {
-   "id": "push-9",
+   "id": "push-13",
    "s": "push",
    "t": "Deck found",
    "x": "a deck finder search you started has finished (\"Boros Energy · 1st · Modern Challenge 32 · 2026-10-30. Tap to create it.\", \"Which deck?\", \"No list found\"). A tap opens Find a deck on that search; on Android it's in the Collection group."
   },
   {
-   "id": "push-10",
+   "id": "push-14",
    "s": "push",
    "t": "Grouped alerts",
    "x": "a round of changes to a deck, cube or binder you follow, and a friend putting up cards you want, come as one alert each, not one per card. Tapping opens the Changes or the trade match."
   },
   {
-   "id": "push-11",
+   "id": "push-15",
    "s": "push",
    "x": "Tapping an alert opens the event, Friends or Notices. Alerts older than 30 minutes are dropped rather than arriving late."
   },
   {
-   "id": "push-12",
+   "id": "push-16",
    "s": "push",
    "t": "On Android",
    "x": "the same notifications with the same wording, in four groups you can turn off one by one in Android's settings: Events (pairings, results, invitations, sign-ups; shown at the top of the screen), Collection (follows, trade wants, price alerts, cube rankings), Friends and From Table 1. A newer one about the same thing replaces the older, and a tap opens the same screen as on iPhone; notices from Table 1 open From Table 1 and a moderator's review alert opens Review. The phone is signed up for notifications while you're signed in and taken off at sign-out."
   },
   {
-   "id": "push-13",
+   "id": "push-17",
    "s": "push",
    "x": "The web has no notifications."
   },
@@ -4073,65 +4482,83 @@
   {
    "id": "web-5",
    "s": "web",
-   "x": "The Library, friends, trade matches, cube rankings and roto run on the web too. Card scanning, the Live Activity, widgets and push notifications are phone-only."
+   "t": "A display for the TV",
+   "x": "every event has a full-screen page for a TV, a projector or a cast browser tab (the organizer's Display panel has its address and QR code). Three views: Clock (the round clock as large as fits, the round and how many results are in), Pairings (by table, and A to Z by player with their table and opponent) and Standings (teams for team events). On Auto it shows the pairings for the first five minutes of a round, then the clock, with the standings for 20 seconds every two minutes once results come in, and the standings between rounds. Long lists turn their pages every 10 seconds. Before round 1 it shows the event's name, start time and sign-up QR; after the finish, the final standings. Extra time shows beside its table, and the organizer's announcement runs along the bottom. With a keyboard: 1, 2 and 3 pick a view, A is Auto, F is full screen, the arrows turn pages. The screen stays awake while it's open. It works signed out for any event that isn't invitation-only."
   },
   {
    "id": "web-6",
+   "s": "web",
+   "t": "Print",
+   "x": "(organizers): pairings by table or A to Z, standings and result slips, on plain light paper, for Letter and A4."
+  },
+  {
+   "id": "web-7",
+   "s": "web",
+   "t": "Find, leagues and boards",
+   "x": "table-1.site/find, a league's page and each board open signed out too (public events, names only on leagues and boards)."
+  },
+  {
+   "id": "web-8",
+   "s": "web",
+   "x": "The Library, friends, trade matches, cube rankings and roto run on the web too. Card scanning, the Live Activity, widgets and push notifications are phone-only."
+  },
+  {
+   "id": "web-9",
    "s": "web",
    "h": "On a computer",
    "x": "On a window at least 1024 pixels wide, once you're signed in, the site is laid out for a computer. On a phone or a narrower window it stays exactly as it was."
   },
   {
-   "id": "web-7",
+   "id": "web-10",
    "s": "web",
    "h": "On a computer",
    "t": "Sidebar",
    "x": "a sidebar on the left replaces the Events · Collection · Account tabs. It has Play (Events, Life tracker), Collection (Overview, All cards, Add cards, Binders, Wants, Decks, Cubes, Rankings, Trades, Trade matches, Import and export) and Account (Account, Friends, Sharing). The section you're in stays marked as you go deeper: a deck under Decks, a card under All cards."
   },
   {
-   "id": "web-8",
+   "id": "web-11",
    "s": "web",
    "h": "On a computer",
    "t": "Events",
    "x": "your live, invited, upcoming and past events on the left; join with a code, create an event and the life tracker on the right."
   },
   {
-   "id": "web-9",
+   "id": "web-12",
    "s": "web",
    "h": "On a computer",
    "t": "Running an event",
    "x": "on the Live round, the clock and matches sit on the left and the standings, updating as results come in, on the right. On a window under 1280 pixels they stack."
   },
   {
-   "id": "web-10",
+   "id": "web-13",
    "s": "web",
    "h": "On a computer",
    "t": "Playing in an event",
    "x": "your match and reporting on the left; seating and standings on the right."
   },
   {
-   "id": "web-11",
+   "id": "web-14",
    "s": "web",
    "h": "On a computer",
    "t": "Collection",
    "x": "the summary across the top and the sections two across. A card's page shows the card large in its own column; pick a printing to see it there."
   },
   {
-   "id": "web-12",
+   "id": "web-15",
    "s": "web",
    "h": "On a computer",
    "t": "Decks and cubes",
    "x": "in the list view each section's groups (creatures, instants, lands…) flow into columns side by side, and the deck's actions sit three across. Grid and stacks fill the wider screen, as do All cards and binders in grid or stacks."
   },
   {
-   "id": "web-13",
+   "id": "web-16",
    "s": "web",
    "h": "On a computer",
    "t": "See the whole card",
    "x": "rest the pointer on any card in a list or a stack and the full card appears beside it."
   },
   {
-   "id": "web-14",
+   "id": "web-17",
    "s": "web",
    "h": "On a computer",
    "t": "Keyboard",
