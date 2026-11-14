@@ -56,7 +56,7 @@ select pg_temp.eq('scheduled, capped, top 8, auto rounds',
 select pg_temp.eq('auto rounds: 1 for the organizer alone', (select number_of_rounds::text from public.events where id = :'ev'), '1');
 select pg_temp.throws('top 8 is for Swiss events', $$select public.create_event_v2(p_format_name => 'team_draft', p_team_size => 3, p_top_cut => 8)$$, '22023');
 select pg_temp.throws('auto rounds are for Swiss events', $$select public.create_event_v2(p_format_name => 'roto', p_cube_name => 'Cube', p_auto_rounds => true)$$, '22023');
-select pg_temp.throws('only none or top 8', $$select public.create_event_v2(p_format_name => 'modern', p_top_cut => 4)$$, '22023');
+select pg_temp.throws('only none, top 4 or top 8 (top 4 since 20261113140000)', $$select public.create_event_v2(p_format_name => 'modern', p_top_cut => 6)$$, '22023');
 select pg_temp.throws('caps are 2 to 10000', $$select public.create_event_v2(p_format_name => 'modern', p_capacity => 1)$$, '22023');
 select pg_temp.throws('a time within a year', $$select public.create_event_v2(p_format_name => 'modern', p_starts_at => now() + interval '2 years')$$, '22023');
 
