@@ -103,6 +103,20 @@ select pg_temp.throws('another player cannot turn her photo',
 select pg_temp.as_user(:A);
 select pg_temp.eq('whoever took a photo turns it',
   (select p->>'turns' from jsonb_array_elements(public.deck_photo_turn(:PH2, 3)->'photos') p where p->>'id' = :PH2), '3');
+-- The organizer turns a player's own photo too (20261113120000_deck_photo_turn_organizer), but only turns it.
+select pg_temp.eq('the organizer turns a player''s photo',
+  (select p->>'turns' from jsonb_array_elements(public.deck_photo_turn(:PH4, 2)->'photos') p where p->>'id' = :PH4), '2');
+select pg_temp.eq('the organizer may turn it but not edit it',
+  (select (p->>'turnable') || '/' || (p->>'editable') from jsonb_array_elements(public.deck_photos(:EV)->'photos') p
+    where p->>'id' = :PH4), 'true/false');
+select pg_temp.throws('the organizer cannot edit a player''s note',
+  $$select public.deck_photo_note('d0000000-0000-0000-0000-000000000004', 'mine now')$$, '42501');
+select pg_temp.throws('the organizer cannot remove a player''s photo',
+  $$select public.deck_photo_delete('d0000000-0000-0000-0000-000000000004')$$, '42501');
+select pg_temp.as_user(:C);
+select pg_temp.eq('another player can neither turn nor edit her photo',
+  (select (p->>'turnable') || '/' || (p->>'editable') from jsonb_array_elements(public.deck_photos(:EV)->'photos') p
+    where p->>'id' = :PH4), 'false/false');
 reset role;
 select pg_temp.eq('turning never touches the file',
   (select path from public.event_deck_photos where id = :PH1),
@@ -116,4 +130,4 @@ select pg_temp.eq('a player removes their own photo',
 reset role;
 select pg_temp.eq('every change is audited',
   (select string_agg(action, ',' order by action) from public.audit_log where event_id = :EV and action like 'deck_photo.%'),
-  'deck_photo.added,deck_photo.added,deck_photo.added,deck_photo.added,deck_photo.note,deck_photo.removed,deck_photo.turned,deck_photo.turned');
+  'deck_photo.added,deck_photo.added,deck_photo.added,deck_photo.added,deck_photo.note,deck_photo.removed,deck_photo.turned,deck_photo.turned,deck_photo.turned');

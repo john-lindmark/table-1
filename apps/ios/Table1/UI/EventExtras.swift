@@ -45,6 +45,11 @@ struct DeckPhoto: Decodable, Identifiable, Hashable {
     var eventAt: String? = nil
     /// Where the photo's decklist stands (contract/deck-photo-lists-2026-11-13.md); nil = never read.
     var list: DeckListBrief? = nil
+    /// May turn it upright: editable, or the event's organizer (2026-11-13; older servers leave it out).
+    var turnable: Bool? = nil
+
+    /// Rotate is offered: to whoever may edit it and to the event's organizer.
+    var canTurn: Bool { turnable ?? editable }
 }
 
 struct DeckPhotos: Decodable {
@@ -415,7 +420,7 @@ struct DeckPhotosView: View {
 
     @MainActor
     private func edit(_ photo: DeckPhoto) {
-        guard photo.editable else { return }
+        guard photo.canTurn || photo.editable else { return }
         DeckPhotoMenu.show(photo, title: photo.player, from: "event", turn: { turn(photo, by: $0) }) { call in
             Task { @MainActor in
                 do { await show(try await call()) } catch { self.error = error.localizedDescription }
@@ -424,7 +429,7 @@ struct DeckPhotosView: View {
     }
 }
 
-/// A photo's own actions (the player or whoever took it): Rotate, note, Remove. `extra` goes first (Account → Deck
+/// A photo's actions: Rotate (also the organizer), then note and Remove (the player or whoever took it). `extra` goes first (Account → Deck
 /// photos adds Open event). `run` performs a call that answers with the event's photos.
 @MainActor
 enum DeckPhotoMenu {
@@ -434,6 +439,8 @@ enum DeckPhotoMenu {
         T1Overlays.shared.showMenu(title, extra + [
             T1MenuItem(title: "Rotate right ↻") { turn(1) },
             T1MenuItem(title: "Rotate left ↺") { turn(-1) },
+        ] + (photo.editable ? [
+            // The organizer turns anyone's photo; the note and removal stay with the player and whoever took it.
             T1MenuItem(title: photo.note.isEmpty ? "Add a note" : "Edit note") {
                 T1Overlays.shared.present {
                     DeckNotePanel(title: title, image: nil, note: photo.note, saveLabel: "Save note") { note, _ in
@@ -453,7 +460,7 @@ enum DeckPhotoMenu {
                     return out
                 }
             },
-        ])
+        ] : []))
     }
 }
 
@@ -497,7 +504,7 @@ struct DeckPhotoCard: View {
                 HStack {
                     LabelText(photo.mine ? "\(photo.player) · you" : photo.player, color: T1.text)
                     Spacer()
-                    if let said { LabelText(said, color: T1.accent) } else if photo.editable { LabelText("Edit") }
+                    if let said { LabelText(said, color: T1.accent) } else if photo.editable { LabelText("Edit") } else if photo.canTurn { LabelText("Rotate") }
                 }
                 if !photo.note.isEmpty { Text(photo.note).font(T1.mono(13)).foregroundStyle(T1.text) }
             }

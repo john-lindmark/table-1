@@ -84,4 +84,18 @@ final class MyDeckPhotoTests: XCTestCase {
         named.eventName = "Thursday Draft"
         XCTAssertTrue(MyDeckPhotoRules.detail(named).hasSuffix("2026"), "the format is left out when the name says it")
     }
+
+    func testTheOrganizerTurnsButDoesNotEdit() throws {
+        let row = #"{"id": "d1", "participant_id": "p1", "player": "Bea", "path": "e/d1.jpg", "note": "", "created_at": "", "turns": 0, "mine": false, "editable": EDIT TURN}"#
+        func photo(_ editable: Bool, _ turnable: String) throws -> DeckPhoto {
+            let json = #"{"shared": false, "photos": ["# + row.replacingOccurrences(of: "EDIT", with: "\(editable)")
+                .replacingOccurrences(of: " TURN", with: turnable) + "]}"
+            return try wireDecoder.decode(DeckPhotos.self, from: Data(json.utf8)).photos[0]
+        }
+        let organizer = try photo(false, #", "turnable": true"#)
+        XCTAssertTrue(organizer.canTurn)
+        XCTAssertFalse(organizer.editable)
+        XCTAssertTrue(try photo(true, "").canTurn, "servers before 2026-11-13 send no turnable: it follows editable")
+        XCTAssertFalse(try photo(false, "").canTurn)
+    }
 }

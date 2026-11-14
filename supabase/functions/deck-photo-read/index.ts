@@ -4,7 +4,8 @@
 //        ends it with deck_photo_read_finish, which keeps the list beside the photo and tells the player.
 //   POST { eval: [photo_id, ...] }   x-t1-secret      reads up to 6 photos and answers with the lists; writes
 //        nothing (measuring the reader on real photos without a local key).
-// One Messages request per photo: the photo as stored (2048 px on the long side, inside the model's 2576 px), the
+// One Messages request per photo: a signed link to the photo as stored (2048 px on the long side, inside the model's
+// 2576 px; a link because encoding the bytes here costs more CPU than an edge function has), the
 // event's card pool as text (deck_photo_read_claim), a structured answer. Names the pool doesn't hold exactly are
 // settled against the catalog (deck_photo_read_names). Secrets: ANTHROPIC_API_KEY. Deployed with verify_jwt off:
 // the database's posts carry no JWT.
@@ -26,15 +27,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 interface Job { photo_id: string; path: string; event: EventInfo; pool: Pool }
 interface Outcome { status: "done" | "failed"; cards?: Entry[]; notes?: string; model?: string; message?: string; pool?: { kind: string; label: string; size: number } }
 
-function base64(bytes: Uint8Array): string {
-  let s = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(s);
-}
-
 /** The photo and the pool to the model; its structured answer, or null when it declined.
  *  `fallbacks: "default"` re-runs a safety decline on Anthropic's recommended model. */
-async function look(client: Anthropic, photo: Uint8Array, job: Job, signal: AbortSignal): Promise<{ raw: unknown; model: string } | null> {
+async function look(client: Anthropic, photoUrl: string, job: Job, signal: AbortSignal): Promise<{ raw: unknown; model: string } | null> {
   const msg = await client.beta.messages.create({
     model: MODEL,
     max_tokens: 16000,
@@ -43,7 +38,7 @@ async function look(client: Anthropic, photo: Uint8Array, job: Job, signal: Abor
     messages: [{
       role: "user",
       content: [
-        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64(photo) } },
+        { type: "image", source: { type: "url", url: photoUrl } },
         { type: "text", text: ask(job.event, job.pool) },
       ],
     }],
@@ -67,10 +62,10 @@ async function read(apiKey: string, job: Job, onSteps?: (steps: string[]) => Pro
   try {
     const steps = [STEP_LOOK, stepPool(job.pool)];
     await onSteps?.(steps);
-    const { data, error } = await admin.storage.from("deck-photos").download(job.path);
-    if (error || !data) return { status: "failed", message: "The photo is no longer there." };
-    const photo = new Uint8Array(await data.arrayBuffer());
-    const answer = await look(new Anthropic({ apiKey }), photo, job, abort.signal);
+    // A signed link, not the bytes: encoding a 1-2 MB photo here runs the function out of CPU (546 on 2026-11-13).
+    const { data, error } = await admin.storage.from("deck-photos").createSignedUrl(job.path, 900);
+    if (error || !data?.signedUrl) return { status: "failed", message: "The photo is no longer there." };
+    const answer = await look(new Anthropic({ apiKey }), data.signedUrl, job, abort.signal);
     if (!answer || !answer.raw) return { status: "failed", message: "The photo couldn't be read. Try a clearer photo, or add the cards by hand." };
     const s = seen(answer.raw);
     const ix = indexPool(job.pool);

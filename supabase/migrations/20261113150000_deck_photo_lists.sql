@@ -408,8 +408,10 @@ returns jsonb language sql stable security definer set search_path = '' as $$
     from t1_private.deck_photo_lists l where l.photo_id = p_photo_id;
 $$;
 
+-- deck_photos as in 20261113120000_deck_photo_turn_organizer, plus `list`.
 create or replace function public.deck_photos(p_event_id uuid)
 returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare v_org boolean := public.is_event_organizer(p_event_id);
 begin
   if not public.in_event(p_event_id) then
     raise exception 'Only players in this event can see deck photos' using errcode = '42501';
@@ -423,6 +425,7 @@ begin
                'note', ph.note, 'created_at', ph.created_at, 'turns', ph.turns,
                'mine', coalesce(p.user_id = auth.uid(), false),
                'editable', ph.uploaded_by = auth.uid() or coalesce(p.user_id = auth.uid(), false),
+               'turnable', v_org or ph.uploaded_by = auth.uid() or coalesce(p.user_id = auth.uid(), false),
                'list', t1_private.deck_photo_list_brief(ph.id)))
              order by coalesce(p.user_id = auth.uid(), false) desc, p.display_name, ph.created_at desc)
         from public.event_deck_photos ph

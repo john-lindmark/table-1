@@ -501,7 +501,7 @@
    "s": "run",
    "h": "2 · Live",
    "t": "Deck photos",
-   "x": "(More on phones, the top bar on the website) to photograph any player's deck."
+   "x": "(More on phones, the top bar on the website) to photograph any player's deck, and to turn any player's photo upright (a tap on it: Rotate right / Rotate left)."
   },
   {
    "id": "run-19",
@@ -1071,7 +1071,7 @@
    "id": "after-1",
    "s": "after",
    "t": "Deck photos",
-   "x": "(all platforms): once the event is over, everyone in it sees every deck photo and its note, and players can still add theirs: Add a deck photo at the top of their event screen until they have one, Deck photos · Add under After the event, or More → Add a deck photo on the organizer's Results. The player or whoever took it can edit the note, remove it, or Rotate right / Rotate left to set a sideways photo upright; it turns for everyone and the original file stays as it was. Photos show whole, not cropped. Hold a photo for Copy, Save to Photos and Share, on the event's screen and on your account: the photo upright as shown (iPhone: the phone's own menu; website: the browser's picture menu, or right-click; Android: a Table 1 menu)."
+   "x": "(all platforms): once the event is over, everyone in it sees every deck photo and its note, and players can still add theirs: Add a deck photo at the top of their event screen until they have one, Deck photos · Add under After the event, or More → Add a deck photo on the organizer's Results. The player or whoever took it can edit the note, remove it, or Rotate right / Rotate left to set a sideways photo upright; it turns for everyone and the original file stays as it was. The organizer can turn any photo: on a player's photo the organizer's tap opens just Rotate right / Rotate left (the card says \"Rotate\" where an editable one says \"Edit\"); the note and Remove stay with the player and whoever took it. Photos show whole, not cropped. Hold a photo for Copy, Save to Photos and Share, on the event's screen and on your account: the photo upright as shown (iPhone: the phone's own menu; website: the browser's picture menu, or right-click; Android: a Table 1 menu)."
   },
   {
    "id": "after-2",
@@ -4148,71 +4148,78 @@
   {
    "id": "discord-11",
    "s": "discord",
+   "h": "Events",
+   "t": "Deck photos with the results",
+   "x": "final results (once the event is finished) are followed by every player's deck photos, in standings order: the first follow-up headed \"Deck photos · Friday Modern · 8 players\", each photo titled with the place, the pod in a draft with two or more pods, and the record (\"1. Bea · P2 · 2-0\"), its note under it. Players without a photo and photos moderation took down are left out; at most 40 photos. Standings so far never carry photos. Posting shows the photos to everyone in the channel, and Discord keeps its copy even if a photo is later removed in Table 1; a photo turned upright in Table 1 shows upright."
+  },
+  {
+   "id": "discord-12",
+   "s": "discord",
    "h": "Cards and decks",
    "t": "/deck",
    "x": "posts one of your decks: name, format, card counts, its Spice, the whole deck as a picture (the deck image's cards layout, drawn on the server) and Open on Table 1. The link is the same \"Anyone with the link\" as in Sharing, so the bot asks before it makes one, and you can stop sharing it there any time."
   },
   {
-   "id": "discord-12",
+   "id": "discord-13",
    "s": "discord",
    "h": "Cards and decks",
    "t": "/wants",
    "x": "and /trades post your wants or your cards for trade: the whole list (25 lines, then \"and N more\"), or one card picked as you type. Each line has the printing (or \"any printing\"), the finish, the condition for trade, and the price: the cheapest near-mint price a want takes, or a for-trade copy's price at its condition, with the list's value at market. Open on Table 1 opens the part's link; the bot asks before it makes one. Your max prices never show."
   },
   {
-   "id": "discord-13",
+   "id": "discord-14",
    "s": "discord",
    "h": "Cards and decks",
    "t": "/card",
    "x": "looks a card up: cost, type, cheapest TCGplayer price (and foil), how many printings, the card's picture."
   },
   {
-   "id": "discord-14",
+   "id": "discord-15",
    "s": "discord",
    "h": "Cards and decks",
    "t": "/meta",
    "x": "posts Insights as a picture: matchups (the grid: every archetype with 1% of the decks against the 10 most played, each square's win rate and record, faded under 30 matches; each row's name carries its overall win rate and record, tinted like a square ), deck (one archetype, picked as you type, against each other: bars with the record and a 95% likely range, the matchups with 30+ matches first) or winrates (every archetype with 20+ matches: record, win rate and 95% range, best first, Other last; teal when the whole range is above 50%, pink when below). Choose the format (Standard, Pioneer, Modern, Legacy, Vintage, Pauper or Canadian Highlander), All or Big events, and 7, 14, 30 or 90 days (All events and 30 days when left out). The post links to the same view in Table 1. Anyone can use it, linked or not."
   },
   {
-   "id": "discord-15",
+   "id": "discord-16",
    "s": "discord",
    "h": "Cards and decks",
    "t": "/ranking",
    "x": "posts one of your cube or set rankings: pick it as you type from the ones you made (\"Lindmark Cube · Summer · 50/50 ranked\"; sets with their code), and show its Top 50, Top 100 or one color's list (left out, its own top 50 or 100). The post is a picture of the list, the same as the app's Top 100 image (piles of ten in rank order, name bars showing, a rank on each card, in the cube's own printings) for a top 50, a top 100 or a color, under the cube or set and the list, \"Ranking by\" you and your label, and how far along it is (\"37 of 50 placed so far.\", \"The top quarter of 68 white cards.\", \"This ranking's final is a top 50.\" when you ask a top-50 ranking for 100). Open in Table 1 shows only when the ranking is shared. Only your own rankings, and posting one changes nothing on Table 1. The places come out exactly as the app shows them."
   },
   {
-   "id": "discord-16",
+   "id": "discord-17",
    "s": "discord",
    "h": "Cards and decks",
    "t": "/help",
    "x": "lists every command, just for you."
   },
   {
-   "id": "discord-17",
+   "id": "discord-18",
    "s": "discord",
    "h": "Who sees what",
    "x": "Everything the bot tells you about yourself is visible to you alone. The event card, the results post and a deck you post are public in the channel, because you asked for them."
   },
   {
-   "id": "discord-18",
+   "id": "discord-19",
    "s": "discord",
    "h": "Who sees what",
    "x": "The card shows players by their Table 1 display name, as the event already does for its players. Nobody is ever mentioned or pinged."
   },
   {
-   "id": "discord-19",
+   "id": "discord-20",
    "s": "discord",
    "h": "Who sees what",
    "x": "Table 1 keeps which Discord account is which Table 1 account, where it posted each card, and the server's time zone: no usernames, no server names, no messages. Deleting your Table 1 account removes the link."
   },
   {
-   "id": "discord-20",
+   "id": "discord-21",
    "s": "discord",
    "h": "Who sees what",
    "x": "The bot only acts on events posted in that server, and every request from Discord is signed and checked before anything happens."
   },
   {
-   "id": "discord-21",
+   "id": "discord-22",
    "s": "discord",
    "h": "Who sees what",
    "x": "The link page needs the website; the apps have no Discord screen of their own."
