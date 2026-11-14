@@ -8,6 +8,7 @@ import {
   eventPrizesSet, feeLine, money, payTag, paymentsMessage, payoutPresetOf, payoutTotal, payoutWords, poolOf, prizePaidTag, refund,
   PaymentsError, type EventMoney, type Fee, type KeepKind, type PayMode, type PayoutBracket, type PayoutPreset, type PlayerPayment, type Prize,
 } from "../../lib/money";
+import { usePaymentsEnabled } from "../../lib/usePayments";
 
 /* The organizer's side of entry fees (contract/entry-fees-2026-11-13.md §§ 2, 4): the fee in Setup → Details, a
    payment tag and its menu on every player, and Results → Prizes. */
@@ -17,12 +18,14 @@ const errorText = (e: unknown) =>
 
 /* ── the fee ─────────────────────────────────────────────────────────── */
 
-/** Setup → Details → Entry fee: `NONE`, or `$25 · APP OR DOOR`, opening the fee. Hidden until the server has fees. */
+/** Setup → Details → Entry fee: `NONE`, or `$25 · APP OR DOOR`, opening the fee. Hidden until the server has fees and payments are
+ *  open to this account (§ 1 "Hidden for now"). */
 export function FeeRow({ eventId, money: m, players, leagueName, onSaved }: {
   eventId: string; money: EventMoney | null; players: number; leagueName?: string | null; onSaved: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  if (!m) return null;
+  const enabled = usePaymentsEnabled();
+  if (!m || !enabled) return null;
   return (
     <>
       <Row title="Entry fee" value={<span className="flex items-center gap-3"><span className="t1-label !text-t1-text">{feeLine(m.fee)}</span><Icon d={BAR_ICON.arrow} /></span>}

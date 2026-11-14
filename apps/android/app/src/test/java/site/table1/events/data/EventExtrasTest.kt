@@ -402,4 +402,27 @@ class EventExtrasTest {
         assertEquals(2, f.invite(null))
         assertEquals(0, f.final!!.toInvite)
     }
+
+    /** "Hidden for now" (contract/entry-fees-2026-11-13.md § 1): only `enabled: true` opens the organizer's payments. */
+    @Test
+    fun paymentsStayHiddenUntilEnabled() {
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        // An older server's answer has no `enabled`: hidden.
+        val old = json.decodeFromString<PaymentsAccount>("""{"connected":true,"ready":true,"payouts":true,"details_submitted":true,"disabled_reason":null}""")
+        assertEquals(false, old.enabled)
+        assertEquals(false, PaymentsAccount().enabled)
+        assertEquals(false, json.decodeFromString<PaymentsAccount>("""{"connected":true,"ready":true,"enabled":false}""").enabled)
+        val open = json.decodeFromString<PaymentsAccount>("""{"connected":false,"ready":false,"enabled":true}""")
+        assertEquals(true, open.enabled)
+
+        // The gate: false, missing and a failed call (null) all hide; a ready Stripe account alone doesn't show.
+        assertEquals(false, PaymentsGate.shows(null))
+        assertEquals(false, PaymentsGate.shows(old))
+        assertEquals(true, PaymentsGate.shows(open))
+        // Another account's answer never counts, nor does one with nobody signed in.
+        assertEquals(true, PaymentsGate.shows(open, "u1", "u1"))
+        assertEquals(false, PaymentsGate.shows(open, "u1", "u2"))
+        assertEquals(false, PaymentsGate.shows(open, null, null))
+        assertEquals(false, PaymentsGate.shows(null, "u1", "u1"))
+    }
 }

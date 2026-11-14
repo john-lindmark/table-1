@@ -12,6 +12,7 @@ import {
 } from "../lib/leagues";
 import { useBack } from "../lib/nav";
 import { leagueMoney, money as dollars, type LeagueMoney } from "../lib/money";
+import { usePaymentsEnabled } from "../lib/usePayments";
 import { capture } from "../lib/telemetry";
 import { useSession } from "../lib/useSession";
 
@@ -71,6 +72,8 @@ export function LeagueScreen({ league, onBack }: { league: string; onBack: () =>
   const [followError, setFollowError] = useState<string | null>(null);
   // The season's prize pool from its cut of each entry (contract/entry-fees-2026-11-13.md § 5); null while the server has none.
   const [pool, setPool] = useState<LeagueMoney | null>(null);
+  // The Dues tool is an organizer's: only while payments are open to this account (§ 1 "Hidden for now").
+  const payOn = usePaymentsEnabled();
   const shownSeason = data?.season?.id ?? null;
   useEffect(() => {
     setPool(null);
@@ -213,7 +216,7 @@ export function LeagueScreen({ league, onBack }: { league: string; onBack: () =>
           { title: "Edit league", onClick: () => go({ view: "edit" }) },
           { title: "Seasons", detail: seasons.length ? seasons.map((s) => s.name).join(" · ") : "None yet", onClick: () => go({ view: "seasons" }) },
           { title: "Organizers", detail: (data.members?.map((m) => m.name) ?? l.organizers).join(", "), onClick: () => go({ view: "organizers" }) },
-          ...(pool?.events ? [{ title: "Dues", detail: `${dollars(pool.received_cents ?? 0)} of ${dollars(pool.pool_cents)} received`, onClick: () => go({ view: "dues" }) }] : []),
+          ...(payOn && pool?.events ? [{ title: "Dues", detail: `${dollars(pool.received_cents ?? 0)} of ${dollars(pool.pool_cents)} received`, onClick: () => go({ view: "dues" }) }] : []),
         ]} />
       )}
     </Screen>

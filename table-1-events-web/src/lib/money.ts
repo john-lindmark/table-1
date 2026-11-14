@@ -40,7 +40,11 @@ export interface EventMoney {
   prizes?: Prize[];
   organizer?: { stripe: { connected: boolean; ready: boolean }; players: PlayerPayment[]; unpaid: number } | null;
 }
-export interface StripeAccount { connected: boolean; ready: boolean; payouts: boolean; details_submitted: boolean; disabled_reason: string | null }
+export interface StripeAccount {
+  connected: boolean; ready: boolean; payouts: boolean; details_submitted: boolean; disabled_reason: string | null;
+  /** Payments are open to this account (§ 1 "Hidden for now"); an answer without it means false. */
+  enabled?: boolean;
+}
 export interface LeagueDue { event_id: string; name: string; entries: number; owed_cents: number; received_cents: number }
 export interface LeagueMoney { entry_cut_cents: number; pool_cents: number; received_cents?: number | null; events?: LeagueDue[] | null }
 
@@ -163,6 +167,12 @@ export const unpaidConfirm = (n: number) => `${n} ${n === 1 ? "player hasn't" : 
 export const stripeLine = (a: Pick<StripeAccount, "connected" | "ready"> | null | undefined) =>
   !a?.connected ? "NOT CONNECTED" : a.ready ? "READY" : "FINISH SETTING UP";
 export const PAYMENTS_OFF = "Payments aren't set up yet";
+/** Whether to show an organizer anything about payments (Account → Payments, Entry fee, Cut per entry, Dues): only
+ *  when `payments_account` said `enabled: true`. False when it's false or missing, or the call failed (null). */
+export const paymentsEnabled = (a: Pick<StripeAccount, "enabled"> | null | undefined): boolean => a?.enabled === true;
+/** An answer from the `payments` function (connect_status) may not carry `enabled`: keep what payments_account said. */
+export const keepEnabled = (next: StripeAccount, was: Pick<StripeAccount, "enabled"> | null | undefined): StripeAccount =>
+  ({ ...next, enabled: next.enabled ?? was?.enabled });
 
 /* ── calls ───────────────────────────────────────────────────────────── */
 

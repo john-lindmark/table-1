@@ -317,6 +317,13 @@ final class EventToolsTests: XCTestCase {
         let a = try decode(PaymentsAccount.self, #"{"connected": true, "ready": false, "payouts": false, "details_submitted": false, "disabled_reason": "requirements.past_due"}"#)
         XCTAssertEqual(a.state, "Finish setting up")
         XCTAssertEqual(try decode(PaymentsAccount.self, #"{"connected": false, "ready": false, "payouts": false, "details_submitted": false, "disabled_reason": null}"#).state, "Not connected")
+        // Hidden for now (entry-fees § 1): `enabled` absent reads as off, and only a true answer shows anything.
+        XCTAssertNil(a.enabled)
+        XCTAssertFalse(PaymentsAccount.shows(a))
+        XCTAssertFalse(PaymentsAccount.shows(nil))
+        XCTAssertFalse(PaymentsAccount.shows(try decode(PaymentsAccount.self, #"{"connected": true, "ready": true, "enabled": false}"#)))
+        XCTAssertFalse(PaymentsAccount.shows(try decode(PaymentsAccount.self, #"{"connected": true, "ready": true, "enabled": null}"#)))
+        XCTAssertTrue(PaymentsAccount.shows(try decode(PaymentsAccount.self, #"{"connected": false, "ready": false, "enabled": true}"#)))
         let l = try decode(LeagueMoney.self, """
         {"entry_cut_cents": 700, "pool_cents": 140000, "received_cents": 61600,
          "events": [{"event_id": "e1", "name": "Modern Open", "entries": 41, "owed_cents": 28700, "received_cents": 28700}]}

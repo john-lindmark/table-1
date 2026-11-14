@@ -333,7 +333,7 @@ struct LeagueSeasonView: View {
                     if qualify.winners { T1Switch(title: "Pass down to 8th", isOn: $qualify.passDown) }
                     T1Stepper(label: "Top on points", value: $qualify.top, range: 0...64)
 
-                    if let cut {
+                    if let cut, PaymentsGate.shared.enabled {
                         Section1("Prize pool")
                         MoneyField(label: "Cut per entry · USD", text: Binding(get: { cut }, set: { self.cut = $0 }))
                     }
@@ -410,7 +410,9 @@ struct LeagueSeasonView: View {
             qualify = s.qualify
             closed = s.closed
             loaded = true
-            if let m = try? await Repo.leagueMoney(seasonId) {
+            // Only where payments are open to this account (entry-fees § 1 "Hidden for now").
+            await PaymentsGate.shared.load()
+            if PaymentsGate.shared.enabled, let m = try? await Repo.leagueMoney(seasonId) {
                 cutWas = m.entryCutCents
                 cut = m.entryCutCents > 0 ? Money.typed(m.entryCutCents) : ""
             }

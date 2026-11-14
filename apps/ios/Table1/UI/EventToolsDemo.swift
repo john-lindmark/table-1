@@ -26,7 +26,7 @@ enum ToolsDemo {
     static var finished = false
     static var custom: [String: Int] = [:]
     static var prizePaid: [String: String] = [:]
-    static var account = PaymentsAccount(connected: true, ready: true, payouts: true, detailsSubmitted: true, disabledReason: nil)
+    static var account = PaymentsAccount(connected: true, ready: true, payouts: true, detailsSubmitted: true, disabledReason: nil, enabled: true)
 
     /// A $25 entry, in the app or at the door, top 4 paid, $7 an entry to the league, the host keeps 10%.
     static func startFee(mine: String = "unpaid") {

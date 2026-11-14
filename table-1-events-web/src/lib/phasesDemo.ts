@@ -353,7 +353,8 @@ export function eventPrizeMark(eventId: string, participantId: string, paid: boo
   else s.paid.delete(participantId);
 }
 
-export const paymentsAccount = (): StripeAccount => ({ ...account });
+/** The stand-in account always has payments open (`enabled`), so the demo shows every organizer part. */
+export const paymentsAccount = (): StripeAccount => ({ ...account, enabled: true });
 /** Account → Payments in the demo starts where `&stripe=` says: none | started | ready (the default). */
 export function demoStripe(state: string | null) {
   if (state === "none") account = { connected: false, ready: false, payouts: false, details_submitted: false, disabled_reason: null };
@@ -372,7 +373,7 @@ export function payments(body: Record<string, unknown>): unknown {
     case "connect_status":
       // Onboarding finishes between two looks, as it does when Stripe has what it needs.
       if (account.connected && !account.ready) account = { connected: true, ready: true, payouts: true, details_submitted: true, disabled_reason: null };
-      return { ...account };
+      return { ...account, enabled: true };
     case "connect_dashboard":
       return { url: "https://connect.stripe.com/express_login" };
     case "checkout": {

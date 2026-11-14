@@ -110,6 +110,8 @@ struct AccountSocialRows: View {
         Button { path.append(.social(.sharing)) } label: {
             ListRow(title: "Sharing", detail: store.sharing.map(SharingRules.summary) ?? "Who sees your profile and Library")
         }.buttonStyle(.plain)
+        // Each time the Account tab opens: are payments open to this account?
+        .task { await PaymentsGate.shared.refresh() }
         // Your Stripe account, for entry fees (contract/entry-fees-2026-11-13.md § 1).
         PaymentsRow()
         if let me = Repo.userId {

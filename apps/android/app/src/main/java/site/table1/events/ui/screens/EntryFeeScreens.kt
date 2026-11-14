@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,7 @@ import site.table1.events.data.LeagueMoney
 import site.table1.events.data.Leagues
 import site.table1.events.data.LeaguesDemo
 import site.table1.events.data.PaymentsAccount
+import site.table1.events.data.PaymentsGate
 import site.table1.events.data.PayoutBracket
 import site.table1.events.data.PlayerPayment
 import site.table1.events.data.Prize
@@ -128,10 +130,19 @@ private fun MoneyField(value: String, onChange: (String) -> Unit, placeholder: S
 
 // ── Account → Payments ──
 
+/** Whether payments show for this account (PaymentsGate): asked once per sign-in, [refresh] changing asks again. */
+@Composable
+fun rememberPaymentsOn(refresh: Any? = null): Boolean {
+    val changed by PaymentsGate.changes.collectAsState()
+    LaunchedEffect(Repo.userId) { PaymentsGate.load() }
+    if (refresh != null) LaunchedEffect(refresh) { PaymentsGate.load(again = true) }
+    return remember(changed, Repo.userId) { PaymentsGate.on }
+}
+
 /** Account's Payments row (after Sharing): `NOT CONNECTED` / `FINISH SETTING UP` / `READY`. Nothing while the server
- *  has no payments yet. */
+ *  has no payments yet, or hasn't opened them to this account. */
 fun LazyListScope.paymentsAccountRow(account: PaymentsAccount?, onOpen: () -> Unit) {
-    val a = account ?: return
+    val a = account?.takeIf { PaymentsGate.shows(it) } ?: return
     item(key = "payments") {
         ListRow("Payments", onClick = onOpen) { Label(a.state, color = if (a.ready) T1.accent else T1.muted) }
     }
@@ -208,7 +219,8 @@ fun PaymentsScreen(onBack: () -> Unit) {
 /** Setup → Details → Entry fee (`NONE`, or `$25 · APP OR DOOR`), opening the fee. Nothing while the server has no fees. */
 @Composable
 fun EventFeeRow(eventId: String, money: EventMoney?, leagueName: String?, startOpen: Boolean = false, onChanged: suspend () -> Unit) {
-    val m = money ?: return
+    val on = rememberPaymentsOn()
+    val m = money?.takeIf { on } ?: return
     var open by remember { mutableStateOf(startOpen) }
     ListRow("Entry fee", onClick = { open = true }) {
         Label(Fees.feeLine(m.fee), color = T1.text)
@@ -638,9 +650,10 @@ fun LeaguePoolRow(money: LeagueMoney?) {
     ListRow("Prize pool", "${Fees.money(m.entryCutCents)} AN ENTRY") { Amount(Fees.money(m.poolCents)) }
 }
 
-/** The season editor's Cut per entry (0 = none). */
+/** The season editor's Cut per entry (0 = none). Nothing until payments are open to this account. */
 @Composable
 fun CutPerEntryField(value: String, onChange: (String) -> Unit) {
+    if (!rememberPaymentsOn()) return
     FormBlock("Cut per entry") { MoneyField(value, onChange, placeholder = "0") }
 }
 

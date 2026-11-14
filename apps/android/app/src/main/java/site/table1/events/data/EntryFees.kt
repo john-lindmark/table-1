@@ -117,6 +117,8 @@ data class PaymentsAccount(
     val payouts: Boolean = false,
     @SerialName("details_submitted") val detailsSubmitted: Boolean = false,
     @SerialName("disabled_reason") val disabledReason: String? = null,
+    /** Payments are open to this account (§ 1 "Hidden for now"); absent from an older server = false. */
+    val enabled: Boolean = false,
 ) {
     /** `NOT CONNECTED` / `FINISH SETTING UP` / `READY`. */
     val state: String get() = if (!connected) "Not connected" else if (!ready) "Finish setting up" else "Ready"

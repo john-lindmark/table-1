@@ -106,6 +106,12 @@ struct PaymentsAccount: Codable, Hashable {
     var payouts: Bool?
     var detailsSubmitted: Bool?
     var disabledReason: String?
+    /// payments_account only: payments are open to this account (entry-fees § 1 "Hidden for now"). Absent = false.
+    var enabled: Bool?
+
+    /// What an organizer could act on (Account → Payments, Entry fee, Cut per entry, Dues) shows only for an answer
+    /// that says `enabled`: false, a missing key and a failed call all hide it.
+    static func shows(_ account: PaymentsAccount?) -> Bool { account?.enabled == true }
 
     /// `NOT CONNECTED` / `FINISH SETTING UP` / `READY`.
     var state: String { ready ? "Ready" : connected ? "Finish setting up" : "Not connected" }

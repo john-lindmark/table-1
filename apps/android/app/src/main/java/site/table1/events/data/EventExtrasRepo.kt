@@ -51,6 +51,39 @@ suspend fun Repo.eventExtras(eventId: String): EventExtras = kotlinx.coroutines.
 
 // ── entry fees ──
 
+/**
+ * "Hidden for now" (contract/entry-fees-2026-11-13.md § 1): until payments_account says `enabled`, nothing about
+ * payments that an organizer could act on shows: no Account → Payments row, no Entry fee row in Setup → Details, no Cut
+ * per entry in the season editor, no Dues tool. False, missing or a failed call all hide. What players see (the fee
+ * line, Prize pool, Pay, prizes) needs no flag. Read once per sign-in and kept; the Account tab reads it again.
+ */
+object PaymentsGate {
+    /** The rule: only an answer that says so opens payments. */
+    fun shows(account: PaymentsAccount?): Boolean = account?.enabled == true
+
+    /** The last answer and whose it was; another account's answer never counts. */
+    internal fun shows(account: PaymentsAccount?, of: String?, me: String?): Boolean = me != null && of == me && shows(account)
+
+    private data class Known(val user: String, val account: PaymentsAccount?)
+    private val known = kotlinx.coroutines.flow.MutableStateFlow<Known?>(null)
+
+    /** Changes when an answer arrives; read [on] after it. */
+    val changes: kotlinx.coroutines.flow.StateFlow<Any?> get() = known
+
+    /** Payments show for the signed-in account. Stand-in data (Debug) always shows them. */
+    val on: Boolean get() = EventDemo.data != null || LeaguesDemo.on || known.value.let { shows(it?.account, it?.user, Repo.userId) }
+
+    /** payments_account, asked once per sign-in ([again] asks anyway: the Account tab). A failed call hides and is
+     *  asked again next time. Returns the account, null when the call failed. */
+    suspend fun load(again: Boolean = false): PaymentsAccount? {
+        val me = Repo.userId ?: return null
+        known.value?.let { if (!again && it.user == me && it.account != null) return it.account }
+        val a = try { Repo.paymentsAccount() } catch (e: Throwable) { e.rethrowIfCancelled(); null }
+        known.value = Known(me, a)
+        return a
+    }
+}
+
 /** Your own Stripe connection as last heard from Stripe (no call to Stripe). */
 suspend fun Repo.paymentsAccount(): PaymentsAccount {
     EventDemo.data?.let { return it.account }

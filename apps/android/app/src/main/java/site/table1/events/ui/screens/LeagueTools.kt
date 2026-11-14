@@ -136,13 +136,14 @@ fun LeagueToolsScreen(league: String, foregrounds: Int, onBack: () -> Unit, go: 
         }
         val id = p.league.id
         val dues = rememberLeagueMoney(p.season?.id, foregrounds)
+        val payments = rememberPaymentsOn()
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             item(key = "edit") { ArrowRow("Edit league", p.league.region?.uppercase()) { go("league/$id/edit") } }
             item(key = "h-seasons") { Section("Seasons") }
             items(p.seasons, key = { it.id }) { s -> ArrowRow(s.name, Leagues.seasonLine(s.startsOn, s.endsOn, s.state)) { go("league/$id/season/${s.id}") } }
             item(key = "add") { ListRow("Add a season", onClick = { go("league/$id/season/new") }) { site.table1.events.library.IconGlyph(site.table1.events.library.T1Icon.Plus) } }
             // What hosts owe the league from each paid entry (contract/entry-fees-2026-11-13.md § 5).
-            if (dues != null && (dues.entryCutCents > 0 || !dues.events.isNullOrEmpty())) item(key = "dues") {
+            if (payments && dues != null && (dues.entryCutCents > 0 || !dues.events.isNullOrEmpty())) item(key = "dues") {
                 ArrowRow("Dues", "${site.table1.events.data.Fees.money(dues.poolCents)} OWED · ${site.table1.events.data.Fees.money(dues.receivedCents ?: 0)} RECEIVED") { go("league/$id/dues") }
             }
             item(key = "h-organizers") { Section("Organizers") }

@@ -6,9 +6,10 @@ import { BigAction, Notice, Row, Screen, T1Logo } from "../components/kit";
 import { demoPath, leaguesDemoOn } from "../lib/leagues";
 import {
   PAY_DONE_TITLE, PENDING_POLL_MS, PENDING_POLL_TRIES, connectDashboard, connectStart, connectStatus, eventMoney, money, payDoneState,
-  paymentsAccount, paymentsMessage, stripeLine, PaymentsError, type EventMoney, type StripeAccount,
+  keepEnabled, paymentsEnabled, paymentsMessage, stripeLine, PaymentsError, type EventMoney, type StripeAccount,
 } from "../lib/money";
 import { capture } from "../lib/telemetry";
+import { usePaymentsAccount } from "../lib/usePayments";
 import { useSession } from "../lib/useSession";
 
 /* A host's Stripe account and Stripe's return pages (contract/entry-fees-2026-11-13.md §§ 1, 3). The host is the
@@ -28,16 +29,15 @@ async function openInNewTab(link: () => Promise<string>): Promise<void> {
   }
 }
 
-/** Account → Payments: `NOT CONNECTED` / `FINISH SETTING UP` / `READY`. Hidden while the server has no payments. */
+/** Account → Payments: `NOT CONNECTED` / `FINISH SETTING UP` / `READY`. Hidden while the server has no payments
+ *  or they aren't open to this account. */
 export function PaymentsAccountRow() {
-  const [account, setAccount] = useState<StripeAccount | null>(null);
+  // Account opened: ask again (the tester list may have changed), and share the answer with the other gates.
+  const { account, set } = usePaymentsAccount(true);
+  const setAccount = useCallback((a: StripeAccount) => set(keepEnabled(a, account)), [set, account]);
   const [open, setOpen] = useState(() => new URLSearchParams(window.location.search).has("payments"));
-  useEffect(() => {
-    let live = true;
-    void paymentsAccount().then((a) => live && setAccount(a));
-    return () => { live = false; };
-  }, []);
-  if (!account) return null;
+  // Hidden for now (§ 1): no row and no panel, `?payments` included, unless payments are open to this account.
+  if (!account || !paymentsEnabled(account)) return null;
   return (
     <>
       <Row title="Payments" value={<span className={`t1-label ${account.ready ? "text-t1-accent!" : ""}`}>{stripeLine(account)}</span>} onClick={() => setOpen(true)} />

@@ -48,7 +48,6 @@ import site.table1.events.util.Legal
 import site.table1.events.auth.SignIn
 import site.table1.events.data.AccountOverview
 import site.table1.events.data.Repo
-import site.table1.events.data.paymentsAccount
 import site.table1.events.tracker.TrackerSettings
 import site.table1.events.ui.components.Avatar
 import site.table1.events.ui.components.AvatarStore
@@ -85,10 +84,10 @@ import site.table1.events.ui.components.rememberOpenProfile
 fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit, onProfile: (String) -> Unit, onNotices: () -> Unit = {}, onReview: () -> Unit = {}, onBugs: () -> Unit = {}, onDeckPhotos: () -> Unit = {}, onSupport: () -> Unit = {},
                   onPayments: () -> Unit = {}) {
     /** Account → Payments (contract/entry-fees-2026-11-13.md § 1): your Stripe connection as last known; null (no row)
-     *  while the server has no payments. */
+     *  while the server has no payments, the call failed, or payments aren't open to this account (PaymentsGate). */
     var payments by remember { mutableStateOf<site.table1.events.data.PaymentsAccount?>(null) }
     LaunchedEffect(foregrounds) {
-        runCatching { Repo.paymentsAccount() }.onSuccess { payments = it }
+        payments = site.table1.events.data.PaymentsGate.load(again = true)
     }
     /** Account → Deck photos' summary ("12 photos · 5 events"), from my_deck_photos asked for one photo. */
     var deckPhotos by remember { mutableStateOf<String?>(null) }

@@ -357,6 +357,47 @@ extension Repo {
     }
 }
 
+// MARK: payments, hidden until opened (entry-fees § 1 "Hidden for now")
+
+/// `payments_account`, read once per signed-in account and again whenever the Account tab opens. Everything an
+/// organizer could act on about payments draws only while `enabled`; a failed call hides it.
+@MainActor
+@Observable
+final class PaymentsGate {
+    static let shared = PaymentsGate()
+
+    private(set) var account: PaymentsAccount?
+    private var owner: String?
+    private var loading = false
+
+    var enabled: Bool { PaymentsAccount.shows(account) && owner == Repo.userId }
+
+    /// Asks only when this account hasn't been answered for yet.
+    func load() async {
+        if account != nil, owner == Repo.userId { return }
+        await refresh()
+    }
+
+    func refresh() async {
+        guard !loading else { return }
+        loading = true
+        defer { loading = false }
+        let user = Repo.userId
+        let answer = user == nil ? nil : try? await Repo.paymentsAccount()
+        guard user == Repo.userId else { return }
+        owner = user
+        account = answer
+    }
+
+    /// connect_status answers without `enabled`: keep what payments_account said.
+    func connected(_ a: PaymentsAccount) {
+        guard account != nil else { return }
+        var a = a
+        a.enabled = account?.enabled
+        account = a
+    }
+}
+
 // MARK: what an event's screens read beside the event
 
 /// The money, the room and the teams of one event, read wherever the event is re-read (on its ping, on foreground,

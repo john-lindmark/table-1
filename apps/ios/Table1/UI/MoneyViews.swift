@@ -44,17 +44,16 @@ final class PayBrowser: NSObject, ASWebAuthenticationPresentationContextProvidin
 
 // MARK: Account → Payments
 
-/// The Account row after Sharing: `NOT CONNECTED` / `FINISH SETTING UP` / `READY`. Hidden until the server answers.
+/// The Account row after Sharing: `NOT CONNECTED` / `FINISH SETTING UP` / `READY`. Hidden until the server answers
+/// and says payments are open to this account (`PaymentsGate`, refreshed by AccountSocialRows).
 struct PaymentsRow: View {
-    @State private var account: PaymentsAccount?
-
     var body: some View {
+        let gate = PaymentsGate.shared
         Group {
-            LoadOnce { account = try? await Repo.paymentsAccount() }
-            if let account {
+            if gate.enabled, let account = gate.account {
                 Button {
                     T1Overlays.shared.present(full: true) {
-                        PaymentsPanel(account: account) { self.account = $0 }.screen("payments")
+                        PaymentsPanel(account: account) { gate.connected($0) }.screen("payments")
                     }
                 } label: {
                     ListRow(title: "Payments") { LabelText(account.state, color: account.ready ? T1.accent : T1.muted) }
@@ -142,10 +141,13 @@ struct EntryFeeRow: View {
     let eventId: String
 
     var body: some View {
-        let side = EventSide.of(eventId)
+        let side = EventSide.of(eventId), gate = PaymentsGate.shared
         Group {
-            LoadOnce { if side.money == nil { await side.refreshMoney() } }
-            if let money = side.money {
+            LoadOnce {
+                await gate.load()
+                if gate.enabled, side.money == nil { await side.refreshMoney() }
+            }
+            if gate.enabled, let money = side.money {
                 Section1("Entry fee")
                 Button {
                     T1Overlays.shared.present(full: true) { FeeEditor(eventId: eventId, money: money).screen("event_fee") }
@@ -720,8 +722,11 @@ struct LeagueDuesRow: View {
 
     var body: some View {
         Group {
-            LoadOnce { money = try? await Repo.leagueMoney(seasonId) }
-            if let money, money.events != nil, money.entryCutCents > 0 || !(money.events ?? []).isEmpty {
+            LoadOnce {
+                await PaymentsGate.shared.load()
+                if PaymentsGate.shared.enabled { money = try? await Repo.leagueMoney(seasonId) }
+            }
+            if PaymentsGate.shared.enabled, let money, money.events != nil, money.entryCutCents > 0 || !(money.events ?? []).isEmpty {
                 Section1("Dues · \(season)")
                 Button {
                     T1Overlays.shared.present(full: true) { LeagueDuesPanel(seasonId: seasonId, money: money) { self.money = $0 }.screen("league_dues") }

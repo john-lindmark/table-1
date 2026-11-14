@@ -9,6 +9,7 @@ import {
   multiplierText, pointsWords, presetOf, qualifyWords, seasonLine,
   type EventLeague, type LeagueCard, type LeagueMember, type LeagueRole, type LeagueView, type MemberAction, type PointsBracket, type PointsRule, type Preset, type SeasonRef,
 } from "../lib/leagues";
+import { usePaymentsEnabled } from "../lib/usePayments";
 import { centsOf, centsText, leagueDueMark, leagueMoney, money, type LeagueDue, type LeagueMoney } from "../lib/money";
 
 /* An organizer's league tools (contract/public-events-leagues-2026-11-13.md § 3 Clients): Edit league, Seasons (the
@@ -26,7 +27,7 @@ export function LeagueTools({ data, view, seasonId, onBack, go, onChanged, onArc
   if (view === "edit") return <EditLeague data={data} onBack={onBack} onChanged={onChanged} onArchived={onArchived} />;
   if (view === "organizers") return <Organizers data={data} onBack={onBack} onChanged={() => onChanged()} />;
   if (view === "season") return <SeasonEditor data={data} seasonId={seasonId === "new" ? null : seasonId} onBack={onBack} onChanged={() => onChanged()} />;
-  if (view === "dues") return <Dues data={data} onBack={onBack} />;
+  if (view === "dues") return <DuesGate data={data} onBack={onBack} />;
   return (
     <Screen>
       <Bar title="Seasons" onBack={onBack} />
@@ -196,6 +197,8 @@ function SeasonForm({ leagueId, season, onBack, onChanged }: {
   const [top, setTop] = useState(season?.qualify.top ?? 0);
   /** What each paid entry of the season's events owes the league (contract/entry-fees-2026-11-13.md § 5). */
   const [cut, setCut] = useState(season?.entry_cut_cents ? centsText(season.entry_cut_cents) : "");
+  // Hidden for now (§ 1): no Cut per entry unless payments are open to this account.
+  const payOn = usePaymentsEnabled();
   const cutCents = cut.trim() === "" ? 0 : centsOf(cut);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -275,7 +278,7 @@ function SeasonForm({ leagueId, season, onBack, onChanged }: {
         <SwitchRow label="Event winners qualify" on={winners} onChange={setWinners} />
         <Stepper label="Top on points qualify" value={top} min={0} max={64} onChange={setTop} />
         {qualifyWords(qualify) && <div className="bg-t1-surface px-4 py-3 t1-label">{qualifyWords(qualify)}</div>}
-        {(season == null || "entry_cut_cents" in season) && (
+        {payOn && (season == null || "entry_cut_cents" in season) && (
           <Field label="Cut per entry · USD" value={cut} placeholder="0" onChange={(v) => setCut(v.replace(/[^0-9.]/g, "").slice(0, 7))} />
         )}
         {error && <Notice tone="error">{error}</Notice>}
@@ -299,6 +302,11 @@ function SeasonForm({ leagueId, season, onBack, onChanged }: {
 /* ── dues ────────────────────────────────────────────────────────────── */
 
 /** What each event's host owes the league from its cut of the entries, and what the league has marked received. */
+/** Dues only while payments are open to this account (§ 1 "Hidden for now"); a typed address shows nothing. */
+function DuesGate(props: { data: LeagueView; onBack: () => void }) {
+  return usePaymentsEnabled() ? <Dues {...props} /> : <Screen><Bar title="" onBack={props.onBack} /></Screen>;
+}
+
 function Dues({ data, onBack }: { data: LeagueView; onBack: () => void }) {
   const seasonId = data.season?.id ?? null;
   const [m, setM] = useState<LeagueMoney | null | "failed">(null);

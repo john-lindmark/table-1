@@ -28,6 +28,7 @@ struct EventsDemoRoot: View {
     static let switcherModes = ["create", "setup", "seating", "results", "photo"]
     static let fullModes = ["pods", "podslive", "home", "homeorg", "account", "live", "player", "playerdone"] + leagueModes + toolModes
     /// Entry fees, teams, a season's final, alerts and the room tools on stand-in data (EventToolsDemo.swift):
+    /// - `-T1Payments off` (any mode): payments not open to this account, so nothing an organizer could act on shows.
     /// - `payments` (`-T1Stripe none|setup|ready`): Account → Payments. `fee`: the fee editor. `pool`: the Prize pool.
     /// - `pay` (`-T1Pay unpaid|pending|paid|refunded`): a player's screen before round 1 with their entry.
     /// - `paysetup`: the organizer's Setup with payment tags. `prizes`: Results → Prizes. `dues`: a league's Dues.
@@ -88,7 +89,7 @@ struct EventsDemoRoot: View {
         switch mode {
         case "payments":
             let s = Self.arg("-T1Stripe") ?? "setup"
-            ToolsDemo.account = PaymentsAccount(connected: s != "none", ready: s == "ready", payouts: s == "ready", detailsSubmitted: s == "ready", disabledReason: nil)
+            ToolsDemo.account = PaymentsAccount(connected: s != "none", ready: s == "ready", payouts: s == "ready", detailsSubmitted: s == "ready", disabledReason: nil, enabled: true)
         case "fee", "pool", "paysetup": ToolsDemo.startFee()
         case "pay":
             ToolsDemo.organizer = false
@@ -115,6 +116,7 @@ struct EventsDemoRoot: View {
         case "final": ToolsDemo.isFinal = true
         default: break
         }
+        if Self.arg("-T1Payments") == "off" { ToolsDemo.account.enabled = false }
         if Self.toolModes.contains(mode) || mode == "setup" {
             Task { @MainActor in await EventSide.of(DemoData.eventId).refresh(teams: true) }
         }

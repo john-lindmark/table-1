@@ -130,7 +130,7 @@ object EventDemo {
             "player" -> modern("live", organizer = false)
             "pay" -> modern("setup", organizer = false)
             else -> modern("setup", organizer = true)
-        }.also { if (screen == "ready") it.account = PaymentsAccount(true, true, true, true, null) }
+        }.also { if (screen == "ready") it.account = PaymentsAccount(true, true, true, true, null, enabled = true) }
     }
 
     private val names = listOf("Ann Ito", "Bea Lund", "Cy Okafor", "Dee Park", "Eli Voss", "Fay Moreno", "Gus Tanaka", "Hana Reyes")
@@ -233,7 +233,7 @@ object EventDemo {
             FinalRow("g:lee", null, "Lee Quist", 10, 30, null, "guest"))
         return Data(EventBundle(event, players, rounds, organizer), StandingsResponse(table, topCut = event.topCut), money, room, null,
             if (phase == "setup") about.copy(league = league) else about, page, if (organizer && phase == "setup") FinalStatus("s1", qualified, next) else null,
-            PaymentsAccount(connected = screen != "payments", ready = false, detailsSubmitted = false))
+            PaymentsAccount(connected = screen != "payments", ready = false, detailsSubmitted = false, enabled = true))
     }
 
     private fun trios(organizer: Boolean, onTeam: Boolean): Data {
@@ -267,6 +267,6 @@ object EventDemo {
             EventTeam(id, name, n + 1, players.filter { it.teamId == id }.sortedBy { it.teamSlot }.map { TeamMember(it.id, it.displayName, it.teamSlot, it.userId) })
         }
         return Data(EventBundle(event, players, emptyList(), organizer, teamNames.mapIndexed { n, (id, name) -> EventTeamRow(id, name, n + 1) }),
-            StandingsResponse(), money, EventRoom(), mine, about, page, null, PaymentsAccount(true, true, true, true, null), eventTeams)
+            StandingsResponse(), money, EventRoom(), mine, about, page, null, PaymentsAccount(true, true, true, true, null, enabled = true), eventTeams)
     }
 }
