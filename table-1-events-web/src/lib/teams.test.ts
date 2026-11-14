@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { acrossTheTable, podSizes, seatDraft, seatTeamDraft, passDirection } from "./seating";
-import { mulberry32, pairRound } from "./pairings";
-import { computeTeamStandings, pairTeamDraftRound, pairTeamSwissRound, teamClinch, teamProblems, type Team } from "./teams";
+import { mulberry32, pairRound, type ProposedMatch } from "./pairings";
+import { bracket, nextStep, playoffStandings, swissRounds, type Stage, type StagedRound } from "./playoffs";
+import {
+  activeTeams, computeTeamStandings, isTeamEvent, isTeamSwiss, nextTeamStage, pairTeamDraftRound, pairTeamPlayoff,
+  pairTeamStage, pairTeamSwissRound, teamBracket, teamClinch, teamCutProblem, teamPlayoffMatches, teamProblems, teamSeeds,
+  teamSwissStandings, type Team,
+} from "./teams";
 import type { Match, Participant, RoundWithMatches } from "./types";
 
 let seq = 0;
@@ -234,5 +239,192 @@ describe("team clinch", () => {
     expect(teamClinch(teams, people, [r1, r2, r3], 3)).toBeNull();
     const C = ["C1", "C2", "C3"].map((n, i) => p(n, { teamId: "C", teamSlot: i + 1 }));
     expect(teamClinch([...teams, { id: "C", name: "Charlie", order: 3 }], [...people, ...C], [r1, r2], 3)).toBeNull();
+  });
+});
+
+// ── Team Trios and the top 4 between teams (the engine's teams.test.ts runs the same events under Deno) ─────────
+
+const LETTERS = "abcd";
+const makeTeams = (n: number): Team[] =>
+  Array.from({ length: n }, (_, i) => ({ id: `t${String(i + 1).padStart(2, "0")}`, name: `Team ${String.fromCharCode(65 + i)}`, order: i }));
+const makePlayers = (teams: Team[], size: number): Participant[] =>
+  teams.flatMap((t) => Array.from({ length: size }, (_, i) => p(`${t.id}${LETTERS[i]}`, { teamId: t.id, teamSlot: i + 1 })));
+const teamOfId = (id: string) => id.slice(0, 3);
+const dropWhere = (ps: Participant[], gone: (x: Participant) => boolean, r: number): Participant[] =>
+  ps.map((x) => (gone(x) ? { ...x, status: "dropped" as const, droppedInRound: r } : x));
+
+function playStage(stage: Stage, number: number, proposed: ProposedMatch[], winner: (a: string, b: string, table: number) => string): StagedRound {
+  return {
+    ...round(number, proposed.map((m) => {
+      if (m.isBye) return { ...bye(m.side0ParticipantId), tableNumber: m.tableNumber };
+      const w = winner(m.side0ParticipantId, m.side1ParticipantId!, m.tableNumber);
+      return { ...match(m.side0ParticipantId, w === m.side0ParticipantId ? 2 : 1, m.side1ParticipantId!, w === m.side1ParticipantId ? 2 : 1),
+               tableNumber: m.tableNumber };
+    })),
+    stage,
+  };
+}
+
+function teamSwiss(format: string, count: number, size: number, seed: number,
+                   afterRound: (r: number, ps: Participant[]) => Participant[] = (_r, ps) => ps) {
+  const rng = mulberry32(seed);
+  const teams = makeTeams(count);
+  let ps = makePlayers(teams, size);
+  const rounds: StagedRound[] = [];
+  const total = swissRounds(count);
+  const pairings: ProposedMatch[][] = [];
+  for (let r = 1; r <= total; r++) {
+    const proposed = pairTeamStage(format, "swiss", teams, ps, rounds, r, rng);
+    pairings.push(proposed);
+    rounds.push(playStage("swiss", r, proposed, (a, b) => (rng() < 0.5 ? a : b)));
+    ps = afterRound(r, ps);
+  }
+  return { teams, ps, rounds, total, rng, pairings };
+}
+
+/** Worked out here from the played round: more seats won (byes count); level goes to `hi`. */
+function teamWinner(played: StagedRound, hi: string, lo: string): string {
+  let a = 0, b = 0;
+  for (const m of played.matches) {
+    const sides = m.sides.filter((x) => x.participantId);
+    if (!sides.every((x) => [hi, lo].includes(teamOfId(x.participantId!)))) continue;
+    const won = m.isBye ? sides[0] : sides[0].gameWins > sides[1].gameWins ? sides[0] : sides[1];
+    if (teamOfId(won.participantId!) === hi) a++; else b++;
+  }
+  return b > a ? lo : hi;
+}
+
+describe("Team Trios", () => {
+  it("is a team event paired as Swiss between teams, never a draft pairing", () => {
+    expect(["team_draft", "team_sealed", "team_trios", "sealed", "modern", null].map(isTeamEvent)).toEqual([true, true, true, false, false, false]);
+    expect(["team_draft", "team_sealed", "team_trios", "draft"].map(isTeamSwiss)).toEqual([false, true, true, false]);
+    const teams = makeTeams(6);
+    expect(teamProblems(teams, makePlayers(teams, 3), 3, "team_trios")).toBeNull();
+  });
+
+  it("pairs and ranks exactly as team sealed does for the same results", () => {
+    for (const count of [2, 3, 5, 6, 8, 11]) {
+      const dropper = (r: number, ps: Participant[]) => (r === 1 && count > 5 ? dropWhere(ps, (x) => x.id === "t02b", 1) : ps);
+      const sealed = teamSwiss("team_sealed", count, 3, 40 + count, dropper);
+      const trios = teamSwiss("team_trios", count, 3, 40 + count, dropper);
+      expect(trios.pairings, `${count} teams`).toEqual(sealed.pairings);
+      for (const m of sealed.pairings[0].filter((x) => !x.isBye)) expect(m.side0ParticipantId.at(-1)).toBe(m.side1ParticipantId!.at(-1));
+      expect(computeTeamStandings(trios.teams, trios.ps, trios.rounds).map((t) => [t.teamId, t.rank, t.points, t.matchWins, t.gameWinPct]))
+        .toEqual(computeTeamStandings(sealed.teams, sealed.ps, sealed.rounds).map((t) => [t.teamId, t.rank, t.points, t.matchWins, t.gameWinPct]));
+      expect(nextTeamStage("team_trios", trios.teams, trios.ps, trios.rounds, trios.total, 4))
+        .toBe(nextTeamStage("team_sealed", sealed.teams, sealed.ps, sealed.rounds, sealed.total, 4));
+    }
+  });
+});
+
+describe("team top 4", () => {
+  it("5 to 12 teams of 3 and of 4: seeds 1v4 and 2v3, the team final, final places, members' Swiss records", () => {
+    for (const size of [3, 4]) {
+      for (let count = 5; count <= 12; count++) {
+        const format = size === 3 && count % 2 ? "team_trios" : "team_sealed";
+        const { teams, ps, rounds, total, rng } = teamSwiss(format, count, size, count * 100 + size * 10 + 1);
+        const why = `${count} teams of ${size}`;
+        const swiss = teamSwissStandings(teams, ps, rounds);
+        const top = swiss.slice(0, 4).map((t) => t.teamId);
+        expect(nextStep({ stages: rounds.map((r) => r.stage!), waiting: false, numberOfRounds: total, topCut: 4,
+                          activePlayers: ps.length, activeTeams: activeTeams(teams, ps).length }), why).toBe("cut4");
+        expect(nextTeamStage(format, teams, ps, rounds, total, 4), why).toBe("semifinal");
+        expect(nextTeamStage(format, teams, ps, rounds, total, 0), why).toBeNull();
+
+        const sf = pairTeamStage(format, "semifinal", teams, ps, rounds, total + 1);
+        const want = [[top[0], top[3]], [top[1], top[2]]].flatMap(([hi, lo]) =>
+          Array.from({ length: size }, (_, i) => [`${hi}${LETTERS[i]}`, `${lo}${LETTERS[i]}`, false]));
+        expect(sf.map((m) => [m.side0ParticipantId, m.side1ParticipantId, m.isBye]), why).toEqual(want);
+        expect(sf.map((m) => m.tableNumber), why).toEqual(Array.from({ length: 2 * size }, (_, i) => i + 1));
+
+        // Teams of 4: the first semifinal is split 2–2 and goes to the higher seed.
+        const split = size === 4;
+        const semis = playStage("semifinal", total + 1, sf, (a, b, table) => (split && table <= 4 ? (table <= 2 ? b : a) : rng() < 0.5 ? a : b));
+        rounds.push(semis);
+        const w1 = teamWinner(semis, top[0], top[3]), w2 = teamWinner(semis, top[1], top[2]);
+        if (split) expect(w1, why).toBe(top[0]);
+        expect(teamPlayoffMatches(teams, ps, rounds).map((m) => [m.stage, m.teamIds, m.seeds, m.winner]), why).toEqual([
+          ["semifinal", [top[0], top[3]], [1, 4], w1], ["semifinal", [top[1], top[2]], [2, 3], w2],
+        ]);
+        // A whole beaten team dropping afterwards moves no seed.
+        const loser1 = w1 === top[0] ? top[3] : top[0], loser2 = w2 === top[1] ? top[2] : top[1];
+        const later = dropWhere(ps, (x) => x.teamId === loser1, total + 1);
+        expect([...teamSeeds(teams, later, rounds)].sort((a, b) => a[1] - b[1]).map(([id]) => id), why).toEqual(top);
+
+        expect(nextTeamStage(format, teams, later, rounds, total, 4), why).toBe("final");
+        const finalists = [w1, w2].sort((a, b) => top.indexOf(a) - top.indexOf(b));
+        const fin = pairTeamStage(format, "final", teams, later, rounds, total + 2);
+        expect(fin.map((m) => [m.side0ParticipantId, m.side1ParticipantId]), why)
+          .toEqual(Array.from({ length: size }, (_, i) => [`${finalists[0]}${LETTERS[i]}`, `${finalists[1]}${LETTERS[i]}`]));
+        const final = playStage("final", total + 2, fin, (a, b) => (rng() < 0.5 ? a : b));
+        rounds.push(final);
+        const champion = teamWinner(final, finalists[0], finalists[1]);
+        expect(nextTeamStage(format, teams, later, rounds, total, 4), why).toBeNull();
+
+        const standings = computeTeamStandings(teams, later, rounds);
+        const out = [loser1, loser2].sort((a, b) => top.indexOf(a) - top.indexOf(b));
+        expect(standings.slice(0, 4).map((t) => [t.teamId, t.playoff]), why).toEqual([
+          [champion, "winner"], [finalists.find((t) => t !== champion), "final"], [out[0], "semifinal"], [out[1], "semifinal"],
+        ]);
+        expect(standings.map((t) => t.rank), why).toEqual(standings.map((_, i) => i + 1));
+        expect(standings.slice(4).map((t) => [t.teamId, t.playoff]), why).toEqual(swiss.slice(4).map((t) => [t.teamId, null]));
+        for (const t of standings) {
+          const was = swiss.find((x) => x.teamId === t.teamId)!;
+          expect([t.swissRank, t.points, t.wins, t.matchWins], why).toEqual([was.rank, was.points, was.wins, was.matchWins]);
+        }
+        // The players' own standings stay Swiss; the bracket is the teams'.
+        expect(playoffStandings(later, rounds).every((x) => x.playoff === null), why).toBe(true);
+        expect(bracket(later, rounds), why).toEqual([]);
+        const b = teamBracket(teams, later, rounds);
+        expect(b.map((x) => [x.stage, x.matches.length]), why).toEqual([["semifinal", 2], ["final", 1]]);
+        expect(b[0].matches.map((m) => m.sides.map((x) => [x.seed, x.team_id])), why).toEqual([[[1, top[0]], [4, top[3]]], [[2, top[1]], [3, top[2]]]]);
+        expect(b[1].matches[0].winner, why).toBe(champion);
+        expect(b[1].matches[0].matches).toHaveLength(size);
+      }
+    }
+  });
+
+  it("a short-handed seed: its seats move up, the other team's last seat has a bye that counts as a win", () => {
+    const teams = makeTeams(6);
+    let ps = makePlayers(teams, 3);
+    const rounds: StagedRound[] = [];
+    const total = swissRounds(6);
+    for (let r = 1; r <= total; r++) {
+      rounds.push(playStage("swiss", r, pairTeamStage("team_trios", "swiss", teams, ps, rounds, r, mulberry32(r)), (a, b) => (a < b ? a : b)));
+    }
+    const top = teamSwissStandings(teams, ps, rounds).slice(0, 4).map((t) => t.teamId);
+    expect(top[0]).toBe("t01");
+    ps = dropWhere(ps, (x) => x.id === "t01b", total);
+    const sf = pairTeamPlayoff("semifinal", teams, ps, rounds);
+    expect(sf.filter((m) => teamOfId(m.side0ParticipantId) === "t01").map((m) => [m.side0ParticipantId, m.side1ParticipantId]))
+      .toEqual([["t01a", `${top[3]}a`], ["t01c", `${top[3]}b`]]);
+    expect(sf.filter((m) => m.isBye).map((m) => [m.tableNumber, m.side0ParticipantId])).toEqual([[6, `${top[3]}c`]]);
+    const split = playStage("semifinal", total + 1, sf, (a, b) => (a === "t01c" ? b : a));
+    const m = teamPlayoffMatches(teams, ps, [...rounds, split])[0];
+    expect([m.wins, m.winner]).toEqual([[1, 2], top[3]]);
+    // A team with nobody left isn't seeded, and four teams left is no cut.
+    const gone = dropWhere(ps, (x) => x.teamId === top[1], total);
+    expect([...teamSeeds(teams, gone, rounds).keys()]).not.toContain(top[1]);
+    expect(teamSeeds(teams, gone, rounds).size).toBe(4);
+    const four = dropWhere(gone, (x) => x.teamId === top[2], total);
+    expect(nextTeamStage("team_trios", teams, four, rounds, total, 4)).toBeNull();
+  });
+
+  it("refuses a top 8 between teams and any cut in a team draft", () => {
+    expect(teamCutProblem("team_trios", 4)).toBeNull();
+    expect(teamCutProblem("team_sealed", 8)).toMatch(/top 4/);
+    expect(teamCutProblem("team_draft", 4)).toMatch(/team draft has no top cut/);
+    const { teams, ps, rounds, total } = teamSwiss("team_sealed", 9, 3, 30);
+    expect(() => nextTeamStage("team_sealed", teams, ps, [], total, 8)).toThrow(/Team events cut to top 4/);
+    expect(nextTeamStage("team_sealed", teams, ps, rounds.slice(0, 2), total, 8)).toBe("swiss");
+    expect(() => nextTeamStage("team_sealed", teams, ps, rounds, total, 8)).toThrow(/Team events cut to top 4/);
+    expect(() => pairTeamStage("team_trios", "quarterfinal", teams, ps, rounds, total + 1)).toThrow(/Team events cut to top 4/);
+    const two = makeTeams(2);
+    const six = makePlayers(two, 3);
+    expect(() => nextTeamStage("team_draft", two, six, [], 3, 4)).toThrow(/team draft has no top cut/);
+    expect(() => nextTeamStage("team_draft", two, six, [], 3, 8)).toThrow(/team draft has no top cut/);
+    expect(() => pairTeamStage("team_draft", "semifinal", two, six, [], 4)).toThrow(/team draft has no top cut/);
+    expect(nextTeamStage("team_draft", two, six, [], 3, 0)).toBe("swiss");
+    expect(() => pairTeamPlayoff("final", teams, ps, rounds)).toThrow(/needs a winner/);
   });
 });

@@ -27,9 +27,10 @@ export function autoLabel(players: number): string {
   return `Auto · ${n} round${n === 1 ? "" : "s"} for ${players} players`;
 }
 
-/** "Auto rounds · Top 8", "4 rounds". */
+/** "Auto rounds · Top 8", "3 rounds · Top 4", "4 rounds". */
 export function roundsLine(auto: boolean, rounds: number, topCut: number, open: boolean): string {
-  return (auto && open ? "Auto rounds" : `${rounds} round${rounds === 1 ? "" : "s"}`) + (topCut === 8 ? " · Top 8" : "");
+  return (auto && open ? "Auto rounds" : `${rounds} round${rounds === 1 ? "" : "s"}`)
+    + (topCut === 4 || topCut === 8 ? ` · Top ${topCut}` : "");
 }
 
 export type PageButton = "organizer" | "in" | "waitlisted" | "closed" | "sign_in" | "waitlist" | "sign_up";

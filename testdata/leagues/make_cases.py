@@ -144,6 +144,115 @@ def achievement_text(i):
     return {"code": "1 WIN" if i.get("wins") == 1 else f"{i.get('wins', 0)} WINS", "label": label, "accent": False}
 
 
+# ---- phases 2 to 4 ----------------------------------------------------------------------------------------
+SEAT_FORMATS = dict(FORMAT_KEYS[:8] + [("duel_commander", "Duel Commander"), ("other", "Other")])
+
+
+def money(cents):
+    """$25, $7.50, $1,400: whole dollars lose their cents."""
+    whole, part = divmod(abs(int(cents)), 100)
+    return f"{'-' if cents < 0 else ''}${whole:,}" + (f".{part:02d}" if part else "")
+
+
+def cut_choices(format_name, pairing="swiss"):
+    if pairing != "swiss" or format_name in ("team_draft", "roto"):
+        return [0]
+    return [0, 4] if format_name in ("team_sealed", "team_trios") else [0, 4, 8]
+
+
+def seat_label(slot, seat_formats):
+    letter = "ABCD"[slot - 1] if 1 <= slot <= 4 else str(slot)
+    return f"{letter} · {SEAT_FORMATS[seat_formats[slot - 1]].upper()}" if seat_formats and slot <= len(seat_formats) else letter
+
+
+def team_line(t, team_size):
+    return "COMPLETE" if t.get("complete") else f"{t['members']}/{team_size}"
+
+
+def alert_line(a):
+    if not a.get("on"):
+        return "OFF"
+    formats = ", ".join(LABEL[f].upper() for f in a.get("formats", [])) or "EVERY FORMAT"
+    return f"{formats} · {a['km']} KM" if a.get("km") else f"{formats} · ANYWHERE"
+
+
+PAY_MODES = {"door": "DOOR", "app": "APP", "either": "APP OR DOOR"}
+
+
+def fee_line(fee):
+    if not fee:
+        return "NONE"
+    if fee["amount_cents"] == 0:
+        return "FREE"
+    return f"{money(fee['amount_cents'])} · {PAY_MODES[fee['pay_mode']]}"
+
+
+def pay_tag(p):
+    s, m = p["status"], p.get("method")
+    if s == "paid":
+        return "COMP" if m == "comp" else f"PAID · {'DOOR' if m == 'door' else 'APP'}"
+    return {"pending": "PENDING", "refunded": "REFUNDED"}.get(s, "UNPAID")
+
+
+PAYOUT_PRESETS = {
+    "winner": [{"through": 1, "percent": 100}],
+    "top2": [{"through": 1, "percent": 65}, {"through": 2, "percent": 35}],
+    "top4": [{"through": 1, "percent": 40}, {"through": 2, "percent": 25}, {"through": 4, "percent": 17.5}],
+    "top8": [{"through": 1, "percent": 30}, {"through": 2, "percent": 20}, {"through": 4, "percent": 12.5}, {"through": 8, "percent": 6.25}],
+}
+
+
+def pct(v):
+    return f"{v:g}%"
+
+
+def payout_words(payout):
+    parts, last = [], 0
+    for b in payout:
+        t = b["through"]
+        parts.append(f"{ordinal(t) if t == last + 1 else f'{ordinal(last + 1)} to {ordinal(t)}'} {pct(b['percent'])}{' each' if t > last + 1 else ''}")
+        last = t
+    return " · ".join(parts) or "No prizes set"
+
+
+def payout_total(payout):
+    total, last = 0, 0
+    for b in payout:
+        total += b["percent"] * (b["through"] - last)
+        last = b["through"]
+    return total
+
+
+def prize_at(payout, pool_cents, place, share=1):
+    for b in payout:
+        if b["through"] >= place:
+            return int(pool_cents * b["percent"] / 100 / share)
+    return 0
+
+
+def pool_of(entries, amount, cut, keep_kind, keep_value, added):
+    gross = entries * amount
+    league = entries * min(cut, amount)
+    keep = min(keep_value, gross - league) if keep_kind == "flat" else int((gross - league) * keep_value / 100) if keep_kind == "percent" else 0
+    return {"gross_cents": gross, "league_cut_cents": league, "host_keep_cents": keep, "pool_cents": max(0, gross - league - keep) + added}
+
+
+def extension_text(seconds):
+    return f"+{seconds // 60}:{seconds % 60:02d}" if seconds > 0 else ""
+
+
+def judge_line(call, now_iso):
+    mins = max(0, int((datetime.fromisoformat(now_iso) - datetime.fromisoformat(call["called_at"])).total_seconds() // 60))
+    parts = ["JUDGE", f"TABLE {call['table_number']}", (call.get("by") or "").upper() or None, "NOW" if mins == 0 else f"{mins} MIN"]
+    return " · ".join(p for p in parts if p)
+
+
+def rules_line(rel, due):
+    """`due` is the deadline already formatted in the device's zone (or None)."""
+    parts = [rel.upper() if rel else None, f"DECKLISTS DUE {due}" if due else None]
+    return " · ".join(p for p in parts if p)
+
+
 def display_auto(status, round_number, elapsed, results_in, matches, t):
     """Which view the TV shows on auto. elapsed: seconds into the round; t: seconds the display has been open."""
     if status in ("completed", "archived"):
@@ -214,6 +323,13 @@ achievements = [
     {"kind": "board", "board": "cube", "label": "Cube", "rank": None, "rating": 1540, "players": 9},
 ]
 
+fees = [None, {"amount_cents": 0, "pay_mode": "door"}, {"amount_cents": 2500, "pay_mode": "either"},
+        {"amount_cents": 750, "pay_mode": "door"}, {"amount_cents": 140000 // 100 * 100, "pay_mode": "app"}]
+pays = [{"status": "paid", "method": "app"}, {"status": "paid", "method": "door"}, {"status": "paid", "method": "comp"},
+        {"status": "unpaid", "method": None}, {"status": "pending", "method": "app"}, {"status": "refunded", "method": "app"}]
+pools = [(1, 2500, 700, "percent", 10, 0), (3, 2500, 700, "percent", 10, 1000), (40, 2500, 700, "flat", 20000, 0),
+         (2, 500, 700, "none", 0, 0), (8, 1500, 0, "flat", 99999999, 0), (0, 0, 0, "none", 0, 10000)]
+
 cases = {
     "format_keys": [{"key": k, "label": v} for k, v in FORMAT_KEYS],
     "presets": PRESETS,
@@ -230,6 +346,33 @@ cases = {
     "board_line": [{"board": b, "want": board_line(b)} for b in boards],
     "achievement_text": [{"item": i, "want": achievement_text(i)} for i in achievements],
     "league_line": [{"card": c, "want": league_line(c)} for c in cards],
+    "money": [{"cents": c, "want": money(c)} for c in (0, 50, 700, 750, 2500, 140000, 162050, 100000000)],
+    "cut_choices": [{"format_name": f, "pairing": p, "want": cut_choices(f, p)} for f, p in (
+        ("modern", "swiss"), ("draft", "swiss"), ("team_sealed", "swiss"), ("team_trios", "swiss"), ("team_draft", "swiss"),
+        ("roto", "round_robin"), ("roto", "swiss"))],
+    "seat_formats": [{"key": k, "label": v} for k, v in SEAT_FORMATS.items()],
+    "seat_label": [{"slot": sl, "seat_formats": sf, "want": seat_label(sl, sf)} for sl, sf in (
+        (1, ["modern", "standard", "pioneer"]), (2, ["modern", "standard", "pioneer"]), (3, ["pauper", "premodern", "duel_commander"]),
+        (2, None), (4, None))],
+    "team_line": [{"team": t, "team_size": n, "want": team_line(t, n)} for t, n in (
+        ({"members": 1, "complete": False}, 3), ({"members": 3, "complete": True}, 3), ({"members": 3, "complete": False}, 4))],
+    "alert_line": [{"alert": a_, "want": alert_line(a_)} for a_ in (
+        {"on": False, "formats": ["modern"], "km": 50}, {"on": True, "formats": ["modern", "limited"], "km": 50},
+        {"on": True, "formats": [], "km": None}, {"on": True, "formats": ["cube"], "km": None})],
+    "fee_line": [{"fee": f, "want": fee_line(f)} for f in fees],
+    "pay_tag": [{"payment": p, "want": pay_tag(p)} for p in pays],
+    "payout_presets": PAYOUT_PRESETS,
+    "payout_words": [{"payout": v, "want": payout_words(v), "total": payout_total(v)} for v in list(PAYOUT_PRESETS.values()) + [[]]],
+    "prize_at": [{"payout": PAYOUT_PRESETS["top4"], "pool_cents": 4860, "place": pl, "share": sh, "want": prize_at(PAYOUT_PRESETS["top4"], 4860, pl, sh)}
+                 for pl, sh in ((1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (1, 3))],
+    "pool": [{"entries": e_, "amount_cents": a_, "cut_cents": c_, "keep_kind": k_, "keep_value": v_, "added_cents": d_,
+              "want": pool_of(e_, a_, c_, k_, v_, d_)} for e_, a_, c_, k_, v_, d_ in pools],
+    "extension_text": [{"seconds": x, "want": extension_text(x)} for x in (0, 180, 300, 605, 3600)],
+    "judge_line": [{"call": c_, "now": n_, "want": judge_line(c_, n_)} for c_, n_ in (
+        ({"table_number": 7, "by": "Bea", "called_at": "2026-11-13T18:30:00+00:00"}, "2026-11-13T18:32:10+00:00"),
+        ({"table_number": 12, "by": None, "called_at": "2026-11-13T18:30:00+00:00"}, "2026-11-13T18:30:20+00:00"))],
+    "rules_line": [{"rel": r_, "due": d_, "want": rules_line(r_, d_)} for r_, d_ in (
+        ("competitive", "SAT 14 NOV 09:30"), ("casual", None), (None, "SAT 14 NOV 09:30"), (None, None))],
     "display_auto": [{"status": s, "round": r, "elapsed": e, "results_in": i, "matches": m, "t": t, "want": display_auto(s, r, e, i, m, t)}
                      for s, r, e, i, m, t in autos],
     "display_pages": [{"rows": r, "height": h, "row_height": rh, "header": hd, "want": display_pages(r, h, rh, hd)} for r, h, rh, hd in pages],

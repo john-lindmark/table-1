@@ -3,7 +3,8 @@
 
 Sections (every client and events-engine's playoffs.test.ts read them):
   rounds     players -> recommended Swiss rounds (t1_private.swiss_rounds)
-  next       the organizer's next step from the paired stages
+  next       the organizer's next step from the paired stages (top 8, top 4, and top 4 for team events, whose
+             cases carry active_teams: the teams with at least one active member)
   round_name a round's name from its stage, number and the Swiss count
   sign_up    the sign-up line on the event page
   auto_label the Rounds row when Auto is on
@@ -27,7 +28,22 @@ def swiss_rounds(players):
     return 10
 
 
-def next_step(stages, waiting, number_of_rounds, top_cut, active_players):
+def next_step(stages, waiting, number_of_rounds, top_cut, active_players, active_teams=None):
+    """The organizer's next step.
+
+    start      no round paired yet
+    waiting    the open round has a match without a result, or a dispute
+    pair       pair the next Swiss round
+    cut        "Cut to top 8": quarterfinals from the Swiss standings (top_cut 8, more than 8 active players)
+    cut4       "Cut to top 4": Swiss straight to the semifinals (top_cut 4, more than 4 active players; team
+               events: more than 4 active teams)
+    semifinals "Pair semifinals" (after the quarterfinals)
+    final      "Pair the final"
+    finish     "Finish event"
+
+    active_teams is given for team events only (team sealed, Team Trios): the number of teams with at least one
+    active member. The cut then counts teams, never players, and a team event has no top 8.
+    """
     if not stages:
         return "start"
     if waiting:
@@ -36,7 +52,14 @@ def next_step(stages, waiting, number_of_rounds, top_cut, active_players):
     if last == "swiss":
         if sum(1 for s in stages if s == "swiss") < number_of_rounds:
             return "pair"
-        return "cut" if top_cut == 8 and active_players > 8 else "finish"
+        if active_teams is None:
+            if top_cut == 8 and active_players > 8:
+                return "cut"
+            if top_cut == 4 and active_players > 4:
+                return "cut4"
+        elif top_cut == 4 and active_teams > 4:
+            return "cut4"
+        return "finish"
     return {"quarterfinal": "semifinals", "semifinal": "final"}.get(last, "finish")
 
 
@@ -67,7 +90,7 @@ def auto_label(count):
 
 def rounds_line(auto, rounds, top_cut, open_):
     head = "Auto rounds" if auto and open_ else f"{rounds} round{'s' if rounds != 1 else ''}"
-    return head + (" · Top 8" if top_cut == 8 else "")
+    return head + (f" · Top {top_cut}" if top_cut in (4, 8) else "")
 
 
 def button(signed_in, sign_up, me):
@@ -160,7 +183,8 @@ cases = {
     "auto_label": [{"players": n, "want": auto_label(n)} for n in [0, 1, 2, 3, 8, 12, 40]],
     "rounds_line": [{"auto": a, "rounds": r, "top_cut": t, "open": o, "want": rounds_line(a, r, t, o)}
                     for a, r, t, o in [(False, 3, 0, True), (False, 1, 0, True), (True, 4, 8, True),
-                                       (True, 4, 0, True), (True, 5, 8, False), (False, 6, 8, False)]],
+                                       (True, 4, 0, True), (True, 5, 8, False), (False, 6, 8, False),
+                                       (True, 3, 4, True), (False, 3, 4, False), (False, 1, 4, True)]],
     "button": [{"signed_in": s, "sign_up": u, "me": m, "want": button(s, u, m)}
                for s, u, m in [(False, "open", None), (False, "full", None), (False, "closed", None),
                                (True, "open", None), (True, "full", None), (True, "closed", None),
@@ -191,6 +215,47 @@ for stages, waiting, rounds, cut, active in [
 ]:
     cases["next"].append({"stages": stages, "waiting": waiting, "number_of_rounds": rounds, "top_cut": cut,
                           "active_players": active, "want": next_step(stages, waiting, rounds, cut, active)})
+
+# Top 4 (2026-11-13): Swiss straight to the semifinals. Appended, so the cases above stay as they were.
+S3, S4 = ["swiss"] * 3, ["swiss"] * 4
+for stages, waiting, rounds, cut, active in [
+    ([], False, 3, 4, 8),
+    (["swiss", "swiss"], False, 3, 4, 8),
+    (S3, True, 3, 4, 8),
+    (S3, False, 3, 4, 8),
+    (S3, False, 3, 4, 5),
+    (S3, False, 3, 4, 4),
+    (S4, False, 4, 4, 12),
+    (S3 + ["semifinal"], True, 3, 4, 8),
+    (S3 + ["semifinal"], False, 3, 4, 8),
+    (S3 + ["semifinal"], False, 3, 4, 3),
+    (S3 + ["semifinal", "final"], False, 3, 4, 8),
+    (S4, False, 4, 8, 9),
+]:
+    cases["next"].append({"stages": stages, "waiting": waiting, "number_of_rounds": rounds, "top_cut": cut,
+                          "active_players": active, "want": next_step(stages, waiting, rounds, cut, active)})
+
+# Team events (team sealed, Team Trios): active_teams decides the cut; active_players is still the players.
+for stages, waiting, rounds, cut, active, teams in [
+    ([], False, 3, 4, 18, 6),
+    (["swiss", "swiss"], False, 3, 4, 18, 6),
+    (S3, True, 3, 4, 18, 6),
+    (S3, False, 3, 4, 18, 6),
+    (S3, False, 3, 4, 15, 5),
+    (S3, False, 3, 4, 12, 4),
+    (S3, False, 3, 4, 16, 4),
+    (S3, False, 3, 4, 24, 6),
+    (S3, False, 3, 4, 4, 5),
+    (S3 + ["semifinal"], True, 3, 4, 18, 6),
+    (S3 + ["semifinal"], False, 3, 4, 18, 6),
+    (S3 + ["semifinal"], False, 3, 4, 9, 3),
+    (S3 + ["semifinal", "final"], False, 3, 4, 18, 6),
+    (S3, False, 3, 0, 18, 6),
+    (S4, False, 4, 8, 27, 9),
+]:
+    cases["next"].append({"stages": stages, "waiting": waiting, "number_of_rounds": rounds, "top_cut": cut,
+                          "active_players": active, "active_teams": teams,
+                          "want": next_step(stages, waiting, rounds, cut, active, teams)})
 
 with open(os.path.join(os.path.dirname(__file__), "cases.json"), "w") as f:
     json.dump(cases, f, indent=1, ensure_ascii=False)

@@ -1,8 +1,10 @@
 // Final places, kept once an event is over (public.event_placements; contract/public-events-leagues-2026-11-13.md
 // § Final places). A copy of what the standings say, for leagues and profiles to read: never an input to standings.
 //
-// Individual events: the final order (playoffs.ts: the top 8 by how far they went, everyone else by Swiss standing).
-// Team events: every member takes their team's place, so league points go to the whole team.
+// Individual events: the final order (playoffs.ts: the top 8 or top 4 by how far they went, everyone else by Swiss
+// standing). Team events: every member takes their team's place and playoff stage (teams.ts: after a top 4 the
+// winning team's members are all 1st and `winner`), so league points and qualification go to the whole team; each
+// row keeps the player's own Swiss record.
 import { playoffStandings, type StagedRound } from "./playoffs.ts";
 import { computeTeamStandings, type Team } from "./teams.ts";
 import type { Participant } from "./types.ts";
@@ -21,12 +23,14 @@ export interface PlacementRow {
 export function placementRows(
   participants: Participant[], rounds: StagedRound[], teams: Team[], teamEvent: boolean,
 ): PlacementRow[] {
-  const teamOf = new Map<string, { teamId: string; rank: number }>();
+  const teamOf = new Map<string, { teamId: string; rank: number; playoff: string | null }>();
   let teamCount = 0;
   if (teamEvent) {
     const standings = computeTeamStandings(teams, participants, rounds);
     teamCount = standings.length;
-    for (const t of standings) for (const m of t.members) teamOf.set(m.participantId, { teamId: t.teamId, rank: t.rank });
+    for (const t of standings) {
+      for (const m of t.members) teamOf.set(m.participantId, { teamId: t.teamId, rank: t.rank, playoff: t.playoff });
+    }
   }
   return playoffStandings(participants, rounds).map((s) => {
     const team = teamOf.get(s.participantId);
@@ -38,7 +42,7 @@ export function placementRows(
       match_wins: s.matchWins,
       match_losses: s.matchLosses,
       match_draws: s.matchDraws,
-      playoff: s.playoff,
+      playoff: teamEvent ? team?.playoff ?? null : s.playoff,
       team_id: team?.teamId ?? null,
     };
   });

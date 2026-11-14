@@ -23,11 +23,30 @@
 // Team draft: exactly two teams in one pod; each round every player meets a
 // different member of the other team (A_i plays B_(i+round) mod size), which
 // in alternating seats puts round 1 across the table.
-// Team sealed: Swiss between teams; seat A plays seat A, B plays B, and so on.
+// Team sealed and Team Trios (team_trios: three seats, a constructed format
+// each): Swiss between teams; seat A plays seat A, B plays B, and so on.
+//
+// Top 4 (team sealed and Team Trios with top_cut 4; never a team draft, never
+// a top 8). After the Swiss rounds, with 5 or more active teams:
+//
+//   seeds        the Swiss team standings of active teams (a team is active
+//                while it has an active member, as in the Swiss rounds)
+//   semifinals   seed 1 v 4, then 2 v 3; the final is the two winners
+//   team match   one match per seat, slot against slot, in a round whose stage
+//                is semifinal / final; the higher seed's players are side 0
+//   winner       the team that wins more of those matches (a bye counts for
+//                its team); level, e.g. 2–2 with teams of 4: the higher seed
+//   final order  winner, finalist, the losing semifinalists by seed, then
+//                everyone else by Swiss team standing
+//
+// Once the semifinals are paired, seeds are read back from their tables, so a
+// later drop never reshuffles them. Team points, records and tiebreakers are
+// Swiss only: playoff rounds decide the order, not the numbers.
 
 import { buildRecords, computeStandings, isMatchScored } from "./standings";
+import { nextStage, SEMIS, stageOf, type Playoff, type Stage, type StagedRound } from "./playoffs";
 import type { ProposedMatch } from "./pairings";
-import type { Participant, RoundWithMatches } from "./types";
+import type { Match, Participant, RoundWithMatches } from "./types";
 
 export interface Team {
   id: string;
@@ -57,7 +76,21 @@ export interface TeamStanding {
   }[];
 }
 
+/** A team's row once playoffs may count: `rank` is the final order after the top 4 is cut, the Swiss standing until then. */
+export interface TeamPlayoffStanding extends TeamStanding {
+  swissRank: number;
+  /** The furthest playoff stage reached (top 4), or null. */
+  playoff: Playoff | null;
+}
+
 const MIN_PCT = 1 / 3;
+
+/** Team formats paired as Swiss between teams, slot against slot. */
+export const isTeamSwiss = (format: string | null | undefined) => format === "team_sealed" || format === "team_trios";
+/** Every team format: team draft (two teams), team sealed, Team Trios. */
+export const isTeamEvent = (format: string | null | undefined) => format === "team_draft" || isTeamSwiss(format);
+
+const isSwissRound = (r: RoundWithMatches) => stageOf(r as StagedRound) === "swiss";
 
 export function membersOf(teamId: string, participants: Participant[], activeOnly = true): Participant[] {
   return participants
@@ -127,11 +160,13 @@ export function teamRoundResults(
   return out;
 }
 
-export function computeTeamStandings(
+/** Swiss standings between teams. Playoff rounds never count here. */
+export function teamSwissStandings(
   teams: Team[],
   participants: Participant[],
-  rounds: RoundWithMatches[],
+  allRounds: RoundWithMatches[],
 ): TeamStanding[] {
+  const rounds = allRounds.filter(isSwissRound);
   const records = buildRecords(participants, rounds);
   const perRound = teamRoundResults(teams, participants, rounds);
   const individual = new Map(computeStandings(participants, rounds).map((s) => [s.participantId, s]));
@@ -181,6 +216,39 @@ export function computeTeamStandings(
   rows.sort((x, y) =>
     y.points - x.points || y.matchWins - x.matchWins || y.gameWinPct - x.gameWinPct ||
     x.name.localeCompare(y.name));
+  rows.forEach((r, i) => (r.rank = i + 1));
+  return rows;
+}
+
+const PLAYOFF_ORDER: Record<Playoff, number> = { winner: 0, final: 1, semifinal: 2, quarterfinal: 3 };
+
+/**
+ * Team standings: the Swiss standings between teams, and once a top 4 is cut the final order (winner, finalist,
+ * the losing semifinalists by seed, then everyone else by Swiss standing). Numbers are Swiss only.
+ */
+export function computeTeamStandings(
+  teams: Team[],
+  participants: Participant[],
+  rounds: RoundWithMatches[],
+): TeamPlayoffStanding[] {
+  const rows: TeamPlayoffStanding[] = teamSwissStandings(teams, participants, rounds)
+    .map((t) => ({ ...t, swissRank: t.rank, playoff: null }));
+  const played = teamPlayoffMatches(teams, participants, rounds);
+  if (played.length === 0) return rows;
+  const seed = teamSeeds(teams, participants, rounds);
+  const reached = new Map<string, Playoff>();
+  for (const m of played) {
+    for (const id of m.teamIds) reached.set(id, m.stage);
+    if (m.stage === "final" && m.winner) reached.set(m.winner, "winner");
+  }
+  for (const r of rows) r.playoff = reached.get(r.teamId) ?? null;
+  rows.sort((x, y) => {
+    if (x.playoff && y.playoff) {
+      return PLAYOFF_ORDER[x.playoff] - PLAYOFF_ORDER[y.playoff] || (seed.get(x.teamId) ?? 99) - (seed.get(y.teamId) ?? 99);
+    }
+    if (x.playoff || y.playoff) return x.playoff ? -1 : 1;
+    return x.swissRank - y.swissRank;
+  });
   rows.forEach((r, i) => (r.rank = i + 1));
   return rows;
 }
@@ -263,44 +331,17 @@ function solveTeams(pool: string[], played: Set<string>): [string, string][] | n
   return null;
 }
 
-/** Team sealed round: Swiss between teams, then slot vs slot inside each team match. */
-export function pairTeamSwissRound(
-  teams: Team[],
-  participants: Participant[],
-  rounds: RoundWithMatches[],
-  roundNumber: number,
-  rng: () => number = Math.random,
-): ProposedMatch[] {
-  const live = teams.filter((t) => membersOf(t.id, participants).length > 0);
-  if (live.length === 0) return [];
-  let order: string[];
-  if (roundNumber <= 1) {
-    const ids = live.map((t) => t.id);
-    for (let i = ids.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [ids[i], ids[j]] = [ids[j], ids[i]];
-    }
-    order = ids;
-  } else {
-    order = computeTeamStandings(live, participants, rounds).map((s) => s.teamId);
-  }
-  const history = teamRoundResults(live, participants, rounds);
-  const played = new Set<string>();
-  const hadBye = new Set<string>();
-  for (const results of history.values()) {
-    for (const [teamId, r] of results) {
-      if (r.opponent) played.add(pairKey(teamId, r.opponent));
-      if (r.result === "bye") hadBye.add(teamId);
-    }
-  }
-  const pool = [...order];
-  let byeTeam: string | null = null;
-  if (pool.length % 2 === 1) {
-    byeTeam = [...pool].reverse().find((t) => !hadBye.has(t)) ?? pool[pool.length - 1];
-    pool.splice(pool.indexOf(byeTeam), 1);
-  }
-  const pairs = solveTeams(pool, played) ?? solveTeams(pool, new Set()) ?? [];
+/** Teams still playing: at least one active member (the rule the Swiss rounds and the top 4 share). */
+export function activeTeams(teams: Team[], participants: Participant[]): Team[] {
+  return teams.filter((t) => membersOf(t.id, participants).length > 0);
+}
 
+/**
+ * The matches of team matches: slot against slot among each team's active members, the first team of a pair on
+ * side 0. A member without an opponent (the other team is a player short) gets a bye, as does every member of
+ * `byeTeam`. Byes take the last tables.
+ */
+function seatMatches(pairs: [string, string][], byeTeam: string | null, participants: Participant[]): ProposedMatch[] {
   const matches: ProposedMatch[] = [];
   const byes: string[] = [];
   for (const [ta, tb] of pairs) {
@@ -320,6 +361,258 @@ export function pairTeamSwissRound(
     matches.push({ tableNumber: matches.length + 1, side0ParticipantId: id, side1ParticipantId: null, isBye: true });
   }
   return matches;
+}
+
+/** Team sealed / Team Trios round: Swiss between teams, then slot vs slot inside each team match. */
+export function pairTeamSwissRound(
+  teams: Team[],
+  participants: Participant[],
+  rounds: RoundWithMatches[],
+  roundNumber: number,
+  rng: () => number = Math.random,
+): ProposedMatch[] {
+  const live = activeTeams(teams, participants);
+  if (live.length === 0) return [];
+  let order: string[];
+  if (roundNumber <= 1) {
+    const ids = live.map((t) => t.id);
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+    order = ids;
+  } else {
+    order = teamSwissStandings(live, participants, rounds).map((s) => s.teamId);
+  }
+  const history = teamRoundResults(live, participants, rounds);
+  const played = new Set<string>();
+  const hadBye = new Set<string>();
+  for (const results of history.values()) {
+    for (const [teamId, r] of results) {
+      if (r.opponent) played.add(pairKey(teamId, r.opponent));
+      if (r.result === "bye") hadBye.add(teamId);
+    }
+  }
+  const pool = [...order];
+  let byeTeam: string | null = null;
+  if (pool.length % 2 === 1) {
+    byeTeam = [...pool].reverse().find((t) => !hadBye.has(t)) ?? pool[pool.length - 1];
+    pool.splice(pool.indexOf(byeTeam), 1);
+  }
+  const pairs = solveTeams(pool, played) ?? solveTeams(pool, new Set()) ?? [];
+  return seatMatches(pairs, byeTeam, participants);
+}
+
+// ── Top 4 between teams ──────────────────────────────────────────────────────────────────────────────────────
+
+/** Why this format can't have the cut it asks for, or null: team events cut to the top 4, a team draft never. */
+export function teamCutProblem(format: string | null | undefined, topCut: number): string | null {
+  if (!topCut) return null;
+  if (format === "team_draft") return "A team draft has no top cut";
+  if (topCut !== 4) return "Team events cut to top 4";
+  return null;
+}
+
+/**
+ * The stage pair_round opens next for a team event, or null when every round is played. The cut counts active
+ * teams (5 or more for a top 4), never players. Throws on a cut the format can't have, before round 1 and again
+ * where the cut would be made, so nothing is ever mispaired.
+ */
+export function nextTeamStage(
+  format: string | null | undefined, teams: Team[], participants: Participant[], rounds: StagedRound[],
+  numberOfRounds: number, topCut: number,
+): Stage | null {
+  const problem = teamCutProblem(format, topCut);
+  const next = nextStage(rounds, numberOfRounds, problem ? 0 : topCut, 0, activeTeams(teams, participants).length);
+  if (problem && (rounds.length === 0 || next !== "swiss")) throw new Error(problem);
+  return next;
+}
+
+const byTable = (x: Match, y: Match) => (x.tableNumber ?? 0) - (y.tableNumber ?? 0);
+
+/** The team matches a round holds, in table order: the team on side 0 (the higher seed), then the other. */
+function teamPairsIn(round: RoundWithMatches, teamOf: Map<string, string | null>): [string, string][] {
+  const seen = new Map<string, [string, string]>();
+  for (const m of round.matches.slice().sort(byTable)) {
+    if (m.isBye) continue;
+    const a = m.sides.find((s) => s.side === 0)?.participantId;
+    const b = m.sides.find((s) => s.side === 1)?.participantId;
+    const ta = a ? teamOf.get(a) : null, tb = b ? teamOf.get(b) : null;
+    if (!ta || !tb || ta === tb) continue;
+    if (!seen.has(pairKey(ta, tb))) seen.set(pairKey(ta, tb), [ta, tb]);
+  }
+  return [...seen.values()];
+}
+
+/** Seed per team: read from the semifinal tables once they are paired, else the top 4 active teams of the Swiss. */
+export function teamSeeds(teams: Team[], participants: Participant[], rounds: RoundWithMatches[]): Map<string, number> {
+  const out = new Map<string, number>();
+  const semis = rounds.find((r) => stageOf(r as StagedRound) === "semifinal");
+  if (semis) {
+    const teamOf = new Map(participants.map((p) => [p.id, p.teamId ?? null]));
+    teamPairsIn(semis, teamOf).slice(0, SEMIS.length).forEach(([hi, lo], i) => {
+      out.set(hi, SEMIS[i][0]);
+      out.set(lo, SEMIS[i][1]);
+    });
+    return out;
+  }
+  const active = new Set(activeTeams(teams, participants).map((t) => t.id));
+  teamSwissStandings(teams, participants, rounds)
+    .filter((t) => active.has(t.teamId)).slice(0, 4)
+    .forEach((t, i) => out.set(t.teamId, i + 1));
+  return out;
+}
+
+/** One team against another in a playoff round. */
+export interface TeamMatch {
+  stage: Exclude<Stage, "swiss">;
+  /** The higher seed first: its players are side 0 of every match. */
+  teamIds: [string, string];
+  seeds: [number | null, number | null];
+  /** Individual matches won by each team, byes included. */
+  wins: [number, number];
+  /** pending until every match has a result. */
+  status: Match["status"];
+  /** The team with more wins once every match is in; level goes to the higher seed. */
+  winner: string | null;
+  /** The two teams' matches in this round, by table. */
+  matches: Match[];
+}
+
+function teamMatch(
+  stage: TeamMatch["stage"], round: RoundWithMatches, hi: string, lo: string, seed: Map<string, number>,
+  teamOf: Map<string, string | null>,
+): TeamMatch {
+  const wins: [number, number] = [0, 0];
+  const matches: Match[] = [];
+  let open = false, reported = false;
+  for (const m of round.matches.slice().sort(byTable)) {
+    const sides = m.sides.filter((s) => s.participantId).map((s) => ({ ...s, team: teamOf.get(s.participantId!) ?? null }));
+    if (!sides.length || !sides.every((s) => s.team === hi || s.team === lo)) continue;
+    matches.push(m);
+    if (m.isBye) {
+      wins[sides[0].team === hi ? 0 : 1] += 1;
+      continue;
+    }
+    if (!isMatchScored(m)) { open = true; continue; }
+    if (m.status === "reported") reported = true;
+    const a = sides.find((s) => s.side === 0), b = sides.find((s) => s.side === 1);
+    if (!a || !b || a.gameWins === b.gameWins) continue;
+    wins[(a.gameWins > b.gameWins ? a : b).team === hi ? 0 : 1] += 1;
+  }
+  return {
+    stage, teamIds: [hi, lo], seeds: [seed.get(hi) ?? null, seed.get(lo) ?? null], wins,
+    status: open ? "pending" : reported ? "reported" : "confirmed",
+    winner: open || matches.length === 0 ? null : wins[1] > wins[0] ? lo : hi,
+    matches,
+  };
+}
+
+/** The team playoff matches paired so far: the semifinals (seed 1's first), then the final. */
+export function teamPlayoffMatches(teams: Team[], participants: Participant[], rounds: RoundWithMatches[]): TeamMatch[] {
+  const semis = rounds.find((r) => stageOf(r as StagedRound) === "semifinal");
+  if (!semis) return [];
+  const teamOf = new Map(participants.map((p) => [p.id, p.teamId ?? null]));
+  const seed = teamSeeds(teams, participants, rounds);
+  const bySeed = new Map([...seed].map(([id, n]) => [n, id]));
+  const out: TeamMatch[] = [];
+  for (const [x, y] of SEMIS) {
+    const hi = bySeed.get(x), lo = bySeed.get(y);
+    if (hi && lo) out.push(teamMatch("semifinal", semis, hi, lo, seed, teamOf));
+  }
+  const final = rounds.find((r) => stageOf(r as StagedRound) === "final");
+  if (final) {
+    // The two teams as paired; a final that is all byes (the other finalist has nobody left) names them by the
+    // semifinal winners.
+    let pair: string[] = teamPairsIn(final, teamOf)[0] ?? [];
+    if (pair.length === 0) {
+      const there = final.matches.flatMap((m) => m.sides.map((s) => (s.participantId ? teamOf.get(s.participantId) : null)));
+      pair = [...new Set([...there, ...out.map((m) => m.winner)].filter((t): t is string => !!t))];
+    }
+    if (pair.length === 2) {
+      const [hi, lo] = (seed.get(pair[0]) ?? 99) <= (seed.get(pair[1]) ?? 99) ? pair : [pair[1], pair[0]];
+      out.push(teamMatch("final", final, hi, lo, seed, teamOf));
+    }
+  }
+  return out;
+}
+
+/** Pairings for a team playoff stage. Throws when the stage before it isn't finished. */
+export function pairTeamPlayoff(
+  stage: "semifinal" | "final", teams: Team[], participants: Participant[], rounds: RoundWithMatches[],
+): ProposedMatch[] {
+  const seed = teamSeeds(teams, participants, rounds);
+  if (stage === "semifinal") {
+    const bySeed = new Map([...seed].map(([id, n]) => [n, id]));
+    if (bySeed.size < 4) throw new Error("Top 4 needs 5 or more teams");
+    return seatMatches(SEMIS.map(([x, y]) => [bySeed.get(x)!, bySeed.get(y)!]), null, participants);
+  }
+  const semis = teamPlayoffMatches(teams, participants, rounds).filter((m) => m.stage === "semifinal");
+  if (semis.length !== 2 || semis.some((m) => !m.winner)) throw new Error("Every playoff match needs a winner first");
+  const [a, b] = semis.map((m) => m.winner!);
+  return seatMatches([(seed.get(a) ?? 99) <= (seed.get(b) ?? 99) ? [a, b] : [b, a]], null, participants);
+}
+
+/**
+ * Pairings for a team event's next round, whatever its format and stage: a team draft's rotation, Swiss between
+ * teams (team sealed, Team Trios), or the top 4's team semifinals and final.
+ */
+export function pairTeamStage(
+  format: string | null | undefined, stage: Stage, teams: Team[], participants: Participant[], rounds: RoundWithMatches[],
+  roundNumber: number, rng: () => number = Math.random,
+): ProposedMatch[] {
+  if (stage === "swiss") {
+    if (format === "team_draft") {
+      return pairTeamDraftRound(membersOf(teams[0].id, participants), membersOf(teams[1].id, participants), roundNumber);
+    }
+    return pairTeamSwissRound(teams, participants, rounds.filter(isSwissRound), roundNumber, rng);
+  }
+  if (stage === "quarterfinal" || !isTeamSwiss(format)) throw new Error(teamCutProblem(format, 8) ?? "Team events cut to top 4");
+  return pairTeamPlayoff(stage, teams, participants, rounds);
+}
+
+export interface TeamBracketStage {
+  stage: Exclude<Stage, "swiss">;
+  matches: {
+    table_number: number | null; status: Match["status"]; winner: string | null;
+    sides: { seed: number | null; team_id: string; name: string | null; match_wins: number }[];
+    /** The seats' matches (a bye has one side). */
+    matches: {
+      match_id: string; table_number: number | null; is_bye: boolean; status: Match["status"]; winner: string | null;
+      sides: { participant_id: string | null; display_name: string | null; slot: number | null; game_wins: number }[];
+    }[];
+  }[];
+}
+
+/** The team playoff rounds paired so far, for drawing the bracket (the players' bracket, one level up). */
+export function teamBracket(teams: Team[], participants: Participant[], rounds: RoundWithMatches[]): TeamBracketStage[] {
+  const name = new Map(teams.map((t) => [t.id, t.name]));
+  const player = new Map(participants.map((p) => [p.id, p]));
+  const stages: TeamBracketStage[] = [];
+  for (const tm of teamPlayoffMatches(teams, participants, rounds)) {
+    let stage = stages.find((s) => s.stage === tm.stage);
+    if (!stage) stages.push((stage = { stage: tm.stage, matches: [] }));
+    stage.matches.push({
+      table_number: tm.matches[0]?.tableNumber ?? null, status: tm.status, winner: tm.winner,
+      sides: tm.teamIds.map((id, i) => ({ seed: tm.seeds[i], team_id: id, name: name.get(id) ?? null, match_wins: tm.wins[i] })),
+      matches: tm.matches.map((m) => {
+        const a = m.sides.find((s) => s.side === 0), b = m.sides.find((s) => s.side === 1);
+        // A bye counts for its team, so its player is the winner.
+        const won = m.isBye ? m.sides.find((s) => s.participantId)?.participantId ?? null
+          : !isMatchScored(m) || !a || !b || a.gameWins === b.gameWins ? null
+          : a.gameWins > b.gameWins ? a.participantId : b.participantId;
+        return {
+          match_id: m.id, table_number: m.tableNumber, is_bye: m.isBye, status: m.status, winner: won,
+          sides: m.sides.slice().sort((x, y) => x.side - y.side).map((s) => ({
+            participant_id: s.participantId,
+            display_name: s.participantId ? player.get(s.participantId)?.displayName ?? null : null,
+            slot: s.participantId ? player.get(s.participantId)?.teamSlot ?? null : null, game_wins: s.gameWins,
+          })),
+        };
+      }),
+    });
+  }
+  return stages;
 }
 
 /** Every active player must be on a team before a team round can be paired. */

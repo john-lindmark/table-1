@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { pairRound, type ProposedMatch } from "./pairings.ts";
 import { pairPlayoff, swissRounds, type Stage, type StagedRound } from "./playoffs.ts";
 import { placementRows } from "./placements.ts";
+import { computeTeamStandings, pairTeamPlayoff, pairTeamSwissRound, teamSwissStandings, type Team } from "./teams.ts";
 import type { Participant } from "./types.ts";
 
 const players = (n: number): Participant[] =>
@@ -86,4 +87,78 @@ test("a team event: every member takes the team's place; a player on no team sit
   assert.deepEqual(["p01", "p02", "p03"].map((id) => place.get(id)), [2, 2, 2]);
   assert.equal(place.get("p07"), 3);
   assert.equal(rows.find((r) => r.participant_id === "p04")!.team_id, "tB");
+});
+
+test("with a top 4 the semifinals come straight after Swiss: winner, finalist, then the semifinal losers by seed", () => {
+  const ps = players(9);
+  const rounds: StagedRound[] = [];
+  const total = swissRounds(9);
+  for (let r = 1; r <= total; r++) {
+    rounds.push(play("swiss", r, pairRound({ participants: ps, rounds, roundNumber: r, rng: () => 0.5 }), lowerIdWins));
+  }
+  const swissOrder = placementRows(ps, rounds, [], false).map((r) => r.participant_id);
+  const seedOf = new Map(swissOrder.map((id, i) => [id, i + 1]));
+  const upset = (a: string, b: string) => (seedOf.get(a)! > seedOf.get(b)! ? a : b);
+  rounds.push(play("semifinal", total + 1, pairPlayoff("semifinal", ps, rounds, 4), upset));
+  rounds.push(play("final", total + 2, pairPlayoff("final", ps, rounds, 4), upset));
+  const rows = placementRows(ps, rounds, [], false);
+  // The lower seed wins every match: 4 beats 1, 3 beats 2, then 4 beats 3.
+  assert.deepEqual(rows.slice(0, 4).map((r) => [r.participant_id, r.playoff]), [
+    [swissOrder[3], "winner"], [swissOrder[2], "final"], [swissOrder[0], "semifinal"], [swissOrder[1], "semifinal"],
+  ]);
+  assert.deepEqual(rows.map((r) => r.place), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  assert.deepEqual(rows.slice(4).map((r) => r.participant_id), swissOrder.slice(4));
+  assert.ok(rows.slice(4).every((r) => r.playoff === null));
+});
+
+test("a team top 4: every member takes the team's final place and playoff stage, the three winners all first", () => {
+  for (const size of [3, 4]) {
+    const teams: Team[] = Array.from({ length: 6 }, (_, i) => ({ id: `t${i + 1}`, name: `Team ${i + 1}`, order: i }));
+    const ps: Participant[] = teams.flatMap((t) => Array.from({ length: size }, (_, s) => ({
+      id: `${t.id}${"abcd"[s]}`, eventId: "e", podId: "pod", displayName: `${t.name} ${"ABCD"[s]}`, seat: null,
+      status: "active" as const, droppedInRound: null, teamId: t.id, teamSlot: s + 1,
+    })));
+    const loose: Participant = { id: "x1", eventId: "e", podId: "pod", displayName: "No team", seat: null, status: "dropped", droppedInRound: 0 };
+    const all = [...ps, loose];
+    const rounds: StagedRound[] = [];
+    const total = swissRounds(6);
+    for (let r = 1; r <= total; r++) {
+      rounds.push(play("swiss", r, pairTeamSwissRound(teams, all, rounds, r, () => 0.5), lowerIdWins));
+    }
+    const swiss = teamSwissStandings(teams, all, rounds).map((t) => t.teamId);
+    // Before the cut every member has the team's Swiss place and no playoff stage.
+    const before = placementRows(all, rounds, teams, true);
+    for (const row of before.filter((r) => r.team_id)) {
+      assert.deepEqual([row.place, row.playoff], [swiss.indexOf(row.team_id!) + 1, null]);
+    }
+    // Seed 4 takes it: it beats seed 1 in the semifinals, seed 2 beats seed 3, and seed 4 wins the final.
+    const fourth = (a: string, b: string) => {
+      const [ta, tb] = [a.slice(0, 2), b.slice(0, 2)];
+      if (ta === swiss[3] || tb === swiss[3]) return ta === swiss[3] ? a : b;
+      return swiss.indexOf(ta) < swiss.indexOf(tb) ? a : b;
+    };
+    rounds.push(play("semifinal", total + 1, pairTeamPlayoff("semifinal", teams, all, rounds), fourth));
+    rounds.push(play("final", total + 2, pairTeamPlayoff("final", teams, all, rounds), fourth));
+    const want: [string, number, string | null][] = [
+      [swiss[3], 1, "winner"], [swiss[1], 2, "final"], [swiss[0], 3, "semifinal"], [swiss[2], 4, "semifinal"],
+      [swiss[4], 5, null], [swiss[5], 6, null],
+    ];
+    assert.deepEqual(computeTeamStandings(teams, all, rounds).map((t) => [t.teamId, t.rank, t.playoff]), want);
+    const rows = placementRows(all, rounds, teams, true);
+    assert.equal(rows.length, 6 * size + 1);
+    for (const [teamId, place, playoff] of want) {
+      const members = rows.filter((r) => r.team_id === teamId);
+      assert.equal(members.length, size, teamId);
+      assert.ok(members.every((r) => r.place === place && r.playoff === playoff), `${teamId} ${JSON.stringify(members)}`);
+    }
+    // Each row keeps the player's own Swiss record: the playoff matches decide places, not the numbers.
+    for (const row of rows) {
+      const was = before.find((r) => r.participant_id === row.participant_id)!;
+      assert.deepEqual([row.match_points, row.match_wins, row.match_losses, row.match_draws],
+                       [was.match_points, was.match_wins, was.match_losses, was.match_draws]);
+    }
+    // A player on no team sits behind every team, with no playoff stage.
+    const alone = rows.find((r) => r.participant_id === "x1")!;
+    assert.deepEqual([alone.place, alone.playoff, alone.team_id], [7, null, null]);
+  }
 });

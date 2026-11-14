@@ -248,6 +248,348 @@
    "top_cut": 8,
    "active_players": 7,
    "want": "semifinals"
+  },
+  {
+   "stages": [],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 8,
+   "want": "start"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 8,
+   "want": "pair"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": true,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 8,
+   "want": "waiting"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 8,
+   "want": "cut4"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 5,
+   "want": "cut4"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 4,
+   "want": "finish"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 4,
+   "top_cut": 4,
+   "active_players": 12,
+   "want": "cut4"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "semifinal"
+   ],
+   "waiting": true,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 8,
+   "want": "waiting"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "semifinal"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 8,
+   "want": "final"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "semifinal"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 3,
+   "want": "final"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "semifinal",
+    "final"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 8,
+   "want": "finish"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 4,
+   "top_cut": 8,
+   "active_players": 9,
+   "want": "cut"
+  },
+  {
+   "stages": [],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 18,
+   "active_teams": 6,
+   "want": "start"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 18,
+   "active_teams": 6,
+   "want": "pair"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": true,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 18,
+   "active_teams": 6,
+   "want": "waiting"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 18,
+   "active_teams": 6,
+   "want": "cut4"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 15,
+   "active_teams": 5,
+   "want": "cut4"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 12,
+   "active_teams": 4,
+   "want": "finish"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 16,
+   "active_teams": 4,
+   "want": "finish"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 24,
+   "active_teams": 6,
+   "want": "cut4"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 4,
+   "active_teams": 5,
+   "want": "cut4"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "semifinal"
+   ],
+   "waiting": true,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 18,
+   "active_teams": 6,
+   "want": "waiting"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "semifinal"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 18,
+   "active_teams": 6,
+   "want": "final"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "semifinal"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 9,
+   "active_teams": 3,
+   "want": "final"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "semifinal",
+    "final"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 4,
+   "active_players": 18,
+   "active_teams": 6,
+   "want": "finish"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 0,
+   "active_players": 18,
+   "active_teams": 6,
+   "want": "finish"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 4,
+   "top_cut": 8,
+   "active_players": 27,
+   "active_teams": 9,
+   "want": "finish"
   }
  ],
  "round_name": [
@@ -404,6 +746,27 @@
    "top_cut": 8,
    "open": false,
    "want": "6 rounds · Top 8"
+  },
+  {
+   "auto": true,
+   "rounds": 3,
+   "top_cut": 4,
+   "open": true,
+   "want": "Auto rounds · Top 4"
+  },
+  {
+   "auto": false,
+   "rounds": 3,
+   "top_cut": 4,
+   "open": false,
+   "want": "3 rounds · Top 4"
+  },
+  {
+   "auto": false,
+   "rounds": 1,
+   "top_cut": 4,
+   "open": true,
+   "want": "1 round · Top 4"
   }
  ],
  "button": [

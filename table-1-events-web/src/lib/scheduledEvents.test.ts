@@ -13,8 +13,12 @@ describe("scheduled events (shared cases)", () => {
     for (const c of cases.rounds) expect(swissRounds(c.players), `${c.players}`).toBe(c.want);
     for (const c of cases.next) {
       expect(nextStep({ stages: c.stages as Stage[], waiting: c.waiting, numberOfRounds: c.number_of_rounds,
-        topCut: c.top_cut, activePlayers: c.active_players }), JSON.stringify(c)).toBe(c.want);
+        topCut: c.top_cut, activePlayers: c.active_players, activeTeams: c.active_teams }), JSON.stringify(c)).toBe(c.want);
     }
+    // Top 4: Swiss straight to the semifinals, for players and (counted in teams) for team events.
+    expect(cases.next.filter((c) => c.want === "cut4").map((c) => c.active_teams != null)).toContain(true);
+    expect(cases.next.filter((c) => c.want === "cut4").map((c) => c.active_teams != null)).toContain(false);
+    expect(cases.rounds_line.some((c) => c.top_cut === 4 && c.want.endsWith(" · Top 4"))).toBe(true);
     for (const c of cases.round_name) expect(roundName(c.stage, c.number, c.of)).toBe(c.want);
     for (const c of cases.auto_label) expect(autoLabel(c.players)).toBe(c.want);
     for (const c of cases.rounds_line) expect(roundsLine(c.auto, c.rounds, c.top_cut, c.open)).toBe(c.want);

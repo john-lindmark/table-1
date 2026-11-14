@@ -105,6 +105,8 @@ create table if not exists public.league_seasons (
   points jsonb not null,
   best_n integer check (best_n is null or best_n between 1 and 50),
   qualify jsonb not null default '{}'::jsonb,
+  -- What each paid entry of a season event owes the league's prize pool (MMS: $7), in cents. Null or 0: nothing.
+  entry_cut_cents integer check (entry_cut_cents is null or entry_cut_cents between 0 and 100000),
   closed_at timestamptz,
   created_at timestamptz not null default now(),
   check (ends_on >= starts_on),
@@ -616,7 +618,8 @@ create or replace function t1_private.season_json(s public.league_seasons)
 returns jsonb language sql stable set search_path = '' as $$
   select jsonb_build_object('id', s.id, 'name', s.name, 'starts_on', s.starts_on, 'ends_on', s.ends_on,
                             'state', t1_private.season_state(s), 'points', s.points, 'best_n', s.best_n,
-                            'qualify', s.qualify, 'closed', s.closed_at is not null);
+                            'qualify', s.qualify, 'entry_cut_cents', coalesce(s.entry_cut_cents, 0),
+                            'closed', s.closed_at is not null);
 $$;
 
 create or replace function t1_private.league_json(l public.leagues)
@@ -764,7 +767,7 @@ begin
 end $$;
 
 -- Add a season (p_season_id null) or change one. p_patch keys: name, starts_on, ends_on, points, best_n, qualify,
--- closed. A new season needs name, starts_on, ends_on and points.
+-- entry_cut_cents, closed. A new season needs name, starts_on, ends_on and points.
 create or replace function public.league_season_set(p_league_id uuid, p_season_id uuid, p_patch jsonb)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -791,6 +794,7 @@ begin
     if p_patch ? 'starts_on' then n.starts_on := (p_patch->>'starts_on')::date; end if;
     if p_patch ? 'ends_on' then n.ends_on := (p_patch->>'ends_on')::date; end if;
     if p_patch ? 'best_n' then n.best_n := (p_patch->>'best_n')::integer; end if;
+    if p_patch ? 'entry_cut_cents' then n.entry_cut_cents := (p_patch->>'entry_cut_cents')::integer; end if;
     if p_patch ? 'closed' then n.closed_at := case when (p_patch->>'closed')::boolean then coalesce(s.closed_at, now()) end; end if;
   exception when invalid_text_representation or invalid_datetime_format or datetime_field_overflow then
     raise exception 'Check the dates and numbers' using errcode = '22023';
@@ -804,16 +808,20 @@ begin
   end if;
   if n.points is null then raise exception 'Points need a rule' using errcode = '22023'; end if;
   if n.best_n is not null and n.best_n not between 1 and 50 then raise exception 'Best 1 to 50 results' using errcode = '22023'; end if;
+  if n.entry_cut_cents is not null and n.entry_cut_cents not between 0 and 100000 then
+    raise exception 'The league''s cut is 0 to 1,000 an entry' using errcode = '22023';
+  end if;
   if exists (select 1 from public.league_seasons x
               where x.league_id = p_league_id and lower(x.name) = lower(n.name) and x.id is distinct from p_season_id) then
     raise exception 'This league has a season with that name' using errcode = '23505';
   end if;
   if p_season_id is null then
-    insert into public.league_seasons (league_id, name, starts_on, ends_on, points, best_n, qualify)
-    values (p_league_id, n.name, n.starts_on, n.ends_on, n.points, n.best_n, n.qualify) returning * into n;
+    insert into public.league_seasons (league_id, name, starts_on, ends_on, points, best_n, qualify, entry_cut_cents)
+    values (p_league_id, n.name, n.starts_on, n.ends_on, n.points, n.best_n, n.qualify, n.entry_cut_cents) returning * into n;
   else
     update public.league_seasons set name = n.name, starts_on = n.starts_on, ends_on = n.ends_on, points = n.points,
-                                     best_n = n.best_n, qualify = n.qualify, closed_at = n.closed_at
+                                     best_n = n.best_n, qualify = n.qualify, entry_cut_cents = n.entry_cut_cents,
+                                     closed_at = n.closed_at
      where id = p_season_id returning * into n;
   end if;
   insert into public.account_audit (actor, action, target_id, before, after)

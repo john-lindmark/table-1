@@ -1,10 +1,13 @@
 // events-engine: the one place Table 1's tournament rules run.
-//   POST { action: "standings", event_id, token? } -> computed standings, plus team standings (and `clinched`) for team events, for
+//   POST { action: "standings", event_id, token? } -> computed standings, plus team standings (`clinched`, and the
+//                                                  top 4's `team_bracket`) for team events, for
 //                                                  anyone public.event_public lets in (link holders of non-private
 //                                                  events, members, guests with their claim token)
 //   POST { action: "seat_players", event_id }  -> random draft seats via rpc seat_event (organizers only; older builds)
 //   POST { action: "pair_round", event_id }    -> pairs and opens the next round (organizers only): Swiss, then the
-//                                                  top 8 quarterfinals, semifinals and final when events.top_cut = 8
+//                                                  top 8 quarterfinals, semifinals and final when events.top_cut = 8,
+//                                                  or the semifinals and final when it is 4 (between teams in team
+//                                                  sealed and Team Trios)
 //   POST { action: "repair_round", event_id, round_id, clear_results?, reason? }
 //                                              -> pairs the latest, still active round again from the results as they
 //                                                  are now (organizers only; contract/repair-round-2026-11-09.md)
@@ -19,7 +22,8 @@ import {
   bracket, draftRounds, nextStage, pairPlayoff, playoffStandings, stageOf, swissRounds, type Stage, type StagedRound,
 } from "./playoffs.ts";
 import {
-  computeTeamStandings, membersOf, pairTeamDraftRound, pairTeamSwissRound, teamClinch, teamProblems, type Team,
+  computeTeamStandings, isTeamEvent as isTeamFormat, nextTeamStage, pairTeamStage, teamBracket, teamClinch, teamProblems,
+  type Team,
 } from "./teams.ts";
 import { placementRows } from "./placements.ts";
 import type { Match, MatchSide, Participant } from "./types.ts";
@@ -80,8 +84,7 @@ async function loadEvent(eventId: string) {
   };
 }
 
-const isTeamEvent = (event: { format_name?: string | null }) =>
-  event.format_name === "team_draft" || event.format_name === "team_sealed";
+const isTeamEvent = (event: { format_name?: string | null }) => isTeamFormat(event.format_name);
 const isDraft = (event: { format_name?: string | null }) =>
   event.format_name === "draft" || event.format_name === "team_draft";
 
@@ -168,7 +171,8 @@ async function standings(eventId: string, authHeader: string, token: string | nu
   const { event, participants, rounds, teams, pods } = await loadEvent(eventId);
   if (!event) return json({ error: "That event isn't available" }, 404);
   const podOf = new Map(participants.map((p) => [p.id, p.podId]));
-  // Tiebreakers are Swiss only; once the top 8 is cut, rank is the final order (playoffs.ts).
+  // Tiebreakers are Swiss only; once the top 8 or top 4 is cut, rank is the final order (playoffs.ts). In a team
+  // event the cut is between teams (the `teams` rows and `team_bracket`), and players keep their Swiss order.
   const rows = playoffStandings(participants, rounds).map((s) => ({
     rank: s.rank,
     swiss_rank: s.swissRank,
@@ -193,6 +197,8 @@ async function standings(eventId: string, authHeader: string, token: string | nu
         members: t.members.map((m) => ({ participant_id: m.participantId, display_name: m.displayName,
                                          slot: m.slot, match_wins: m.matchWins, match_losses: m.matchLosses,
                                          match_draws: m.matchDraws, status: m.status })),
+        // Top 4 between teams: `rank` is the final order once it is cut, `playoff` how far the team went.
+        swiss_rank: t.swissRank, playoff: t.playoff,
       }))
     : null;
   const clinch = isTeamEvent(event) && ["seated", "in_progress"].includes(event.status)
@@ -201,6 +207,8 @@ async function standings(eventId: string, authHeader: string, token: string | nu
   return json({
     event_id: eventId, current_round: event.current_round, standings: rows, teams: teamRows,
     top_cut: event.top_cut ?? 0, bracket: bracket(participants, rounds),
+    // Team events: the top 4's team semifinals and final, each with its seats' matches (null for other events).
+    team_bracket: isTeamEvent(event) ? teamBracket(teams, participants, rounds) : null,
     // Team events: the team that can no longer be caught, so the organizer may finish early.
     clinched: clinch && { team_id: clinch.teamId, name: clinch.name, match_wins: clinch.matchWins,
                           opponent_match_wins: clinch.opponentMatchWins, remaining: clinch.remaining },
@@ -275,14 +283,24 @@ async function pairNextRound(eventId: string, authHeader: string, repair: Repair
     ? (event.format_name === "draft" ? draftRounds(seatedPodSizes(participants), podPairing) : swissRounds(active))
     : event.number_of_rounds;
   const totalRounds = roundRobin ? roundRobinRounds(roundRobinRoster(participants).length) : swissTotal;
-  // Swiss events of players go on to the top 8 when there is one; team events and round robin stop at their count.
+  // Swiss events of players go on to the top 8 or top 4 when there is one; team sealed and Team Trios to a top 4
+  // between teams (counted in teams); round robin stops at its count.
+  const topCut: number = event.top_cut ?? 0;
   let stage: Stage = "swiss";
-  if (!roundRobin && !isTeamEvent(event)) {
-    const next = nextStage(rounds, swissTotal, event.top_cut ?? 0, active);
+  if (roundRobin) {
+    if (roundNumber > totalRounds) return json({ error: "All rounds have been played" }, 409);
+  } else {
+    let next: Stage | null;
+    try {
+      next = isTeamEvent(event)
+        ? nextTeamStage(event.format_name, teams, participants, rounds, swissTotal, topCut)
+        : nextStage(rounds, swissTotal, topCut, active);
+    } catch (e) {
+      // A cut this format can't have (a top 8 between teams, any cut in a team draft): refused, never mispaired.
+      return json({ error: e instanceof Error ? e.message : String(e) }, 409);
+    }
     if (!next) return json({ error: "All rounds have been played" }, 409);
     stage = next;
-  } else if (roundNumber > totalRounds) {
-    return json({ error: "All rounds have been played" }, 409);
   }
 
   if (isTeamEvent(event)) {
@@ -300,18 +318,21 @@ async function pairNextRound(eventId: string, authHeader: string, repair: Repair
     }
   }
   let proposed: ProposedMatch[];
-  if (stage !== "swiss") {
+  if (roundRobin) {
+    proposed = pairRoundRobin(participants, roundNumber);
+  } else if (isTeamEvent(event)) {
+    // A team draft's rotation, Swiss between teams (team sealed, Team Trios), or the top 4's team matches.
     try {
-      proposed = pairPlayoff(stage, participants, rounds);
+      proposed = pairTeamStage(event.format_name, stage, teams, participants, rounds, roundNumber);
     } catch (e) {
       return json({ error: e instanceof Error ? e.message : String(e) }, 409);
     }
-  } else if (roundRobin) {
-    proposed = pairRoundRobin(participants, roundNumber);
-  } else if (event.format_name === "team_draft") {
-    proposed = pairTeamDraftRound(membersOf(teams[0].id, participants), membersOf(teams[1].id, participants), roundNumber);
-  } else if (event.format_name === "team_sealed") {
-    proposed = pairTeamSwissRound(teams, participants, rounds, roundNumber);
+  } else if (stage !== "swiss") {
+    try {
+      proposed = pairPlayoff(stage, participants, rounds, topCut === 4 ? 4 : 8);
+    } catch (e) {
+      return json({ error: e instanceof Error ? e.message : String(e) }, 409);
+    }
   } else {
     proposed = pairRound({
       participants, rounds: rounds.filter((r) => stageOf(r) === "swiss"), roundNumber,
