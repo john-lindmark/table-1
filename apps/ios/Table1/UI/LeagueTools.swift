@@ -107,6 +107,8 @@ struct LeagueToolsView: View {
                         .buttonStyle(.plain)
                     }
                     Ghost(text: "Add a season") { path.append(.leagueSeason(page.league.id, nil)) }
+                    // What each event's host owes the league, and what's been received (entry-fees § 5).
+                    if let season = page.season { LeagueDuesRow(seasonId: season.id, season: season.name) }
 
                     Section1("Organizers")
                     let owner = page.me.role == "owner"
@@ -294,6 +296,9 @@ struct LeagueSeasonView: View {
     @State private var loaded = false
     @State private var busy = false
     @State private var error: String?
+    /// Cut per entry (contract/entry-fees-2026-11-13.md § 5): nil on a server without it, so the box stays hidden.
+    @State private var cut: String?
+    @State private var cutWas = 0
 
     private var rule: Leagues.Rule { preset == "places" ? Leagues.places : preset == "match_wins" ? Leagues.matchWins : custom }
     private var valid: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty && ends >= starts && rule.valid }
@@ -327,6 +332,11 @@ struct LeagueSeasonView: View {
                     T1Switch(title: "Event winners", isOn: $qualify.winners)
                     if qualify.winners { T1Switch(title: "Pass down to 8th", isOn: $qualify.passDown) }
                     T1Stepper(label: "Top on points", value: $qualify.top, range: 0...64)
+
+                    if let cut {
+                        Section1("Prize pool")
+                        MoneyField(label: "Cut per entry · USD", text: Binding(get: { cut }, set: { self.cut = $0 }))
+                    }
 
                     if let error { Notice(error, error: true) }
                     if seasonId != nil, loaded {
@@ -400,6 +410,10 @@ struct LeagueSeasonView: View {
             qualify = s.qualify
             closed = s.closed
             loaded = true
+            if let m = try? await Repo.leagueMoney(seasonId) {
+                cutWas = m.entryCutCents
+                cut = m.entryCutCents > 0 ? Money.typed(m.entryCutCents) : ""
+            }
         } catch where error.isCancellation {
             return
         } catch {
@@ -413,9 +427,12 @@ struct LeagueSeasonView: View {
         Task { @MainActor in
             defer { busy = false }
             do {
-                _ = try await Repo.setLeagueSeason(leagueId, seasonId: seasonId, name: name.trimmingCharacters(in: .whitespaces),
-                                                   startsOn: Leagues.dayString(starts), endsOn: Leagues.dayString(ends),
-                                                   points: rule, bestN: .some(bestN), qualify: qualify)
+                let saved = try await Repo.setLeagueSeason(leagueId, seasonId: seasonId, name: name.trimmingCharacters(in: .whitespaces),
+                                                           startsOn: Leagues.dayString(starts), endsOn: Leagues.dayString(ends),
+                                                           points: rule, bestN: .some(bestN), qualify: qualify)
+                if let cut, let cents = Money.cents(cut), cents != cutWas, (0...100_000).contains(cents) {
+                    try await Repo.setSeasonCut(leagueId, seasonId: saved.id, cents: cents)
+                }
                 dismiss()
             } catch {
                 self.error = error.localizedDescription

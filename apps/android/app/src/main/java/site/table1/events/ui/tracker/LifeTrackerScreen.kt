@@ -193,6 +193,10 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit, onNext: (String) ->
     val haptics = LocalHapticFeedback.current
     var showHistory by remember { mutableStateOf(false) }
     var panel by remember { mutableStateOf<String?>(null) }
+    // A player's synced match: the table's extra time beside the round clock, and Call a judge in Options
+    // (contract/room-tools-2026-11-13.md §§ 2–3). Nothing for a local tracker or someone watching.
+    val (tableRoom, reloadRoom) = site.table1.events.ui.screens.rememberTableRoom(d.eventId.takeIf { controller.synced && !d.readOnly }, d.matchId)
+    var confirmJudge by remember { mutableStateOf(false) }
     var resetting by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf<Winner?>(null) }
@@ -293,6 +297,7 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit, onNext: (String) ->
             onOptions = { panel = "options" },
             onReset = { resetting = true },
             onRecord = onRecord,
+            extra = tableRoom.extra,
         )
       }
     }
@@ -326,7 +331,7 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit, onNext: (String) ->
         FoldControls(
             d, book = layout.mode == FoldMode.Book, context = stripContext, contextColor = stripColor,
             recordAccent = d.canRecord && d.settledWinner() != null, busy = controller.busy,
-            onRecord = onRecord, onOptions = { panel = "options" }, onReset = { resetting = true },
+            onRecord = onRecord, onOptions = { panel = "options" }, onReset = { resetting = true }, extra = tableRoom.extra,
         )
     })
 
@@ -338,9 +343,19 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit, onNext: (String) ->
             onHistory = { showHistory = true },
             onNewMatch = if (!controller.synced) ::newTable else null,
             onLeave = onClose,
+            // While a call is open the row reads Judge called · cancel (in accent) and takes it back.
+            judge = tableRoom.callOpen?.let { open ->
+                val id = d.matchId
+                if (id == null) null
+                else if (open) Triple("Judge called · cancel", true) { scope.launch { tableRoom.call(id, false, reloadRoom) }; Unit }
+                else Triple("Call a judge", false) { confirmJudge = true }
+            },
         )
         "dice" -> TrackerDicePanel(onDismiss = { panel = null })
         "chooser" -> TrackerChooser(onDismiss = { panel = null })
+    }
+    if (confirmJudge) site.table1.events.ui.screens.JudgeConfirm(d.table, { confirmJudge = false }) {
+        d.matchId?.let { id -> scope.launch { tableRoom.call(id, true, reloadRoom) } }
     }
 
     if (resetting) {
@@ -490,7 +505,8 @@ private fun toneColor(tone: ClockTone): Color = when (tone) {
     ClockTone.Overtime -> T1.error
 }
 
-/** Lifetracker Info (73:5617): clock + context, the progress bar, then Record / Options / Reset. */
+/** Lifetracker Info (73:5617): clock + context, the progress bar, then Record / Options / Reset. [extra]: the table's
+ *  extra time in seconds, `+5:00` beside the round clock. */
 @Composable
 private fun InfoStrip(
     d: TrackerDoc,
@@ -501,6 +517,7 @@ private fun InfoStrip(
     onRecord: () -> Unit,
     onOptions: () -> Unit,
     onReset: () -> Unit,
+    extra: Int = 0,
 ) {
     val clock = d.clock
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -517,7 +534,8 @@ private fun InfoStrip(
     Column(Modifier.fillMaxWidth().background(T1.bg), verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
             if (remaining != null && tone != null) {
-                Label(formatTrackerClock(remaining), Modifier.padding(horizontal = 16.dp), color = toneColor(tone))
+                Label(formatTrackerClock(remaining), Modifier.padding(start = 16.dp, end = if (extra > 0) 8.dp else 16.dp), color = toneColor(tone))
+                if (extra > 0) Label(site.table1.events.data.RoomRules.extensionText(extra), color = T1.text)
             }
             Box(Modifier.weight(1f).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterEnd) {
                 Label(context, color = contextColor)
@@ -553,6 +571,7 @@ private fun FoldControls(
     onRecord: () -> Unit,
     onOptions: () -> Unit,
     onReset: () -> Unit,
+    extra: Int = 0,
 ) {
     val clock = d.clock
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -575,6 +594,7 @@ private fun FoldControls(
                 Text(formatTrackerClock(remaining), color = toneColor(tone), fontFamily = T1.mono, fontSize = 56.sp,
                     fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
+            if (extra > 0) Label("${site.table1.events.data.RoomRules.extensionText(extra)} · your table", color = T1.text)
             Label(context, color = contextColor)
             Label("Game ${d.currentGame} · ${d.scoreText}", color = T1.muted)
         }

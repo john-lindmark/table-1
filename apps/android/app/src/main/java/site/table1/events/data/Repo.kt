@@ -50,7 +50,8 @@ object Repo {
     private val supabase get() = T1App.supabase
     private val json get() = T1App.json
 
-    val userId: String? get() = supabase.auth.currentUserOrNull()?.id
+    /** Debug `--es t1Events …`: you are the stand-in events' Ann Ito. */
+    val userId: String? get() = if (EventDemo.data != null) EventDemo.USER else supabase.auth.currentUserOrNull()?.id
 
     /* ── events ─────────────────────────────────────────────────────────────── */
 
@@ -188,7 +189,8 @@ object Repo {
 
     /** The event page: what anyone with the link sees (works signed out). */
     suspend fun eventPage(eventId: String): EventPage {
-        // Debug `--es t1Leagues …`: a found event's stand-in page.
+        // Debug `--es t1Leagues …`: a found event's stand-in page; `--es t1Events …`: the stand-in event's.
+        EventDemo.data?.let { return it.page }
         LeaguesDemo.data?.page(eventId)?.let { return it }
         return supabase.postgrest.rpc("event_public", buildJsonObject { put("p_event_id", eventId) }).decodeAs()
     }
@@ -349,6 +351,7 @@ object Repo {
      * (organizer or player) and refuses anyone else with "That event isn't available".
      */
     suspend fun loadEvent(eventId: String): EventBundle {
+        EventDemo.data?.let { return it.bundle }
         val raw = supabase.postgrest.rpc("event_bundle", buildJsonObject { put("p_event_id", eventId) }).data
         val b = bundle(json.decodeFromString<EventBundleWire>(raw))
         userId?.let { u -> withContext(Dispatchers.IO) { OfflineCache.save(u, "event-$eventId", raw) } }
@@ -371,6 +374,7 @@ object Repo {
      * `event:<id>` (event `changed`, no data) once per write; a rejoin also emits, since a ping sent while away is lost.
      */
     fun eventChanges(eventId: String): Flow<Unit> = callbackFlow {
+        if (EventDemo.data != null) { awaitClose { }; return@callbackFlow }
         val channel = supabase.channel("event:$eventId")
         val pings = channel.broadcastFlow<JsonObject>(event = "changed")
         val job = launch { pings.collect { trySend(Unit) } }
@@ -569,6 +573,7 @@ object Repo {
 
     /** Individual standings plus team standings (team events) and draft seating (draft events). */
     suspend fun standingsFull(eventId: String): StandingsResponse {
+        EventDemo.data?.let { return it.standings }
         val response = supabase.functions.invoke("events-engine", buildJsonObject {
             put("action", "standings")
             put("event_id", eventId)
@@ -590,7 +595,7 @@ object Repo {
     /* ── teams ──────────────────────────────────────────────────────────────── */
 
     suspend fun eventTeams(eventId: String): List<EventTeam> =
-        supabase.postgrest.rpc("get_event_teams", buildJsonObject { put("p_event_id", eventId) }).decodeList()
+        EventDemo.data?.eventTeams ?: supabase.postgrest.rpc("get_event_teams", buildJsonObject { put("p_event_id", eventId) }).decodeList()
 
     suspend fun randomizeTeams(eventId: String): List<EventTeam> =
         supabase.postgrest.rpc("randomize_teams", buildJsonObject { put("p_event_id", eventId) }).decodeList()

@@ -48,6 +48,7 @@ import site.table1.events.util.Legal
 import site.table1.events.auth.SignIn
 import site.table1.events.data.AccountOverview
 import site.table1.events.data.Repo
+import site.table1.events.data.paymentsAccount
 import site.table1.events.tracker.TrackerSettings
 import site.table1.events.ui.components.Avatar
 import site.table1.events.ui.components.AvatarStore
@@ -81,7 +82,14 @@ import site.table1.events.ui.components.rememberOpenProfile
 
 /** The Account tab: lifetime record, head-to-head, settings, and the account itself. */
 @Composable
-fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit, onProfile: (String) -> Unit, onNotices: () -> Unit = {}, onReview: () -> Unit = {}, onBugs: () -> Unit = {}, onDeckPhotos: () -> Unit = {}, onSupport: () -> Unit = {}) {
+fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit, onProfile: (String) -> Unit, onNotices: () -> Unit = {}, onReview: () -> Unit = {}, onBugs: () -> Unit = {}, onDeckPhotos: () -> Unit = {}, onSupport: () -> Unit = {},
+                  onPayments: () -> Unit = {}) {
+    /** Account → Payments (contract/entry-fees-2026-11-13.md § 1): your Stripe connection as last known; null (no row)
+     *  while the server has no payments. */
+    var payments by remember { mutableStateOf<site.table1.events.data.PaymentsAccount?>(null) }
+    LaunchedEffect(foregrounds) {
+        runCatching { Repo.paymentsAccount() }.onSuccess { payments = it }
+    }
     /** Account → Deck photos' summary ("12 photos · 5 events"), from my_deck_photos asked for one photo. */
     var deckPhotos by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(foregrounds) {
@@ -192,6 +200,7 @@ fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit
             }
             deckPhotosAccountRow(deckPhotos, onDeckPhotos)
             Repo.userId?.let { me -> friendsAccountRows(friends, onFriends, onSharing) { onProfile(me) } }
+            paymentsAccountRow(payments, onPayments)
             moderationAccountRows(moderation, onNotices, onReview)
             bugsAccountRow(bugs, onBugs)
             supportAccountRow(onSupport)

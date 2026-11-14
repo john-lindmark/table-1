@@ -74,20 +74,22 @@ internal fun TrackerOptionsPanel(
     onHistory: () -> Unit,
     onNewMatch: (() -> Unit)? = null,
     onLeave: () -> Unit,
+    /** A player's match in an event: Call a judge, or the open call (its words, whether it's open, what a tap does). */
+    judge: Triple<String, Boolean, () -> Unit>? = null,
 ) {
     T1Overlay(onDismiss) {
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().absorbTaps().background(T1.bg)
                 .sheetInsets().padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 30.dp),
         ) {
-            listOfNotNull("Chooser" to onChooser, "Roll dice" to onDice, "History" to onHistory,
+            listOfNotNull(judge?.let { it.first to it.third }, "Chooser" to onChooser, "Roll dice" to onDice, "History" to onHistory,
                 onNewMatch?.let { "New match" to it }, "Leave tracker" to onLeave)
                 .forEach { (title, run) ->
                     Box(
                         Modifier.fillMaxWidth().clickable { onDismiss(); run() }.padding(horizontal = 8.dp, vertical = 16.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(title.uppercase(), color = T1.disabled, fontFamily = T1.mono, fontSize = 12.sp,
+                        Text(title.uppercase(), color = if (judge?.second == true && title == judge.first) T1.accent else T1.disabled, fontFamily = T1.mono, fontSize = 12.sp,
                             letterSpacing = 1.5.sp, lineHeight = 18.sp, textAlign = TextAlign.Center)
                     }
                 }

@@ -404,7 +404,8 @@
     "pass_down": true,
     "top": 10
    },
-   "closed": false
+   "closed": false,
+   "entry_cut_cents": 700
   },
   "events": [
    {
@@ -1665,5 +1666,57 @@
     "events": 4
    }
   ]
+ },
+ "league_money": {
+  "entry_cut_cents": 700,
+  "pool_cents": 140000,
+  "received_cents": 106600,
+  "events": [
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000020",
+    "name": "Standard Open",
+    "entries": 46,
+    "owed_cents": 32200,
+    "received_cents": 32200
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000021",
+    "name": "Legacy Open",
+    "entries": 38,
+    "owed_cents": 26600,
+    "received_cents": 26600
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000022",
+    "name": "Team Trios",
+    "entries": 54,
+    "owed_cents": 37800,
+    "received_cents": 37800
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000023",
+    "name": "Pauper Open",
+    "entries": 32,
+    "owed_cents": 22400,
+    "received_cents": 10000
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000024",
+    "name": "Vintage Open",
+    "entries": 30,
+    "owed_cents": 21000,
+    "received_cents": 0
+   }
+  ]
+ },
+ "event_alerts": {
+  "on": true,
+  "formats": [
+   "modern",
+   "limited"
+  ],
+  "km": 50,
+  "lat": 39.7,
+  "lng": -105.0
  }
 }

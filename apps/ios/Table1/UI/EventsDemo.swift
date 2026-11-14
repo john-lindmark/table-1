@@ -26,7 +26,20 @@ import SwiftUI
 /// sample data, and nothing here asks for location or notifications.
 struct EventsDemoRoot: View {
     static let switcherModes = ["create", "setup", "seating", "results", "photo"]
-    static let fullModes = ["pods", "podslive", "home", "homeorg", "account", "live", "player", "playerdone"] + leagueModes
+    static let fullModes = ["pods", "podslive", "home", "homeorg", "account", "live", "player", "playerdone"] + leagueModes + toolModes
+    /// Entry fees, teams, a season's final, alerts and the room tools on stand-in data (EventToolsDemo.swift):
+    /// - `payments` (`-T1Stripe none|setup|ready`): Account → Payments. `fee`: the fee editor. `pool`: the Prize pool.
+    /// - `pay` (`-T1Pay unpaid|pending|paid|refunded`): a player's screen before round 1 with their entry.
+    /// - `paysetup`: the organizer's Setup with payment tags. `prizes`: Results → Prizes. `dues`: a league's Dues.
+    /// - `triosteams`: Setup → Teams of a Team Trios event whose teams sign themselves up. `teampage`: the event page's
+    ///   Sign up a team / Join a team. `myteam`: Your team as its captain.
+    /// - `teamcut`: a Team Trios event after Swiss (Cut to top 4). `teambracket`: its semifinals and final.
+    /// - `display` (`-T1Screen <name>` pretends a second screen is connected): the Display panel. `room`: Live with judge
+    ///   calls and a table with extra time. `judge`: a player's match with Call a judge and `+5:00`.
+    /// - `final`: a season's final's Qualified list. `alerts`: Alerts for new public events.
+    /// Create with Team Trios: `-T1EventsDemo create -T1Format team_trios`.
+    static let toolModes = ["payments", "fee", "pool", "pay", "paysetup", "prizes", "dues", "triosteams", "teampage", "myteam",
+                            "teamcut", "teambracket", "display", "room", "judge", "final", "alerts"]
     /// Finding events, leagues and boards on stand-in data (LeaguesDemo.swift): each opens over the demo home.
     /// - `find` | `findleagues` | `boards`: Find on its Events, Leagues or Boards tab.
     /// - `board`: the Modern board. `league`: a league's page (you follow it); `leaguedetails`, `leaguestandings`,
@@ -71,6 +84,40 @@ struct EventsDemoRoot: View {
         default: []
         }
         _path = State(initialValue: start)
+        ToolsDemo.on = true
+        switch mode {
+        case "payments":
+            let s = Self.arg("-T1Stripe") ?? "setup"
+            ToolsDemo.account = PaymentsAccount(connected: s != "none", ready: s == "ready", payouts: s == "ready", detailsSubmitted: s == "ready", disabledReason: nil)
+        case "fee", "pool", "paysetup": ToolsDemo.startFee()
+        case "pay":
+            ToolsDemo.organizer = false
+            ToolsDemo.startFee(mine: Self.arg("-T1Pay") ?? "unpaid")
+        case "prizes":
+            ToolsDemo.startFee(mine: "paid")
+            ToolsDemo.finished = true
+            ToolsDemo.prizePaid = ["p1": "cash"]
+        case "room": ToolsDemo.startRoom()
+        case "display":
+            ToolsDemo.startRoom()
+            SecondScreen.shared.demoName = Self.arg("-T1Screen")
+        case "judge":
+            ToolsDemo.organizer = false
+            ToolsDemo.myMatch = "m2-1"
+            ToolsDemo.extras = ["m2-1": 300]
+            // `-T1Judge open`: the call already made (JUDGE CALLED with Cancel).
+            if Self.arg("-T1Judge") == "open" { ToolsDemo.judge("m2-1", open: true) }
+        case "triosteams": ToolsDemo.teamSignup = true
+        case "teampage", "myteam":
+            ToolsDemo.organizer = false
+            ToolsDemo.teamSignup = true
+            ToolsDemo.onTeam = mode == "myteam"
+        case "final": ToolsDemo.isFinal = true
+        default: break
+        }
+        if Self.toolModes.contains(mode) || mode == "setup" {
+            Task { @MainActor in await EventSide.of(DemoData.eventId).refresh(teams: true) }
+        }
         DemoScreens.account = mode == "account" ? DemoData.account : nil
         DemoScreens.deckPhotos = mode == "account" ? DemoData.myDeckPhotos : nil
     }
@@ -101,6 +148,42 @@ struct EventsDemoRoot: View {
                 organizer(DemoData.finished, DemoData.finalStandings)
             case "live":
                 organizer(DemoData.live, DemoData.liveStandings)
+            case "paysetup":
+                organizer(DemoData.bundle, DemoData.engine)
+            case "pay":
+                PlayerView(b: DemoData.bundle.asPlayer, engine: DemoData.engine, refresh: {}, open: { _ in })
+            case "prizes":
+                organizer(DemoData.finished, DemoData.finalStandings, tab: "prizes")
+            case "room":
+                organizer(DemoData.live, DemoData.liveStandings)
+            case "judge":
+                PlayerView(b: DemoData.live.asPlayer, engine: DemoData.liveStandings, refresh: {}, open: { _ in })
+            case "triosteams":
+                organizer(DemoData.trios(rounds: 0), DemoData.triosEngine(rounds: 0), tab: "teams")
+            case "teamcut":
+                organizer(DemoData.trios(rounds: 3), DemoData.triosEngine(rounds: 3))
+            case "teambracket":
+                organizer(DemoData.trios(rounds: 5), DemoData.triosEngine(rounds: 5), tab: "standings")
+            case "teampage", "myteam":
+                T1Screen {
+                    Bar(title: "Team Trios Open", back: {})
+                    HairlineList { TeamSignUpRows(eventId: DemoData.eventId) }
+                }
+            case "payments":
+                PaymentsPanel(account: ToolsDemo.account)
+            case "fee":
+                FeeEditor(eventId: DemoData.eventId, money: ToolsDemo.money(DemoData.eventId))
+            case "pool":
+                let money = ToolsDemo.money(DemoData.eventId)
+                if let fee = money.fee, let pool = money.pool { PrizePoolPanel(fee: fee, pool: pool) }
+            case "dues":
+                LeagueDuesPanel(seasonId: LeaguesDemo.seasonId, money: ToolsDemo.leagueMoney)
+            case "display":
+                DisplayPanel(eventId: DemoData.eventId, name: DemoData.draftName)
+            case "final":
+                if let status = try? ToolsDemo.finalStatus(DemoData.eventId) { QualifiedPanel(eventId: DemoData.eventId, status: status) }
+            case "alerts":
+                AlertsPanel(alerts: ToolsDemo.alerts)
             case "player":
                 PlayerView(b: DemoData.live.asPlayer, engine: DemoData.liveStandings, refresh: {}, open: { _ in })
             case "playerdone":
@@ -152,8 +235,8 @@ struct EventsDemoRoot: View {
         .task { if ListsStore.shared.lists.isEmpty { LibraryDemo.start() } }
     }
 
-    private func organizer(_ b: EventBundle, _ engine: StandingsResponse) -> some View {
-        OrganizerView(b: b, engine: engine, refresh: {}, showSeating: { _ in }, open: { _ in }, startTab: startTab) {}
+    private func organizer(_ b: EventBundle, _ engine: StandingsResponse, tab: String? = nil) -> some View {
+        OrganizerView(b: b, engine: engine, refresh: {}, showSeating: { _ in }, open: { _ in }, startTab: startTab ?? tab) {}
     }
 
     /// Taps on the demo home: its sample events open their demo screens; anything else says so.
@@ -319,6 +402,85 @@ private enum DemoData {
         r.seating = podsEngine.seating
         return r
     }()
+
+    // MARK: Team Trios (contract/teams-finals-alerts-2026-11-13.md)
+
+    static let trioNames = podNames + ["Quin Abara", "Rae Lindgren"]
+    static let teamNames = ["Ravens", "Owls", "Crows", "Hawks", "Larks", "Wrens"]
+    /// Team match wins after Swiss, best first: the top four go on.
+    static let teamRecords: [(w: Int, l: Int)] = [(3, 0), (2, 1), (2, 1), (1, 2), (1, 2), (0, 3)]
+
+    /// Six teams of three, Modern / Standard / Pioneer, top 4. `rounds`: 0 = Setup with sign-up on; 3 = Swiss done (Cut
+    /// to top 4); 5 = semifinals played and the final running.
+    static func trios(rounds n: Int) -> EventBundle {
+        var e = decode(EventRow.self, """
+        {"id": "\(eventId)", "short_code": "T3R1", "name": "Team Trios Open", "format": "constructed",
+         "status": "\(n == 0 ? "setup" : "in_progress")", "number_of_rounds": 3, "current_round": \(n),
+         "round_length_seconds": 3000, "format_name": "team_trios", "format_label": "Team Trios", "team_size": 3,
+         "seat_formats": ["modern", "standard", "pioneer"], "team_signup": \(n == 0), "top_cut": 4, "show_clock": true,
+         "auto_name": false, "venue_name": "Dragon's Lair"}
+        """)
+        e.capacity = 24
+        let players: [ParticipantRow] = (1...18).map { i in
+            decode(ParticipantRow.self, """
+            {"id": "p\(i)", "event_id": "\(eventId)", "display_name": "\(trioNames[i - 1])", "seat": null, "status": "active",
+             "user_id": \(i == 1 ? "\"\(me)\"" : "\"u\(i)\""), "team_id": "t\((i - 1) / 3 + 1)", "team_slot": \((i - 1) % 3 + 1)}
+            """)
+        }
+        // Team a plays team b seat against seat: three tables a pairing.
+        func teamMatches(_ round: Int, _ pairs: [(Int, Int)], status: String = "confirmed") -> [String] {
+            pairs.enumerated().flatMap { k, pair in
+                (0..<3).map { s in
+                    match(round, k * 3 + s + 1, pair.0 * 3 + s + 1, pair.1 * 3 + s + 1, status == "pending" ? 0 : (s == 2 ? 1 : 2), status == "pending" ? 0 : (s == 2 ? 2 : s), status: status)
+                }
+            }
+        }
+        var rows: [RoundRow] = []
+        let swiss: [[(Int, Int)]] = [[(0, 5), (1, 4), (2, 3)], [(0, 2), (1, 3), (4, 5)], [(0, 1), (2, 4), (3, 5)]]
+        for r in 0..<min(n, 3) { rows.append(round(r + 1, active: false, teamMatches(r + 1, swiss[r]))) }
+        if n >= 4 {
+            var semi = round(4, active: false, teamMatches(4, [(0, 3), (1, 2)]))
+            semi.stage = "semifinal"
+            rows.append(semi)
+        }
+        if n >= 5 {
+            var final = round(5, active: true, [match(5, 1, 1, 4, 2, 1), match(5, 2, 2, 5, 0, 0, status: "pending"), match(5, 3, 3, 6, 0, 0, status: "pending")])
+            final.stage = "final"
+            rows.append(final)
+        }
+        return EventBundle(event: e, participants: players, rounds: rows, isOrganizer: true)
+    }
+
+    static func triosEngine(rounds n: Int) -> StandingsResponse {
+        guard n > 0 else { return StandingsResponse() }
+        let playoff: [String?] = n >= 5 ? ["final", "final", "semifinal", "semifinal", nil, nil] : Array(repeating: nil, count: 6)
+        let teams = (0..<6).map { t -> String in
+            let rec = teamRecords[t]
+            let members = (0..<3).map { s in
+                #"{"participant_id": "p\#(t * 3 + s + 1)", "display_name": "\#(trioNames[t * 3 + s])", "slot": \#(s + 1), "match_wins": \#(max(0, rec.w - (s == 2 ? 1 : 0))), "match_losses": \#(rec.l + (s == 2 && rec.w > 0 ? 1 : 0)), "match_draws": 0, "status": "active"}"#
+            }.joined(separator: ",")
+            return #"{"rank": \#(t + 1), "team_id": "t\#(t + 1)", "name": "\#(teamNames[t])", "points": \#(rec.w * 3), "wins": \#(rec.w), "losses": \#(rec.l), "draws": 0, "byes": 0, "match_wins": \#(rec.w * 2 + rec.l), "gw": 0.6, "members": [\#(members)], "swiss_rank": \#(t + 1), "playoff": \#(playoff[t].map { "\"\($0)\"" } ?? "null")}"#
+        }.joined(separator: ",")
+        let rows = (1...18).map { i in
+            let rec = teamRecords[(i - 1) / 3]
+            return #"{"rank": \#(i), "participant_id": "p\#(i)", "display_name": "\#(trioNames[i - 1])", "status": "active", "match_points": \#(rec.w * 3), "match_wins": \#(rec.w), "match_losses": \#(rec.l), "match_draws": 0, "byes": 0, "omw": 0.5, "gw": 0.6, "ogw": 0.5}"#
+        }.joined(separator: ",")
+        func seats(_ a: Int, _ b: Int, _ round: Int, _ k: Int, done: Int) -> String {
+            (0..<3).map { s in
+                let played = s < done
+                let aw = played ? (s == 2 ? 1 : 2) : 0, bw = played ? (s == 2 ? 2 : s) : 0
+                return #"{"match_id": "m\#(round)-\#(k * 3 + s + 1)", "table_number": \#(k * 3 + s + 1), "is_bye": false, "status": "\#(played ? "confirmed" : "pending")", "winner": \#(played ? "\"p\((aw > bw ? a : b) * 3 + s + 1)\"" : "null"), "sides": [{"participant_id": "p\#(a * 3 + s + 1)", "display_name": "\#(trioNames[a * 3 + s])", "slot": \#(s + 1), "game_wins": \#(aw)}, {"participant_id": "p\#(b * 3 + s + 1)", "display_name": "\#(trioNames[b * 3 + s])", "slot": \#(s + 1), "game_wins": \#(bw)}]}"#
+            }.joined(separator: ",")
+        }
+        func teamMatch(_ a: Int, _ b: Int, _ round: Int, _ k: Int, done: Int) -> String {
+            let wins = done == 3 ? (2, 1) : done == 1 ? (1, 0) : (0, 0)
+            return #"{"table_number": \#(k * 3 + 1), "status": "\#(done == 3 ? "confirmed" : "pending")", "winner": \#(done == 3 ? "\"t\(a + 1)\"" : "null"), "sides": [{"seed": \#(a + 1), "team_id": "t\#(a + 1)", "name": "\#(teamNames[a])", "match_wins": \#(wins.0)}, {"seed": \#(b + 1), "team_id": "t\#(b + 1)", "name": "\#(teamNames[b])", "match_wins": \#(wins.1)}], "matches": [\#(seats(a, b, round, k, done: done))]}"#
+        }
+        let bracket = n >= 5
+            ? #"[{"stage": "semifinal", "matches": [\#(teamMatch(0, 3, 4, 0, done: 3)), \#(teamMatch(1, 2, 4, 1, done: 3))]}, {"stage": "final", "matches": [\#(teamMatch(0, 1, 5, 0, done: 1))]}]"#
+            : "null"
+        return decode(StandingsResponse.self, #"{"standings": [\#(rows)], "teams": [\#(teams)], "top_cut": 4, "team_bracket": \#(bracket)}"#)
+    }
 
     /// One match. Sides are numbered 0 and 1, as the server sends them (`MatchRow.side(_:)`).
     static func match(_ round: Int, _ table: Int, _ a: Int, _ b: Int, _ aw: Int, _ bw: Int,

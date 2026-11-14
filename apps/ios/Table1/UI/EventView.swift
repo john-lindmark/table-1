@@ -99,6 +99,9 @@ struct EventView: View {
             }
         }
         if let latest = await latestStandings { engine = latest }
+        // The event's money, room and teams ride along (entry fees, room tools, team sign-up): each part stays nil,
+        // and draws nothing, where the server doesn't have it.
+        if let b = bundle { await EventSide.of(eventId).refresh(teams: b.event.isTeamEvent && b.event.teamSignup) }
         // Players' seats and the organizer's own activity (at most every 20 s however often this screen refreshes).
         if bundle != nil { await LiveActivityController.shared.refresh() }
     }
@@ -112,6 +115,8 @@ struct EditResultSheet: View {
     let b: EventBundle
     let onSave: (Int, Int, Int) -> Void
     var onWatch: (() -> Void)?
+    /// The round being played: Extra time for this table (+3, +5, +10 min, Take it back).
+    var onExtra: (() -> Void)?
     @State private var s0 = 0
     @State private var s1 = 0
     @State private var draws = 0
@@ -130,7 +135,15 @@ struct EditResultSheet: View {
             T1Stepper(label: "Drawn games", value: $draws, range: 0...3)
             if s0 + s1 + draws > 3 { Notice("At most 3 games in a match.", error: true) }
             if playoff && s0 == s1 { Notice("Playoff matches need a winner.", error: true) }
-            if let onWatch, !m.isBye { Ghost(text: "Life tracker") { onWatch() } }
+            if !m.isBye, onWatch != nil || onExtra != nil {
+                HStack(spacing: 1) {
+                    if let onWatch { Ghost(text: "Life tracker") { onWatch() } }
+                    if let onExtra {
+                        let extra = RoomRules.extensionText(EventSide.of(b.event.id).room?.extra(m.id) ?? 0)
+                        Ghost(text: extra.isEmpty ? "Extra time" : "Extra time · \(extra)") { onExtra() }
+                    }
+                }
+            }
             BigAction(text: "Save result", enabled: valid, accent: true) { onSave(s0, s1, draws) }
         }
         .foregroundStyle(T1.text)
@@ -207,7 +220,12 @@ struct PlayerView: View {
             if b.event.isCancelled { CancelledBanner(reason: b.event.cancelReason) }
             HairlineList {
                 if let doneWhy, let photos = myPhotos { deckPhotoPrompt(doneWhy, photos: photos) }
-                if let active, b.event.showClock { RoundClock(endsAt: active.timerEndsAt) }
+                if let active, b.event.showClock {
+                    // A table with extra time runs that much past the round's clock (room-tools § 2).
+                    RoundClock(endsAt: active.timerEndsAt, extra: match.flatMap { m in side.room?.myMatch.flatMap { $0.matchId == m.id ? $0.extraSeconds : nil } } ?? 0)
+                }
+                // Your entry: Pay, pending, paid, refunded (contract/entry-fees-2026-11-13.md § 3).
+                if me != nil, !b.event.isCancelled { PayRows(eventId: b.event.id) { dismiss() } }
                 if me == nil {
                     Notice("You're viewing this event. Scan the organizer's QR to take a seat.")
                 } else if let match {
@@ -216,7 +234,7 @@ struct PlayerView: View {
                             .frame(maxWidth: .infinity).padding(24).background(T1.accent)
                     } else {
                         VStack(spacing: 4) {
-                            LabelText("Table \(match.tableNumber.map(String.init) ?? "–") · playing")
+                            LabelText((["Table \(match.tableNumber.map(String.init) ?? "–")"] + (seatLabel(me).map { [$0] } ?? []) + ["playing"]).joined(separator: " · "))
                             Text(b.name(theirs?.participantId)).font(T1.mono(22))
                         }
                         .frame(maxWidth: .infinity).padding(20).background(T1.surface)
@@ -234,6 +252,8 @@ struct PlayerView: View {
                             results(match, mine: mine, theirs: theirs)
                             Ghost(text: "Open life tracker") { session.openTracker(matchId: match.id) }
                         }
+                        // Call a judge, or JUDGE CALLED with Cancel (room-tools § 3).
+                        JudgeCallRow(eventId: b.event.id, matchId: match.id)
                     }
                 } else if !b.event.isFinished {
                     Notice(active == nil ? "Waiting for the next round to be paired." : "You're not paired this round.")
@@ -251,6 +271,13 @@ struct PlayerView: View {
                     .buttonStyle(.plain)
                 }
                 EventAboutRows(eventId: b.event.id, open: open)
+                PrizePoolRow(eventId: b.event.id)
+                // Teams that sign themselves up: your team, its code and everyone's teams, until round 1.
+                if b.event.isTeamEvent, b.event.teamSignup, b.event.isBeforeRound1 {
+                    TeamSignUpRows(eventId: b.event.id, open: false) {
+                        if EventSide.of(b.event.id).teams?.team == nil { dismiss() } else { Task { await refresh() } }
+                    }
+                }
                 if me != nil && !b.event.isFinished {
                     trackerToggle
                     if doneWhy == nil { Ghost(text: "Deck photo") { open(.deckPhotos(b.event.id)) } }
@@ -278,9 +305,10 @@ struct PlayerView: View {
                     SeatingTable(pods: seating, teamDraft: b.event.formatName == "team_draft", highlight: me?.id,
                                  seatEnds: b.event.seatEnds)
                 }
-                if (engine.bracket ?? []).isEmpty { Section1("Standings") }
+                if (engine.bracket ?? []).isEmpty && (engine.teamBracket ?? []).isEmpty { Section1("Standings") }
                 BracketRows(bracket: engine.bracket ?? [])
-                StandingsRows(engine: engine, highlight: me?.id, players: b.participants)
+                TeamBracketRows(bracket: engine.teamBracket ?? [], seatFormats: b.event.seatFormats)
+                StandingsRows(engine: engine, highlight: me?.id, players: b.participants, seatFormats: b.event.seatFormats)
             }
         }
         .onChange(of: match?.version) { optimistic = nil }
@@ -293,6 +321,15 @@ struct PlayerView: View {
         } message: {
             Text("Your seat goes to the next person on the waitlist, if there is one.")
         }
+    }
+
+    private var side: EventSide { EventSide.of(b.event.id) }
+
+    /// Team events: your seat, with its format in Team Trios (`A · MODERN`).
+    private func seatLabel(_ me: ParticipantRow?) -> String? {
+        guard b.event.isTeamEvent, let me else { return nil }
+        let slot: Int? = me.teamSlot ?? engine.teamOf(me.id)?.members.first(where: { $0.participantId == me.id })?.slot
+        return slot.map { TeamRules.seatLabel(slot: $0, seatFormats: b.event.seatFormats) }
     }
 
     /// Once your last match is in: the one big action is Add a deck photo; with one added, a row to see it.
@@ -356,7 +393,7 @@ struct PlayerView: View {
         if b.event.isTeamEvent, let team = engine.teamOf(me.id) {
             let slot: Int? = me.teamSlot ?? team.members.first(where: { $0.participantId == me.id })?.slot
             let teamName = team.name.lowercased().hasPrefix("team") ? team.name : "Team \(team.name)"
-            return "\(teamName) · seat \(slotLetter(slot)) · \(round)"
+            return "\(teamName) · seat \(TeamRules.seatLabel(slot: slot, seatFormats: b.event.seatFormats)) · \(round)"
         }
         return "\(me.displayName) · \(b.event.label) · \(round)"
     }
@@ -467,6 +504,8 @@ struct StandingsRows: View {
     let highlight: String?
     /// For avatars: whose account each standing is.
     var players: [ParticipantRow] = []
+    /// Team Trios: each seat's format, for the members' seat labels.
+    var seatFormats: [String]?
     /// Drafts with 2+ pods: one pod's players (nil = everyone), in overall order.
     @State private var podFilter: String?
 
@@ -483,7 +522,7 @@ struct StandingsRows: View {
         if engine.standings.isEmpty && teams.isEmpty { Notice("Standings appear after the first results.") }
         if !teams.isEmpty {
             Section1("Teams")
-            ForEach(teams) { TeamStandingLine(t: $0, highlight: highlight, players: players) }
+            ForEach(teams) { TeamStandingLine(t: $0, highlight: highlight, players: players, seatFormats: seatFormats) }
             Section1("Players")
         }
         if !pods.isEmpty {
@@ -504,13 +543,25 @@ struct TeamStandingLine: View {
     let highlight: String?
     /// Whose account each member is, so a member opens their profile.
     var players: [ParticipantRow] = []
+    var seatFormats: [String]?
+
+    /// The top 4 between teams: how far this team went.
+    private var playoff: String? {
+        switch t.playoff {
+        case "winner": "Winner"
+        case "final": "Finalist"
+        case "semifinal": "Semifinalist"
+        default: nil
+        }
+    }
+
     var body: some View {
         VStack(spacing: 1) {
             HStack(spacing: 12) {
                 LabelText("\(t.rank)")
                 VStack(alignment: .leading, spacing: 2) {
                     Text(t.name).font(T1.mono(15)).lineLimit(1)
-                    LabelText("\(t.matchWins) match win\(t.matchWins == 1 ? "" : "s")")
+                    LabelText(([playoff] + ["\(t.matchWins) match win\(t.matchWins == 1 ? "" : "s")"]).compactMap { $0 }.joined(separator: " · "))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Text(recordText(t.wins, t.losses, t.draws)).font(T1.mono(14))
@@ -521,7 +572,7 @@ struct TeamStandingLine: View {
             // Best first by record, then game-win %, then OMW (the engine's order).
             ForEach(t.members) { m in
                 HStack(spacing: 12) {
-                    LabelText(slotLetter(m.slot))
+                    LabelText(TeamRules.seatLabel(slot: m.slot, seatFormats: seatFormats))
                     Text(m.displayName).font(T1.mono(13)).lineLimit(1)
                         .foregroundStyle(m.status == "dropped" ? T1.muted : T1.text)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -561,14 +612,19 @@ struct StandingLine: View {
 /// Counts down to the server's timer_ends_at, so every phone shows the same clock.
 private struct RoundClock: View {
     let endsAt: String?
+    /// This table's extra time, in seconds: `+5:00` beside the clock.
+    var extra = 0
     var body: some View {
         if let end = endsAt.flatMap(Self.parse) {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let left = max(0, Int(end.timeIntervalSince(context.date)))
-                Text(left == 0 ? "TIME" : String(format: "%02d:%02d", left / 60, left % 60))
-                    .font(T1.mono(56)).tracking(4)
-                    .foregroundStyle(left == 0 ? T1.danger : T1.text)
-                    .frame(maxWidth: .infinity).padding(.vertical, 16).background(T1.bg)
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(left == 0 ? "TIME" : String(format: "%02d:%02d", left / 60, left % 60))
+                        .font(T1.mono(56)).tracking(4)
+                        .foregroundStyle(left == 0 ? T1.danger : T1.text)
+                    if extra > 0 { Text(RoomRules.extensionText(extra)).font(T1.mono(20)).foregroundStyle(T1.accent) }
+                }
+                .frame(maxWidth: .infinity).padding(.vertical, 16).background(T1.bg)
             }
         }
     }

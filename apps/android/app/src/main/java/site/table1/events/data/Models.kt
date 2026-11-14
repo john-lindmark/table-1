@@ -42,7 +42,7 @@ data class EventRow(
     @SerialName("seat_ends") val seatEnds: Boolean = false,
     /** swiss | round_robin. */
     val pairing: String = "swiss",
-    /** 0 or 8 (contract/scheduled-events-2026-10-27.md). */
+    /** 0, 4 or 8 (contract/scheduled-events-2026-10-27.md; top 4 since contract/teams-finals-alerts-2026-11-13.md). */
     @SerialName("top_cut") val topCut: Int = 0,
     /** Rounds follow the players until round 1 is paired. */
     @SerialName("auto_rounds") val autoRounds: Boolean = false,
@@ -54,7 +54,12 @@ data class EventRow(
      *  "pod" inside each pod, "cross" Swiss across every pod (contract/draft-pods-2026-11-09.md). */
     val pods: Int? = null,
     @SerialName("pod_pairing") val podPairing: String = "cross",
+    /** Team Trios: each seat's format, seat A first (contract/teams-finals-alerts-2026-11-13.md § 1). */
+    @SerialName("seat_formats") val seatFormats: List<String>? = null,
+    /** Team events: teams sign themselves up (off: the organizer builds them). */
+    @SerialName("team_signup") val teamSignup: Boolean = false,
 ) {
+    val isTrios: Boolean get() = formatName == "team_trios"
     val isConstructed: Boolean get() = formatName in EventRules.constructedFormats
     val takesDecklists: Boolean get() = decklists != "off"
     val isCancelled: Boolean get() = status == "cancelled"
@@ -218,8 +223,10 @@ data class StandingsResponse(
     /** Team events: the team the other can no longer catch, so the organizer may finish early. */
     val clinched: TeamClinch? = null,
     @SerialName("top_cut") val topCut: Int = 0,
-    /** The playoff rounds paired so far (top 8). */
+    /** The playoff rounds paired so far (top 8 or top 4). */
     val bracket: List<BracketStage> = emptyList(),
+    /** Team events with a top 4: the team playoff rounds paired so far. */
+    @SerialName("team_bracket") val teamBracket: List<TeamBracketStage> = emptyList(),
 )
 
 /** Two teams head to head: one's match wins beat the other's plus every match still to play (events-engine). */
@@ -252,6 +259,9 @@ data class TeamStanding(
     @SerialName("match_wins") val matchWins: Int = 0,
     val gw: Double = 0.0,
     val members: List<TeamStandingMember> = emptyList(),
+    /** Top 4: the Swiss place and the furthest stage reached (winner | final | semifinal). */
+    @SerialName("swiss_rank") val swissRank: Int? = null,
+    val playoff: String? = null,
 )
 
 @Serializable
@@ -676,7 +686,9 @@ data class EventBundle(
         get() {
             val waiting = activeRound?.matches?.any { !it.isBye && (it.status == "pending" || (it.disputed && it.status != "confirmed")) } ?: false
             return EventRules.nextStep(rounds.map { it.stage }, waiting, event.numberOfRounds, event.topCut,
-                participants.count { it.status == "active" })
+                participants.count { it.status == "active" },
+                // A team event's cut counts teams, never players.
+                activeTeams = if (event.isTeamEvent) TeamRules.activeTeams(participants) else null)
         }
     fun name(participantId: String?): String =
         participants.firstOrNull { it.id == participantId }?.displayName ?: "—"

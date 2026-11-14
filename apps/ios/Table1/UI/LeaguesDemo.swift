@@ -95,7 +95,8 @@ enum LeaguesDemo {
         }
         return decode(EventAbout.self, """
         {"event_id": "\(eventId)", "description": "Swiss rounds, then a cut to the top 8. Doors at 9:30, round 1 at 10:00 sharp.\\n\\nDecklists are due before round 1. Rules and the season's standings: https://example.com/series",
-         "venue_address": "1234 Main Street, Denver, CO 80202", "visibility": "public", "format_key": "modern", "league": \(leagueJSON), "placed": false}
+         "venue_address": "1234 Main Street, Denver, CO 80202", "visibility": "public", "format_key": "modern", "league": \(leagueJSON), "placed": false,
+         "rel": "competitive", "decklist_due_at": "\(at(2, 9))"}
         """)
     }
 

@@ -44,6 +44,15 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import site.table1.events.data.DraftPods
 import site.table1.events.data.EventBundle
+import site.table1.events.data.EventDemo
+import site.table1.events.data.EventExtras
+import site.table1.events.data.EventMoney
+import site.table1.events.data.EventRoom
+import site.table1.events.data.Fees
+import site.table1.events.data.RoomRules
+import site.table1.events.data.TeamRules
+import site.table1.events.data.eventAbout
+import site.table1.events.data.setEventTrios
 import site.table1.events.data.EventRow
 import site.table1.events.data.EventRules
 import site.table1.events.data.MatchRow
@@ -106,7 +115,7 @@ internal fun organizerPhase(b: EventBundle): OrganizerPhase {
 }
 
 /** Tabs per phase as (id, label); the first one is selected when the phase changes. */
-private fun phaseTabs(phase: OrganizerPhase, b: EventBundle, event: EventRow = b.event): List<Pair<String, String>> = when (phase) {
+private fun phaseTabs(phase: OrganizerPhase, b: EventBundle, hasFee: Boolean = false, event: EventRow = b.event): List<Pair<String, String>> = when (phase) {
     OrganizerPhase.Setup -> buildList {
         add("players" to "Players")
         if (event.isDraft) add("seating" to "Seating")
@@ -122,7 +131,8 @@ private fun phaseTabs(phase: OrganizerPhase, b: EventBundle, event: EventRow = b
         add("players" to "Players")
         if (event.isTeamEvent) add("teams" to "Teams")
     }
-    OrganizerPhase.Results -> listOf("standings" to "Standings", "rounds" to "Rounds", "players" to "Players")
+    // Prizes (contract/entry-fees-2026-11-13.md § 4) for an event with a fee.
+    OrganizerPhase.Results -> listOfNotNull("standings" to "Standings", "rounds" to "Rounds", "players" to "Players", if (hasFee) "prizes" to "Prizes" else null)
 }
 
 /** First line of a server error (supabase-kt appends the URL and headers below it). */
@@ -244,13 +254,17 @@ internal fun OrganizerScreen(
     onOpenRedraft: () -> Unit = {},
     /** A Library list (a roto deck). */
     onOpenList: (String) -> Unit = {},
+    /** The event's money and room; each part null while the server doesn't have it. */
+    extras: EventExtras = EventExtras(),
 ) {
     val scope = rememberCoroutineScope()
     val event = b.event
     val phase = organizerPhase(b)
-    val tabs = phaseTabs(phase, b)
-    // A phase change resets to that phase's first tab.
-    var tab by remember(phase) { mutableStateOf(tabs.first().first) }
+    val money = extras.money
+    val room = extras.room
+    val tabs = phaseTabs(phase, b, hasFee = money?.fee != null)
+    // A phase change resets to that phase's first tab (Debug `--es t1Events …` opens on its own).
+    var tab by remember(phase) { mutableStateOf(EventDemo.tab ?: tabs.first().first) }
     val selected = tabs.firstOrNull { it.first == tab }?.first ?: tabs.first().first
 
     var busy by remember { mutableStateOf(false) }
@@ -262,6 +276,10 @@ internal fun OrganizerScreen(
     var confirmStart by remember { mutableStateOf(false) }
     var confirmFinish by remember { mutableStateOf(false) }
     var confirmCut by remember { mutableStateOf(false) }
+    var displayOpen by remember { mutableStateOf(EventDemo.screen == "display") }
+    var extraFor by remember { mutableStateOf<MatchRow?>(null) }
+    // The second screen ends when the organizer leaves the event.
+    androidx.compose.runtime.DisposableEffect(event.id) { onDispose { SecondScreen.stop() } }
     var dropping by remember { mutableStateOf<ParticipantRow?>(null) }
     var listFor by remember { mutableStateOf<ParticipantRow?>(null) }
     var rotoOverlay by remember { mutableStateOf(false) }
@@ -364,12 +382,13 @@ internal fun OrganizerScreen(
         Box(Modifier.weight(1f)) {
             when (phase) {
                 OrganizerPhase.Setup -> when (selected) {
-                    "players" -> SetupPlayers(b, tags, podList(b, standings), busy, onAddPlayers, onShowQr = { showQr = true }, onChanged = onChanged) { block -> act(block) }
+                    "players" -> SetupPlayers(b, tags, podList(b, standings), busy, onAddPlayers, onShowQr = { showQr = true }, onChanged = onChanged, money = money,
+                        onError = { error = it }) { block -> act(block) }
                     "seating" -> if (event.isRoto) site.table1.events.roto.RotoPickOrder(
                         b.participants.filter { it.status == "active" && it.seat != null }.sortedBy { it.seat }.map { it.seat!! to it.displayName }, busy,
                     ) { seat() } else SetupSeating(b, standings, busy, act = { block -> act(block) }, reseat = { block -> reseat(block) }) { seat() }
                     "teams" -> TeamsTab(b, onChanged)
-                    "details" -> DetailsTab(b, onChanged)
+                    "details" -> DetailsTab(b, onChanged, money)
                 }
                 OrganizerPhase.Live -> when (selected) {
                     "round" -> LiveRound(
@@ -377,6 +396,7 @@ internal fun OrganizerScreen(
                         onClock = { action -> active?.let { r -> act { Repo.setRoundClock(r.id, action, 300) } } },
                         onEdit = { editing = it },
                         onRepair = { repairFrom = "notice" },
+                        room = room, onChanged = onChanged, onError = { error = it },
                     )
                     "rounds" -> ResultsRounds(
                         b, onEdit = { editing = it }, rounds = b.rounds.filter { it.id != active?.id }, pods = podList(b, standings),
@@ -385,7 +405,8 @@ internal fun OrganizerScreen(
                     )
                     "standings" -> {
                         val open = active?.matches?.count { !it.isBye && (it.status == "pending" || it.isDisputedOpen) } ?: 0
-                        StandingsList(standings.standings, standings.teams, tags, highlight = null, userIds = b.userIds, bracket = standings.bracket, seating = standings.seating, header = {
+                        StandingsList(standings.standings, standings.teams, tags, highlight = null, userIds = b.userIds, bracket = standings.bracket, seating = standings.seating,
+                            teamBracket = standings.teamBracket, seatFormats = event.seatFormats, header = {
                             if (open > 0) item { Notice("Live: updates as results come in. ${plural(open, "match", "matches")} still open.") }
                         })
                     }
@@ -393,6 +414,7 @@ internal fun OrganizerScreen(
                         b, standings.standings, podList(b, standings), busy, onList = { listFor = it },
                         onDrop = { dropping = it },
                         onReinstate = { p -> act { Repo.setParticipantStatus(p.id, "active", null) } },
+                        money = money, onChanged = onChanged, onError = { error = it },
                     )
                     "teams" -> TeamsTab(b, onChanged)
                 }
@@ -400,6 +422,7 @@ internal fun OrganizerScreen(
                     "standings" -> ResultsStandings(b, standings, tags, roundsPlayed)
                     "rounds" -> ResultsRounds(b, onEdit = { editing = it }, pods = podList(b, standings))
                     "players" -> ResultsPlayers(b, standings.standings, podList(b, standings))
+                    "prizes" -> PrizesTab(event.id, money, onChanged)
                 }
             }
         }
@@ -423,10 +446,14 @@ internal fun OrganizerScreen(
                 val outstanding = active?.matches?.count { !it.isBye && (it.status == "pending" || (it.disputed && it.status != "confirmed")) } ?: 0 // disputes block pairing too
                 val disputed = active?.matches?.any { it.disputed && it.status != "confirmed" } == true
                 val clinch = standings.clinched?.takeIf { !disputed }
-                val step = if (event.isTeamEvent || event.pairing == "round_robin") "" else b.nextStep
+                // A team event follows the steps only with a top 4 (team sealed, Team Trios); without a cut it keeps its
+                // own flow (clinch, Play on).
+                val step = if (event.pairing == "round_robin" || (event.isTeamEvent && event.topCut == 0)) "" else b.nextStep
                 when {
-                    // Swiss, then the top 8 (contract/scheduled-events-2026-10-27.md §6).
+                    // Swiss, then the top 8 or top 4 (contract/scheduled-events-2026-10-27.md §6; top 4 and team
+                    // playoffs: contract/teams-finals-alerts-2026-11-13.md § 1).
                     step == "cut" -> BigAction("Cut to top 8", accent = true, busy = busy) { confirmCut = true }
+                    step == "cut4" -> BigAction("Cut to top 4", accent = true, busy = busy) { confirmCut = true }
                     step == "semifinals" -> BigAction("Pair semifinals", accent = true, busy = busy) { pair() }
                     step == "final" -> BigAction("Pair the final", accent = true, busy = busy) { pair() }
                     step == "finish" && active?.isPlayoff != false && b.rounds.lastOrNull()?.isPlayoff == true ->
@@ -503,6 +530,8 @@ internal fun OrganizerScreen(
                     add(T1MenuItem("Show join QR") { showQr = true })
                 }
                 add(T1MenuItem("Share link") { shareEventLink(context, event) })
+                // The room's screens (contract/room-tools-2026-11-13.md § 1); hidden while the server has no room tools.
+                if (phase == OrganizerPhase.Live && room != null) add(T1MenuItem("Display") { displayOpen = true })
                 add(T1MenuItem("Deck photos", onClick = onOpenPhotos))
                 if (event.canRedraft) add(T1MenuItem("Redraft", onClick = onOpenRedraft))
                 // Roto: the draft stays readable over Live and Results; round robin has its schedule.
@@ -539,11 +568,15 @@ internal fun OrganizerScreen(
         }
     }
 
+    if (displayOpen) DisplayPanel(event.id, room, { displayOpen = false }, onChanged)
+    extraFor?.let { m -> ExtraTimeMenu(m, room, { extraFor = null }, onChanged) { error = it } }
+
     if (confirmCut) {
+        val four = event.topCut == 4
         T1AlertDialog(
-            title = "Cut to top 8?",
+            title = if (four) "Cut to top 4?" else "Cut to top 8?",
             onDismiss = { confirmCut = false },
-            body = { DialogText("Pairs the quarterfinals from the Swiss standings. Swiss is over: no more Swiss rounds.") },
+            body = { DialogText("Pairs the ${if (four) "semifinals" else "quarterfinals"} from the Swiss standings. Swiss is over: no more Swiss rounds.") },
             confirm = { BarAction("Cut") { confirmCut = false; pair() } },
             dismiss = { BarAction("Not yet") { confirmCut = false } },
         )
@@ -559,17 +592,20 @@ internal fun OrganizerScreen(
     if (confirmStart) {
         val minutes = event.roundLengthSeconds / 60
         val clock = if (event.showClock) "the $minutes-minute clock" else "the round (clocks hidden)"
+        // Pairing round 1 with unpaid players asks first (contract/entry-fees-2026-11-13.md § 4).
+        val unpaid = money?.takeIf { (it.fee?.amountCents ?: 0) > 0 }?.organizer?.unpaid ?: 0
         T1AlertDialog(
             title = "Start ${event.name}?",
             onDismiss = { confirmStart = false },
             body = {
                 DialogText(
+                    (if (unpaid > 0) Fees.unpaidQuestion(unpaid) + "\n\n" else "") +
                     if (event.isDraft) "Pairs round 1 across the table and starts $clock. Format, rounds and teams lock."
                     else "Pairs round 1 and starts $clock. Format, rounds and teams lock.",
                 )
             },
             confirm = {
-                BarAction("Start") {
+                BarAction(if (unpaid > 0) "Pair anyway" else "Start") {
                     confirmStart = false
                     pair()
                 }
@@ -652,6 +688,11 @@ internal fun OrganizerScreen(
                 editing = null
                 onOpenTracker(m.id)
             }) else null,
+            onExtra = if (live && room != null && !m.isBye) ({
+                editing = null
+                extraFor = m
+            }) else null,
+            extra = room?.extra(m.id) ?: 0,
         ) { s0, s1, draws ->
             editing = null
             act { Repo.setMatchResult(m.id, s0, s1, draws, "Set by organizer") }
@@ -672,6 +713,8 @@ private fun SetupPlayers(
     onAddPlayers: () -> Unit,
     onShowQr: () -> Unit,
     onChanged: suspend () -> Unit,
+    money: EventMoney? = null,
+    onError: (String?) -> Unit = {},
     act: (suspend () -> Unit) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -700,8 +743,12 @@ private fun SetupPlayers(
                 Text(b.event.shortCode, color = T1.accent, fontFamily = T1.mono, fontSize = 18.sp, letterSpacing = 4.sp)
             }
         }
+        // The prize pool as it stands (contract/entry-fees-2026-11-13.md § 2), for an event with a fee.
+        if (money?.fee != null) item(key = "pool") { PrizePoolRow(money) }
+        // A season's final you organize: who qualified, and Invite (contract/teams-finals-alerts-2026-11-13.md § 3).
+        item(key = "qualified") { QualifiedRow(b.event.id, startOpen = EventDemo.screen == "qualified", onChanged = onChanged) }
         val active = participants.count { it.status == "active" }
-        item { Section(b.event.capacity?.let { "Players · $active/$it" } ?: "Players · ${participants.size}") }
+        item { Section(listOfNotNull(b.event.capacity?.let { "Players · $active/$it" } ?: "Players · ${participants.size}", unpaidHeader(money)).joinToString(" · ")) }
         if (b.event.takesDecklists) item {
             Notice(EventRules.decklistsLine(active - b.decklistsMissing, active) + if (b.event.decklists == "required") " · required before round 1" else "")
         }
@@ -721,7 +768,11 @@ private fun SetupPlayers(
                 b.decklistDetail(p),
             ).joinToString(" · ")
             ListRow(if (p.id == me?.id) "You · ${p.displayName}" else p.displayName, detail,
-                onClick = rememberOpenProfile("event_players")(p.userId), avatar = { Avatar(p.displayName, p.userId) }) {
+                onClick = rememberOpenProfile("event_players")(p.userId), avatar = { Avatar(p.displayName, p.userId) },
+                // The payment tag leads the quiet line (`PAID · APP`); a tap on it opens Paid at the door, Comp, Unpaid, Refund.
+                detailLead = if (money?.payment(p.id) != null && (money.fee?.amountCents ?: 0) > 0) ({
+                    PayTag(b.event.id, money, p.id, p.displayName, enabled = !busy, onChanged = onChanged, onError = onError)
+                }) else null) {
                 if (b.event.takesDecklists) {
                     Label(if (b.decklist(p.id) == null) "Enter list" else "List",
                         Modifier.padding(end = 16.dp).clickable { listFor = p }, color = T1.accent)
@@ -883,7 +934,9 @@ private data class DetailsDraft(
 ) {
     val swiss: Boolean get() = !team
     val limited: Boolean get() = limitedFormats.any { it.first == formatName }
-    val team: Boolean get() = formatName == "team_draft" || formatName == "team_sealed"
+    /** Team Trios: a constructed team event, always three a team, each seat its own format. */
+    val trios: Boolean get() = formatName == "team_trios"
+    val team: Boolean get() = formatName == "team_draft" || formatName == "team_sealed" || trios
     val other: Boolean get() = formatName == "other_constructed"
     val cubeUrlOk: Boolean get() = cubeUrl.isBlank() || cubeUrl.trim().startsWith("https://")
 
@@ -932,7 +985,7 @@ private data class DetailsDraft(
  * update_event_details, always sending the full current state. Errors show inline.
  */
 @Composable
-private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
+private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit, money: EventMoney? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val event = b.event
@@ -952,6 +1005,9 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
     var scheduleEdits by remember { mutableIntStateOf(0) }
     /** Roto: swiss | round_robin, editable until round 1 (update_event_details p_pairing). */
     var rotoPairing by remember(event.id) { mutableStateOf(event.pairing) }
+    /** The league's name for the fee's "$7 an entry goes to <league>". */
+    var leagueName by remember(event.id) { mutableStateOf<String?>(null) }
+    LaunchedEffect(event.id) { runCatching { Repo.eventAbout(event.id) }.onSuccess { leagueName = it.league?.takeIf { l -> !l.final }?.name } }
 
     /** When / where / cap through set_event_schedule: the venue after a pause, the rest at once. */
     fun saveSchedule() {
@@ -996,7 +1052,7 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
                         eventId = event.id,
                         name = typed.ifEmpty { null },
                         autoName = typed.isEmpty(),
-                        topCut = if (d.swiss) d.topCut else 0,
+                        topCut = d.topCut.takeIf { it in TeamRules.cutChoices(d.formatName, if (d.formatName == "roto") rotoPairing else "swiss") } ?: 0,
                         autoRounds = d.swiss && d.autoRounds,
                         decklists = if (limited) "off" else d.decklists,
                         formatName = d.formatName,
@@ -1006,7 +1062,7 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
                         setName = if (limited && !d.useCube) d.setName.trim().ifEmpty { null } else null,
                         cubeName = if (limited && d.useCube) d.cubeName.trim().ifEmpty { null } else null,
                         cubeUrl = if (limited && d.useCube) d.cubeUrl.trim().ifEmpty { null } else null,
-                        teamSize = if (d.team) d.teamSize else null,
+                        teamSize = if (d.trios) 3 else if (d.team) d.teamSize else null,
                         formatOther = if (d.other) d.formatOther.trim().ifEmpty { null } else null,
                         pairing = if (d.formatName == "roto") rotoPairing else null,
                     )
@@ -1118,9 +1174,16 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
             }
         }
 
-        if (d.team) {
+        if (d.team && !d.trios) {
             FormBlock("Team size") {
                 T1Segmented(listOf("3", "4"), if (d.teamSize == 3) 0 else 1) { editNow(draft.copy(teamSize = if (it == 0) 3 else 4)) }
+            }
+        }
+        // Team Trios: each seat's format, once the event is one on the server (set_event_trios).
+        if (d.trios && event.isTrios) TrioSeatsRow(event.seatFormats ?: TeamRules.defaultSeats) { seats ->
+            scope.launch {
+                runCatching { Repo.setEventTrios(event.id, seats) }.onSuccess { error = null }.onFailure { error = userMessage(it) }
+                onChanged()
             }
         }
 
@@ -1132,10 +1195,13 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
         }
 
         if (!(d.formatName == "roto" && rotoPairing == "round_robin")) CutRoundsBlock(d.autoRounds, { editNow(draft.copy(autoRounds = it)) }, d.rounds, { editNow(draft.copy(rounds = it)) },
-            d.topCut, { editNow(draft.copy(topCut = it)) }, b.participants.count { it.status == "active" }, d.swiss && !(d.formatName == "roto" && rotoPairing == "round_robin"))
+            d.topCut, { editNow(draft.copy(topCut = it)) }, b.participants.count { it.status == "active" }, d.swiss && !(d.formatName == "roto" && rotoPairing == "round_robin"),
+            cuts = TeamRules.cutChoices(d.formatName, if (d.formatName == "roto") rotoPairing else "swiss"), teams = d.team)
 
         RoundTimerRow(d.showClock) { editNow(draft.copy(showClock = it)) }
         if (!d.limited) DecklistsBlock(d.decklists) { editNow(draft.copy(decklists = it)) }
+        // The entry fee (contract/entry-fees-2026-11-13.md § 2); hidden while the server has no fees.
+        EventFeeRow(event.id, money, leagueName, startOpen = EventDemo.screen == "fee", onChanged = onChanged)
 
         // Who can find it, the description, the address and the league (contract/public-events-leagues-2026-11-13.md
         // § 1, § 3). Until the server lists events, the three choices Details had.
@@ -1196,9 +1262,21 @@ private fun LiveRound(
     hero: Boolean = true,
     /** Drafts: the pods in order, so the round's tables sit under Pod 1 / Pod 2 / Across pods. */
     pods: List<Pair<String, String?>> = emptyList(),
+    /** Open judge calls and tables with extra time (contract/room-tools-2026-11-13.md §§ 2–3). */
+    room: EventRoom? = null,
+    onChanged: suspend () -> Unit = {},
+    onError: (String?) -> Unit = {},
 ) {
     val event = b.event
+    /** A row's quiet line: a team event's seat first (`A · MODERN`), the table's extra time last (`No result yet · +5:00`). */
+    fun withExtra(m: MatchRow, detail: String?): String? {
+        val seat = if (!event.isTeamEvent) null
+            else b.participants.firstOrNull { it.id == m.side(0)?.participantId }?.teamSlot?.let { TeamRules.seatLabel(it, event.seatFormats) }
+        return listOfNotNull(seat, detail, RoomRules.extensionText(room?.extra(m.id) ?: 0).takeIf { it.isNotEmpty() }).joinToString(" · ").ifEmpty { null }
+    }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        // Open judge calls lead the tab, oldest first.
+        judgeCallItems(room?.calls, onChanged, onError)
         // An earlier result was corrected after this round was paired: offer to pair it again.
         RepairRound.prompt(b.rounds)?.let { prompt ->
             item(key = "repair") {
@@ -1213,8 +1291,9 @@ private fun LiveRound(
             val next = (b.rounds.maxOfOrNull { it.number } ?: 0) + 1
             item {
                 Notice(
-                    when (if (event.isTeamEvent) "" else b.nextStep) {
+                    when (if (event.isTeamEvent && event.topCut == 0) "" else b.nextStep) {
                         "cut" -> "Swiss is done. Cut to the top 8 to pair the quarterfinals."
+                        "cut4" -> "Swiss is done. Cut to the top 4 to pair the semifinals."
                         "semifinals", "final" -> "No round running. Pair the next playoff round when everyone is ready."
                         "finish" -> "Every round has been played."
                         else -> if (next <= event.numberOfRounds) "No round running. Pair round $next when everyone is ready." else "Every round has been played."
@@ -1253,20 +1332,20 @@ private fun LiveRound(
             // Drafts with 2+ pods: each pod's tables as their own block, in table order, disputes included.
             byPod.forEach { sec ->
                 item(key = "pod-${sec.key}") { PodHeader(sec.title, podProgress(sec.items)) }
-                items(sec.items, key = { it.id }) { m -> LiveMatchRow(m, b, onEdit) }
+                items(sec.items, key = { it.id }) { m -> LiveMatchRow(m, b, onEdit, RoomRules.extensionText(room?.extra(m.id) ?: 0)) }
             }
             return@LazyColumn
         }
         if (disputed.isNotEmpty()) {
             item(key = "h-disputed") { Section("Disputed · ${disputed.size}") }
             items(disputed, key = { it.id }) { m ->
-                MatchResultRow(matchTitle(m, b), "Reported differently · tap to set", "Set", accent = false) { onEdit(m) }
+                MatchResultRow(matchTitle(m, b), withExtra(m, "Reported differently · tap to set"), "Set", accent = false) { onEdit(m) }
             }
         }
         if (waiting.isNotEmpty()) {
             item(key = "h-waiting") { Section("Waiting · ${waiting.size}") }
             items(waiting, key = { it.id }) { m ->
-                MatchResultRow(matchTitle(m, b), "No result yet", "Set", accent = false) { onEdit(m) }
+                MatchResultRow(matchTitle(m, b), withExtra(m, "No result yet"), "Set", accent = false) { onEdit(m) }
             }
         }
         if (resultsIn.isNotEmpty()) {
@@ -1281,20 +1360,21 @@ private fun LiveRound(
                         m.reportedByParticipant != null -> "Reported by ${b.name(m.reportedByParticipant)}"
                         else -> "Reported"
                     }
-                    MatchResultRow(matchTitle(m, b), detail, score(m), accent = true) { onEdit(m) }
+                    MatchResultRow(matchTitle(m, b), withExtra(m, detail), score(m), accent = true) { onEdit(m) }
                 }
             }
         }
     }
 }
 
-/** One match on the Live round inside its pod: disputed, waiting, a result in, or the bye. */
+/** One match on the Live round inside its pod: disputed, waiting, a result in, or the bye. [extra]: `+5:00`. */
 @Composable
-private fun LiveMatchRow(m: MatchRow, b: EventBundle, onEdit: (MatchRow) -> Unit) {
+private fun LiveMatchRow(m: MatchRow, b: EventBundle, onEdit: (MatchRow) -> Unit, extra: String = "") {
+    fun line(detail: String) = listOf(detail, extra).filter { it.isNotEmpty() }.joinToString(" · ")
     when {
         m.isBye -> MatchResultRow(matchTitle(m, b), null, "Bye", accent = false, onClick = null)
-        m.isDisputedOpen -> MatchResultRow(matchTitle(m, b), "Reported differently · tap to set", "Set", accent = false, danger = true) { onEdit(m) }
-        m.status == "pending" -> MatchResultRow(matchTitle(m, b), "No result yet", "Set", accent = false) { onEdit(m) }
+        m.isDisputedOpen -> MatchResultRow(matchTitle(m, b), line("Reported differently · tap to set"), "Set", accent = false, danger = true) { onEdit(m) }
+        m.status == "pending" -> MatchResultRow(matchTitle(m, b), line("No result yet"), "Set", accent = false) { onEdit(m) }
         else -> {
             val detail = when {
                 m.resultSource == "organizer" -> "Set by organizer"
@@ -1323,6 +1403,9 @@ private fun LivePlayers(
     onList: (ParticipantRow) -> Unit,
     onDrop: (ParticipantRow) -> Unit,
     onReinstate: (ParticipantRow) -> Unit,
+    money: EventMoney? = null,
+    onChanged: suspend () -> Unit = {},
+    onError: (String?) -> Unit = {},
 ) {
     val byId = standings.associateBy { it.participantId }
     val playing = b.participants.filter { it.status != "dropped" }
@@ -1332,7 +1415,10 @@ private fun LivePlayers(
             val s = byId[p.id]
             ListRow(p.displayName, listOfNotNull(seat?.let { "Seat $it" }, s?.let { "${record(it.matchWins, it.matchLosses, it.matchDraws)} · ${it.matchPoints} pts" },
                     b.decklistDetail(p)).joinToString(" · ").ifEmpty { null },
-                onClick = rememberOpenProfile("event_players")(p.userId), avatar = { Avatar(p.displayName, p.userId) }) {
+                onClick = rememberOpenProfile("event_players")(p.userId), avatar = { Avatar(p.displayName, p.userId) },
+                detailLead = if (money?.payment(p.id) != null && (money.fee?.amountCents ?: 0) > 0) ({
+                    PayTag(b.event.id, money, p.id, p.displayName, enabled = !busy, onChanged = onChanged, onError = onError)
+                }) else null) {
                 if (b.event.takesDecklists) T1TextAction("List", enabled = !busy, color = T1.accent) { onList(p) }
                 T1TextAction("Drop", enabled = !busy, color = T1.danger) { onDrop(p) }
             }
@@ -1345,7 +1431,7 @@ private fun LivePlayers(
                 items(sec.items, key = { it.id }) { p -> playingRow(p, if (sec.pod != null) p.seat else null) }
             }
         } else {
-            item(key = "h-playing") { Section("Playing · ${playing.size}") }
+            item(key = "h-playing") { Section(listOfNotNull("Playing · ${playing.size}", unpaidHeader(money)).joinToString(" · ")) }
             items(playing, key = { it.id }) { p -> playingRow(p, null) }
         }
         if (dropped.isNotEmpty()) {

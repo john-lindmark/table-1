@@ -23,6 +23,8 @@ camerax = "1.4.1"
 glance = "1.1.1"
 # Foldables (contract/foldables-2026-11-10.md): FoldingFeature and window layout info.
 window = "1.5.1"
+# Stripe's hosted pages open in a Custom Tab (contract/entry-fees-2026-11-13.md).
+browser = "1.8.0"
 mlkitText = "19.0.1"
 mlkitTextCjk = "16.0.1"
 sentry = "8.59.0"
@@ -34,6 +36,7 @@ googleServices = "4.4.2"
 [libraries]
 quickjs-android = { module = "wang.harlon.quickjs:wrapper-android", version.ref = "quickjs" }
 androidx-window = { module = "androidx.window:window", version.ref = "window" }
+androidx-browser = { module = "androidx.browser:browser", version.ref = "browser" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }

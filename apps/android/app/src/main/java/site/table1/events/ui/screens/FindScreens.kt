@@ -306,13 +306,13 @@ fun FindScreen(startTab: String?, foregrounds: Int, onBack: () -> Unit, go: (Str
         when (tab) {
             "leagues" -> FindLeagues(foregrounds, onLoaded = { canMake = true }) { go(leagueRoute(it, "find")) }
             "boards" -> FindBoards(foregrounds) { go("board/$it") }
-            else -> FindEvents(foregrounds, onOpen = { go(foundEventRoute(it)) }, onCreate = { go("create") })
+            else -> FindEvents(foregrounds, onOpen = { go(foundEventRoute(it)) }, onCreate = { go("create") }, onAlerts = { go("alerts") })
         }
     }
 }
 
 @Composable
-private fun ColumnScope.FindEvents(foregrounds: Int, onOpen: (FoundEvent) -> Unit, onCreate: () -> Unit) {
+private fun ColumnScope.FindEvents(foregrounds: Int, onOpen: (FoundEvent) -> Unit, onCreate: () -> Unit, onAlerts: () -> Unit = {}) {
     var q by rememberSaveable { mutableStateOf("") }
     val found = rememberFound(q.trim(), limit = 100, refresh = foregrounds)
     Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -332,6 +332,8 @@ private fun ColumnScope.FindEvents(foregrounds: Int, onOpen: (FoundEvent) -> Uni
             events.isEmpty() -> item { NoEvents(!FindStore.filters.isDefault || q.trim().length >= 2, if (q.isBlank()) onCreate else null) }
             else -> items(events, key = { it.eventId }) { e -> FoundEventRow(e) { onOpen(e) } }
         }
+        // Alerts for new public events (contract/teams-finals-alerts-2026-11-13.md § 4).
+        item(key = "alerts") { AlertsRow(foregrounds, onAlerts) }
     }
 }
 

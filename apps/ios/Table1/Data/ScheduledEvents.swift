@@ -13,20 +13,25 @@ enum EventRules {
         return 10
     }
 
-    enum NextStep: String { case start, waiting, pair, cut, semifinals, final, finish }
+    enum NextStep: String { case start, waiting, pair, cut, cut4, semifinals, final, finish }
 
     /// What the organizer does next. `stages` are the paired rounds in order; `waiting` is true while the open round
-    /// still has a match without a result or with a dispute.
-    static func nextStep(stages: [String], waiting: Bool, numberOfRounds: Int, topCut: Int, activePlayers: Int) -> NextStep {
+    /// still has a match without a result or with a dispute. `activeTeams` is given for team events only (team sealed,
+    /// Team Trios): the teams with an active member. The cut then counts teams, and a team event has no top 8.
+    static func nextStep(stages: [String], waiting: Bool, numberOfRounds: Int, topCut: Int, activePlayers: Int,
+                         activeTeams: Int? = nil) -> NextStep {
         guard let last = stages.last else { return .start }
         if waiting { return .waiting }
         switch last {
         case "quarterfinal": return .semifinals
         case "semifinal": return .final
-        case "final": return .finish
-        default:
+        case "swiss":
             if stages.filter({ $0 == "swiss" }).count < numberOfRounds { return .pair }
-            return topCut == 8 && activePlayers > 8 ? .cut : .finish
+            if let activeTeams { return topCut == 4 && activeTeams > 4 ? .cut4 : .finish }
+            if topCut == 8 && activePlayers > 8 { return .cut }
+            if topCut == 4 && activePlayers > 4 { return .cut4 }
+            return .finish
+        default: return .finish
         }
     }
 
@@ -55,9 +60,9 @@ enum EventRules {
         return "Auto · \(n) round\(n == 1 ? "" : "s") for \(players) players"
     }
 
-    /// "Auto rounds · Top 8", "4 rounds".
+    /// "Auto rounds · Top 8", "3 rounds · Top 4", "4 rounds".
     static func roundsLine(auto: Bool, rounds: Int, topCut: Int, open: Bool) -> String {
-        (auto && open ? "Auto rounds" : "\(rounds) round\(rounds == 1 ? "" : "s")") + (topCut == 8 ? " · Top 8" : "")
+        (auto && open ? "Auto rounds" : "\(rounds) round\(rounds == 1 ? "" : "s")") + (topCut == 4 || topCut == 8 ? " · Top \(topCut)" : "")
     }
 
     enum PageButton: String { case organizer, `in`, waitlisted, closed, signIn = "sign_in", waitlist, signUp = "sign_up" }

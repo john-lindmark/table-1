@@ -35,6 +35,7 @@ suspend fun Repo.findEvents(filters: FindFilters, q: String = "", here: Pair<Dou
 
 /** Description, address, league and format key, for anyone who can open the event. */
 suspend fun Repo.eventAbout(eventId: String): EventAbout {
+    EventDemo.data?.let { return it.about }
     LeaguesDemo.data?.let { return it.about(eventId) }
     return supabase.postgrest.rpc("event_about", buildJsonObject { put("p_event_id", eventId) }).decodeAs<EventAbout>()
 }
@@ -200,13 +201,33 @@ object LeaguesDemo {
         val format_boards: FormatBoards = FormatBoards(),
         val format_leaderboard: Leaderboard = Leaderboard(),
         val profile_achievements: ProfileAchievements = ProfileAchievements(),
+        val league_money: LeagueMoney = LeagueMoney(),
+        val event_alerts: EventAlerts = EventAlerts(),
     ) {
+        /** league_money as its reader gets it: what each event owes only for the league's own organizers. */
+        fun moneyAs(screen: String?): LeagueMoney =
+            if (screen == "tools" || screen == "organizers" || screen == "dues") league_money else league_money.copy(receivedCents = null, events = null)
+
+        val alerts: EventAlerts get() = alertsNow ?: event_alerts
+
+        /** event_alerts_set on the stand-in setting. */
+        fun patchAlerts(patch: JsonObject): EventAlerts {
+            var a = alerts
+            (patch["on"] as? kotlinx.serialization.json.JsonPrimitive)?.let { a = a.copy(on = it.content == "true") }
+            (patch["formats"] as? kotlinx.serialization.json.JsonArray)?.let { f -> a = a.copy(formats = f.map { (it as kotlinx.serialization.json.JsonPrimitive).content }) }
+            if ("km" in patch) a = a.copy(km = (patch["km"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull())
+            if ("lat" in patch) a = a.copy(lat = 39.7, lng = -105.0)
+            if ("place" in patch) a = a.copy(lat = null, lng = null, km = null)
+            alertsNow = a
+            return a
+        }
+
         val league get() = league_view
 
         /** The league as its reader gets it: the organizer tools' screens read it as the owner, everyone else without
          *  `members`, as the server answers. */
         fun leagueAs(screen: String?): LeaguePage =
-            if (screen == "tools" || screen == "organizers") league_view.copy(me = league_view.me.copy(role = "owner"))
+            if (screen == "tools" || screen == "organizers" || screen == "dues") league_view.copy(me = league_view.me.copy(role = "owner"))
             else league_view.copy(members = null)
         val standings get() = league_standings
         val boards get() = format_boards
@@ -244,6 +265,9 @@ object LeaguesDemo {
     }
 
     val json = Json { ignoreUnknownKeys = true }
+
+    /** The stand-in alert setting after a change on the Alerts screen. */
+    private var alertsNow: EventAlerts? = null
 
     /** Set by MainActivity in debuggable builds only. */
     @Volatile var data: Data? = null

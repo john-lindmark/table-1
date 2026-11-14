@@ -42,6 +42,11 @@ import kotlinx.coroutines.launch
 import site.table1.events.data.EventBundle
 import site.table1.events.data.EventRules
 import site.table1.events.data.EventTeam
+import site.table1.events.data.EventExtras
+import site.table1.events.data.RoomRules
+import site.table1.events.data.TeamRules
+import site.table1.events.data.eventExtras
+import site.table1.events.data.setTeamSignup
 import site.table1.events.data.JoinQr
 import site.table1.events.data.MatchRow
 import site.table1.events.data.Repo
@@ -83,6 +88,9 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
                 go: (String) -> Unit = {}) {
     var bundle by remember { mutableStateOf<EventBundle?>(null) }
     var standings by remember { mutableStateOf(StandingsResponse()) }
+    // The event's money and room (contracts entry-fees and room-tools 2026-11-13), read wherever the event is; each
+    // part stays null while the server doesn't have it.
+    var extras by remember { mutableStateOf(site.table1.events.data.EventExtras()) }
     var error by remember { mutableStateOf<String?>(null) }
     // When `bundle` was fetched (this visit's, or the device's saved copy), and the notice along the bottom when a
     // refresh fails (contract/offline-2026-10-31.md § 1).
@@ -93,6 +101,7 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
     // The bundle and the engine's standings don't depend on each other: fetch both at once.
     suspend fun refresh(): Unit = coroutineScope {
         val latestStandings = async { runCatching { Repo.standingsFull(eventId) } }
+        val latestExtras = async { Repo.eventExtras(eventId) }
         runCatching { Repo.loadEvent(eventId) }
             .onSuccess { bundle = it; error = null; stale = null; savedAt = System.currentTimeMillis() }
             .onFailure { e ->
@@ -105,6 +114,7 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
                 } else if (bundle == null) error = n?.first
             }
         latestStandings.await().onSuccess { standings = it }
+        latestExtras.await().let { x -> extras = site.table1.events.data.EventExtras(x.money ?: extras.money, x.room ?: extras.room) }
     }
 
     // Coming back to the foreground refreshes and resubscribes (a subscription that failed offline never pings).
@@ -141,9 +151,10 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
         OrganizerScreen(
             b, standings, onBack, onAddPlayers, onOpenTracker, onChanged = { refresh() },
             onSeated = { standings = standings.copy(seating = it) }, onOpenPhotos = onOpenPhotos, onOpenRedraft = onOpenRedraft, onOpenList = onOpenList,
+            extras = extras,
         )
     }
-    val player: @Composable () -> Unit = { PlayerView(b, standings, onBack, onOpenTracker, onOpenPhotos, onOpenRedraft, onOpenList, onAddPhoto, go, onChanged = { refresh() }) }
+    val player: @Composable () -> Unit = { PlayerView(b, standings, onBack, onOpenTracker, onOpenPhotos, onOpenRedraft, onOpenList, onAddPhoto, go, extras, onChanged = { refresh() }) }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             // Roto: the Draft phase sits between Setup and round 1 (contract/roto-2026-10-16.md); Pair round 1 from there.
@@ -171,6 +182,9 @@ internal fun EditResultDialog(
     b: EventBundle,
     onDismiss: () -> Unit,
     onWatch: (() -> Unit)? = null,
+    /** Live matches: Extra time for the table (contract/room-tools-2026-11-13.md § 2); [extra] is what it has. */
+    onExtra: (() -> Unit)? = null,
+    extra: Int = 0,
     onSave: (Int, Int, Int) -> Unit,
 ) {
     var s0 by remember { mutableIntStateOf(m.side(0)?.gameWins ?: 0) }
@@ -189,9 +203,10 @@ internal fun EditResultDialog(
                 T1Stepper("Drawn games", draws, 0..3, Modifier.fillMaxWidth()) { draws = it }
                 if (s0 + s1 + draws > 3) Notice("At most 3 games in a match.", error = true)
                 if (playoff && s0 == s1) Notice("Playoff matches need a winner.", error = true)
-                if (onWatch != null) {
+                if (onWatch != null || onExtra != null) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                        Ghost("Watch life tracker", onClick = onWatch)
+                        if (onWatch != null) Ghost("Watch life tracker", onClick = onWatch)
+                        if (onExtra != null) Ghost(listOf("Extra time", site.table1.events.data.RoomRules.extensionText(extra)).filter { it.isNotEmpty() }.joinToString(" "), onClick = onExtra)
                     }
                 }
             }
@@ -246,6 +261,12 @@ internal fun TeamsTab(b: EventBundle, onChanged: suspend () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var moving by remember { mutableStateOf<String?>(null) }
     var renaming by remember { mutableStateOf<Pair<Int, String>?>(null) }
+    // Teams sign themselves up (contract/teams-finals-alerts-2026-11-13.md § 2): the switch, and each team's code and
+    // `2/3`. null while the server has no team sign-up: the switch hides.
+    var signupReloads by remember { mutableIntStateOf(0) }
+    val signup = rememberTeamMine(event.id, signupReloads)
+    val codes = teamCodes(signup)
+    LaunchedEffect(b.participants, b.teams) { signupReloads++ }
 
     // Reload from the server whenever the event changes, unless there are unsaved edits.
     LaunchedEffect(b.participants, b.teams) {
@@ -287,6 +308,17 @@ internal fun TeamsTab(b: EventBundle, onChanged: suspend () -> Unit) {
         .map { TeamMember(it.id, it.displayName, null, it.userId, it.status) }
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        if (signup != null && (editable || signup.teamSignup)) item(key = "team-signup") {
+            ListRow("Teams sign up", if (signup.teamSignup) "Join by code" else "You build the teams") {
+                T1Switch(signup.teamSignup, enabled = editable && !busy) { on ->
+                    scope.launch {
+                        runCatching { Repo.setTeamSignup(event.id, on) }.onFailure { error = userMessage(it) }
+                        signupReloads++
+                        onChanged()
+                    }
+                }
+            }
+        }
         if (editable) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -312,7 +344,7 @@ internal fun TeamsTab(b: EventBundle, onChanged: suspend () -> Unit) {
         }
         list.forEachIndexed { index, team ->
             item(key = "t-$index") {
-                ListRow(team.name, "${team.members.size} of $teamSize") {
+                ListRow(team.name, codes[team.id] ?: "${team.members.size} of $teamSize") {
                     if (editable) {
                         BarAction("Rename") { renaming = index to team.name }
                         if (team.members.isEmpty()) BarAction("Remove") { edit(list.filterIndexed { i, _ -> i != index }) }
@@ -321,7 +353,7 @@ internal fun TeamsTab(b: EventBundle, onChanged: suspend () -> Unit) {
             }
             items(team.members, key = { "t-$index-${it.participantId}" }) { m ->
                 MemberRow(
-                    member = m, letter = slotLetter(team.members.indexOf(m) + 1), teams = list, teamSize = teamSize,
+                    member = m, letter = site.table1.events.data.TeamRules.seatLabel(team.members.indexOf(m) + 1, event.seatFormats), teams = list, teamSize = teamSize,
                     editable = editable, menuOpen = moving == m.participantId,
                     onOpenMenu = { moving = m.participantId }, onDismissMenu = { moving = null },
                     onMove = { to -> moving = null; move(m, to) },
@@ -377,7 +409,8 @@ private fun MemberRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Label(letter, color = T1.text)
+        // Team Trios: `A · MODERN`, at one width so the names line up.
+        Label(letter, if ("·" in letter) Modifier.width(118.dp) else Modifier, color = T1.text)
         Text(member.displayName, Modifier.weight(1f), color = if (member.status == "dropped") T1.muted else T1.text,
             fontFamily = T1.mono, fontSize = 14.sp, maxLines = 1)
         if (editable) Label("Move to…", color = T1.text)
@@ -426,6 +459,7 @@ private fun PlayerView(
     onOpenList: (String) -> Unit,
     onAddPhoto: () -> Unit,
     go: (String) -> Unit,
+    extras: EventExtras,
     onChanged: suspend () -> Unit,
 ) {
     var rotoOverlay by remember { mutableStateOf(false) }
@@ -435,8 +469,12 @@ private fun PlayerView(
     val tags = teamTags(b, standings)
     val myTeam = me?.let { tags[it.id] }?.let { name ->
         val team = if (name.startsWith("Team", ignoreCase = true)) name else "Team $name"
-        "$team · seat ${slotLetter(me?.teamSlot)}"
+        // Team Trios: the seat with its format (`A · MODERN`).
+        "$team · seat ${me?.teamSlot?.let { TeamRules.seatLabel(it, b.event.seatFormats) } ?: slotLetter(me?.teamSlot)}"
     }
+    // Your table in the room: its extra time and judge call (contract/room-tools-2026-11-13.md §§ 2–3).
+    val room = extras.room
+    var teamReloads by remember { mutableIntStateOf(0) }
     val seating = standings.seating.orEmpty()
     val active = b.activeRound
     val match = active?.matches?.firstOrNull { m -> m.sides.any { it.participantId == me?.id } }
@@ -507,7 +545,11 @@ private fun PlayerView(
                     }
                 }
             }
-            if (active != null && b.event.showClock) item { RoundClock(active.timerEndsAt) }
+            if (active != null && b.event.showClock) item { RoundClock(active.timerEndsAt, match?.let { room?.extra(it.id) } ?: 0) }
+            // Your entry fee: Pay, pending, paid or refunded (contract/entry-fees-2026-11-13.md § 3).
+            if (me != null && !b.event.isFinished && (extras.money?.fee?.amountCents ?: 0) > 0 && extras.money?.me != null) item(key = "pay") {
+                PlayerPayBlock(b.event.id, b.event.name, extras.money, onChanged, onLeft = onBack)
+            }
             when {
                 me == null -> item { Notice("You're viewing this event. Scan the organizer's QR to take a seat.") }
                 match == null -> if (!b.event.isFinished) item { Notice(if (active == null) "Waiting for the next round to be paired." else "You're not paired this round.") }
@@ -522,7 +564,8 @@ private fun PlayerView(
                         Column(Modifier.fillMaxWidth().background(T1.surface)
                             .let { m -> if (open != null) m.clickable(onClickLabel = "Profile", onClick = open) else m }
                             .padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Label("Table ${match.tableNumber ?: "–"} · playing")
+                            Label(listOfNotNull("Table ${match.tableNumber ?: "–"}", me?.teamSlot?.takeIf { b.event.isTeamEvent }?.let { TeamRules.seatLabel(it, b.event.seatFormats) },
+                                "playing").joinToString(" · "))
                             Text(b.name(theirs?.participantId), color = T1.text, fontFamily = T1.mono, fontSize = 22.sp)
                         }
                     }
@@ -531,6 +574,7 @@ private fun PlayerView(
                             Ghost("Open life tracker", accent = TrackerSettings.useTracker) { onOpenTracker(match.id) }
                         }
                     }
+                    if (room?.myMatch?.matchId == match.id) item(key = "judge") { JudgeCallRow(match.id, match.tableNumber, room, onChanged) }
                     if (opponentReported) {
                         item { Notice("${b.name(theirs?.participantId)} reported ${mine?.gameWins}–${theirs?.gameWins} for you.${if (match.disputed) " Disputed — waiting on the organizer." else ""}") }
                         if (!match.disputed) item {
@@ -560,7 +604,16 @@ private fun PlayerView(
             notice?.let { item { Notice(it) } }
             error?.let { item { Notice(it, error = true) } }
             // The event's description and address, and its league (contract/public-events-leagues-2026-11-13.md § 1).
-            item(key = "about") { Column(verticalArrangement = Arrangement.spacedBy(1.dp)) { EventAboutRows(b.event.id, go) } }
+            item(key = "about") {
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    EventAboutRows(b.event.id, go)
+                    PrizePoolRow(extras.money)
+                }
+            }
+            // A team event before round 1 whose teams sign themselves up: your team, its code, the teams.
+            if (me != null && b.event.isTeamEvent && b.event.beforeRoundOne && b.event.teamSignup) item(key = "team") {
+                TeamSignupBlock(b.event.id, b.event.name, reloads = teamReloads, onChanged = { teamReloads++; onChanged() }, onLeft = onBack)
+            }
             if (me != null && b.event.takesDecklists) item {
                 val list = b.decklist(me.id)
                 ListRow("Decklist", list?.let { EventRules.countsText(it.mainCount, it.sideCount) + (it.listName?.let { n -> " · from $n" } ?: "") }
@@ -571,7 +624,8 @@ private fun PlayerView(
                 EventRules.whenText(b.event.startsAt)?.let { w ->
                     item { ListRow("Starts", listOfNotNull(w, b.event.venueName).joinToString(" · ")) }
                 }
-                item { Row { Ghost("Leave event") { confirmLeave = true } } }
+                // On a team that signed itself up, leaving is Leave team (above).
+                if (!(b.event.isTeamEvent && b.event.teamSignup)) item { Row { Ghost("Leave event") { confirmLeave = true } } }
             }
             if (me != null) item {
                 TrackerModeSwitch(onError = { error = it })
@@ -591,8 +645,9 @@ private fun PlayerView(
                 item { Section("Seating") }
                 seatingItems(seating, highlight = me?.id, teamDraft = b.event.formatName == "team_draft", seatEnds = b.event.seatEnds)
             }
+            teamBracketItems(standings.teamBracket, b.event.seatFormats)
             standings.teams?.takeIf { it.isNotEmpty() }?.let { teams ->
-                teamStandingItems(teams, highlightMember = me?.id, userIds = b.userIds)
+                teamStandingItems(teams, highlightMember = me?.id, userIds = b.userIds, seatFormats = b.event.seatFormats)
             }
             bracketItems(standings.bracket)
             if (standings.bracket.isEmpty()) item { Section(if (standings.teams.isNullOrEmpty()) "Standings" else "Players") }
@@ -656,6 +711,10 @@ internal fun StandingsList(
     bracket: List<site.table1.events.data.BracketStage> = emptyList(),
     /** Drafts (events-engine `seating`): with 2+ pods each row is tagged with its pod and a filter shows one pod. */
     seating: List<site.table1.events.data.SeatingPod>? = null,
+    /** Team events with a top 4 (events-engine `team_bracket`), drawn above the team table. */
+    teamBracket: List<site.table1.events.data.TeamBracketStage> = emptyList(),
+    /** Team Trios: each seat's format, for `A · MODERN`. */
+    seatFormats: List<String>? = null,
 ) {
     val pods = podsInStandings(seating, standings)
     var podFilter by remember { mutableStateOf<String?>(null) }
@@ -664,8 +723,9 @@ internal fun StandingsList(
         header()
         bracketItems(bracket)
         if (standings.isEmpty()) item { Notice("Standings appear after the first results.") }
+        teamBracketItems(teamBracket, seatFormats)
         if (!teams.isNullOrEmpty()) {
-            teamStandingItems(teams, highlightMember = highlight, userIds = userIds)
+            teamStandingItems(teams, highlightMember = highlight, userIds = userIds, seatFormats = seatFormats)
             if (standings.isNotEmpty()) item { Section("Players") }
         }
         if (pods.isNotEmpty()) {
@@ -683,7 +743,8 @@ internal fun StandingsList(
 }
 
 /** Team table: rank · name · points · W-L-D · match wins, members (slot letter + record) underneath, best first. */
-internal fun LazyListScope.teamStandingItems(teams: List<TeamStanding>, highlightMember: String?, userIds: Map<String, String> = emptyMap()) {
+internal fun LazyListScope.teamStandingItems(teams: List<TeamStanding>, highlightMember: String?, userIds: Map<String, String> = emptyMap(),
+                                             seatFormats: List<String>? = null) {
     item { Section("Teams") }
     teams.forEach { t ->
         item(key = "team-${t.teamId}") {
@@ -710,7 +771,7 @@ internal fun LazyListScope.teamStandingItems(teams: List<TeamStanding>, highligh
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Label(slotLetter(m.slot), color = T1.text)
+                Label(m.slot?.let { TeamRules.seatLabel(it, seatFormats) } ?: slotLetter(m.slot), color = T1.text)
                 Text(m.displayName, Modifier.weight(1f), color = if (m.status == "dropped") T1.muted else T1.text,
                     fontFamily = T1.mono, fontSize = 13.sp, maxLines = 1)
                 Label(record(m.matchWins, m.matchLosses, m.matchDraws))
@@ -745,8 +806,8 @@ internal fun StandingLine(s: Standing, highlight: Boolean, team: String? = null,
 
 /** Counts down to the server's timer_ends_at, so every phone shows the same clock. */
 @Composable
-private fun RoundClock(endsAt: String?) {
-    val end = remember(endsAt) { endsAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() } } ?: return
+private fun RoundClock(endsAt: String?, extraSeconds: Int = 0) {
+    val end = remember(endsAt) { endsAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() ?: site.table1.events.ui.components.parseInstant(it) } } ?: return
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(end) {
         while (true) {
@@ -754,11 +815,14 @@ private fun RoundClock(endsAt: String?) {
             delay(1000)
         }
     }
-    val left = ((end - now) / 1000).coerceAtLeast(0)
-    Box(Modifier.fillMaxWidth().background(T1.bg).padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+    val round = ((end - now) / 1000).coerceAtLeast(0)
+    // A table with extra time runs that much past the round's clock: the round's time, then the table's own.
+    val left = if (round == 0L && extraSeconds > 0) ((end + extraSeconds * 1000L - now) / 1000).coerceAtLeast(0) else round
+    Column(Modifier.fillMaxWidth().background(T1.bg).padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             if (left == 0L) "TIME" else "%02d:%02d".format(left / 60, left % 60),
             color = if (left == 0L) T1.danger else T1.text, fontFamily = T1.mono, fontSize = 56.sp, letterSpacing = 4.sp,
         )
+        if (extraSeconds > 0) Label(if (round == 0L && left > 0L) "Extra time · your table" else "${RoomRules.extensionText(extraSeconds)} · your table", color = T1.text)
     }
 }

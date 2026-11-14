@@ -61,6 +61,11 @@ class MainActivity : ComponentActivity() {
             // (contract/public-events-leagues-2026-11-13.md). `live` opens the Events home signed out against the real
             // server instead, to see what one without these functions draws.
             intent?.getStringExtra("t1Leagues")?.let { site.table1.events.data.LeaguesDemo.load(this, it) }
+            // `--es t1Events setup|details|fee|qualified|live|display|players|results|player|pay|trios|teams|teampage|team|payments|ready`:
+            // entry fees, teams that sign themselves up, Team Trios and the room tools on stand-in events, signed out
+            // (contracts entry-fees, teams-finals-alerts and room-tools, 2026-11-13). You are Ann Ito. The league's side
+            // is on the leagues hook: `--es t1Leagues league|season|tools|dues|find|alerts`.
+            intent?.getStringExtra("t1Events")?.let { site.table1.events.data.EventDemo.load(it) }
             // `--es t1RankEngine /data/local/tmp/rank-engine.js [--es t1RankArgs <open args json>]`: loads that engine file in
             // QuickJS whatever its rules, logs its self test and timings to Logcat (tag RankEngine), then unloads it.
             intent?.getStringExtra("t1RankEngine")?.let { path ->

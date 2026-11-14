@@ -126,11 +126,20 @@ struct OrganizerView: View {
             onWatch = { session.openTracker(matchId: m.id) }   // closes the panel too
         }
         let watchAction = onWatch
+        // The round being played, on a server with the room tools: Extra time for this table.
+        var onExtra: (() -> Void)?
+        if watch && !m.isBye && EventSide.of(b.event.id).room != nil {
+            onExtra = {
+                T1Overlays.shared.dismissPanel()
+                ExtraTime.menu(eventId: b.event.id, matchId: m.id, table: m.tableNumber) { message in self.error = message }
+            }
+        }
+        let extraAction = onExtra
         T1Overlays.shared.present {
             EditResultSheet(m: m, b: b, onSave: { s0, s1, draws in
                 T1Overlays.shared.dismissPanel()
                 act { try await Repo.setMatchResult(m.id, side0: s0, side1: s1, draws: draws, reason: "Set by organizer") }
-            }, onWatch: watchAction)
+            }, onWatch: watchAction, onExtra: extraAction)
         }
     }
 
@@ -203,6 +212,8 @@ private struct OrganizerSetupView: View {
     private var b: EventBundle { ctx.b }
     private var participants: [ParticipantRow] { b.participants.filter { !removed.contains($0.id) } }
     private var event: EventRow { ctx.b.event }
+    /// The event's money, room and teams (entry fees, room tools): nil parts draw nothing.
+    private var side: EventSide { EventSide.of(ctx.b.event.id) }
     private var active: [ParticipantRow] { participants.filter { $0.status == "active" } }
     private var seating: [SeatingPod] { ctx.engine.seating ?? [] }
     private var me: ParticipantRow? { participants.first { $0.userId != nil && $0.userId == Repo.userId } }
@@ -245,9 +256,11 @@ private struct OrganizerSetupView: View {
                 BigAction(text: startBlocker ?? "Start event · pair round 1", enabled: startBlocker == nil, busy: ctx.busy, accent: true) {
                     confirmStart = true
                 }
-                .alert("Start \(event.name)?", isPresented: $confirmStart) {
+                // Unpaid players: the confirm asks first (contract/entry-fees-2026-11-13.md § 4).
+                .alert(side.unpaid > 0 ? "\(side.unpaid) player\(side.unpaid == 1 ? " hasn't" : "s haven't") paid. Pair anyway?" : "Start \(event.name)?",
+                       isPresented: $confirmStart) {
                     Button("Not yet", role: .cancel) {}
-                    Button("Start") { start() }
+                    Button(side.unpaid > 0 ? "Pair anyway" : "Start") { start() }
                 } message: {
                     Text(startMessage)
                 }
@@ -267,7 +280,9 @@ private struct OrganizerSetupView: View {
             ListRow(title: "Join code", detail: EventRules.when(event.startsAt).map { [$0, event.venueName].compactMap { $0 }.joined(separator: " · ") }) {
                 Text(event.shortCode).font(T1.mono(18)).tracking(4)
             }
-            Section1(event.capacity.map { "Players · \(active.count)/\($0)" } ?? "Players · \(participants.count)")
+            // A season's final you organize: who qualified and where their invitations stand.
+            QualifiedRow(eventId: event.id)
+            Section1((event.capacity.map { "Players · \(active.count)/\($0)" } ?? "Players · \(participants.count)") + side.unpaidSuffix)
             if event.takesDecklists {
                 Notice(EventRules.decklistsLine(sent: active.count - b.decklistsMissing, players: active.count)
                        + (event.decklists == "required" ? " · required before round 1" : ""))
@@ -311,6 +326,7 @@ private struct OrganizerSetupView: View {
         ListRow(title: p.id == me?.id ? "You · \(p.displayName)" : p.displayName, detail: playerDetail(p),
                 avatar: AvatarView(name: p.displayName, userId: p.userId)) {
             HStack(spacing: 16) {
+                PayTagButton(eventId: event.id, participantId: p.id, name: p.displayName) { removeError = $0 }
                 if event.takesDecklists {
                     Button { openDecklist(p) } label: { LabelText(b.decklist(p.id) == nil ? "Enter list" : "List", color: T1.accent) }
                         .buttonStyle(.plain)
@@ -510,7 +526,7 @@ private struct OrganizerSetupView: View {
         var parts = [p.userId == nil ? "Guest" : "Joined"]
         if event.isTeamEvent, let team = ctx.engine.teamOf(p.id) {
             let slot: Int? = p.teamSlot ?? team.members.first(where: { $0.participantId == p.id })?.slot
-            parts.append("\(team.name) \(slotLetter(slot))")
+            parts.append("\(team.name) \(TeamRules.seatLabel(slot: slot, seatFormats: event.seatFormats))")
         }
         if p.status == "dropped" { parts.append("Dropped") }
         if let d = b.decklistDetail(p) { parts.append(d) }
@@ -587,6 +603,8 @@ private struct EventDetailsEditor: View {
         }
 
         var swiss: Bool { !format.isTeam && !(format == .roto && pairing == "round_robin") }
+        /// The top cuts the format can have.
+        var cuts: [Int] { TeamRules.cutChoices(formatName: format.rawValue, pairing: format == .roto ? pairing : "swiss") }
 
         /// Events from before typed formats.
         static func legacyFormat(_ format: String) -> FormatOption {
@@ -622,10 +640,10 @@ private struct EventDetailsEditor: View {
                 setName: useSet ? (chosenSet?.name ?? typedSetName) : nil,
                 cubeName: useCube ? cubeName : nil,
                 cubeUrl: useCube ? cubeUrl.trimmingCharacters(in: .whitespaces) : nil,
-                teamSize: f.isTeam ? teamSize : nil,
+                teamSize: f.isTeam ? (f == .teamTrios ? 3 : teamSize) : nil,
                 formatOther: f == .otherConstructed ? formatOther : nil,
                 pairing: f == .roto ? pairing : nil,
-                topCut: swiss ? topCut : 0,
+                topCut: cuts.contains(topCut) ? topCut : 0,
                 autoRounds: swiss && autoRounds,
                 decklists: kind == .limited ? "off" : decklists,
                 autoName: typed.isEmpty
@@ -648,10 +666,13 @@ private struct EventDetailsEditor: View {
     @State private var choosingSet = false
     @State private var setsUnavailable = false
     @State private var error: String?
+    /// Team Trios: the format each seat plays (set_event_trios, at once).
+    @State private var seats: [String]
 
     init(b: EventBundle, refresh: @escaping () async -> Void) {
         self.b = b
         self.refresh = refresh
+        _seats = State(initialValue: b.event.seatFormats ?? TeamRules.defaultSeats)
         let form = DetailsForm(b.event)
         _form = State(initialValue: form)
         _lastSaved = State(initialValue: form.draft)
@@ -694,6 +715,9 @@ private struct EventDetailsEditor: View {
                 if form.format.isTeam {
                     TeamSizeFields(format: form.format, teamSize: $form.teamSize)
                 }
+                if form.format == .teamTrios, b.event.isTrios {
+                    TriosSeatsRow(seats: Binding(get: { seats }, set: { setSeats($0) }))
+                }
 
                 ScheduleFields(schedule: $schedule)
                 if !LeaguesServer.missing {
@@ -704,7 +728,8 @@ private struct EventDetailsEditor: View {
                 Section1("Rounds")
                 if !(form.format == .roto && form.pairing == "round_robin") {
                     CutAndRoundsFields(autoRounds: $form.autoRounds, rounds: $form.rounds, topCut: $form.topCut,
-                                       players: b.participants.filter { $0.status == "active" }.count, swiss: form.swiss)
+                                       players: b.participants.filter { $0.status == "active" }.count, swiss: form.swiss,
+                                       cuts: form.cuts, teams: form.format.isTeam ? max(1, form.format == .teamTrios ? 3 : form.teamSize) : nil)
                 }
                 RoundTimerSwitch(isOn: $form.showClock)
                 if form.format == .roto {
@@ -712,6 +737,13 @@ private struct EventDetailsEditor: View {
                 }
 
                 if form.kind == .constructed { DecklistsFields(mode: $form.decklists) }
+                if !LeaguesServer.missing {
+                    // Rules level and the decklist deadline (contract/room-tools-2026-11-13.md § 4).
+                    RulesFields(eventId: b.event.id, decklistsOn: form.kind == .constructed && form.decklists != "off",
+                                startsAt: schedule.startsAt, rel: b.event.rel ?? "", due: b.event.decklistDueAt.flatMap(T1Date.parse)) { error = $0 }
+                }
+                // The entry fee and prizes (contract/entry-fees-2026-11-13.md § 2).
+                EntryFeeRow(eventId: b.event.id)
 
                 Section1("Who can find it")
                 if LeaguesServer.missing {
@@ -736,6 +768,7 @@ private struct EventDetailsEditor: View {
         .frame(maxHeight: .infinity)
         .navigationDestination(isPresented: $choosingSet) { SetPickerScreen(selected: $form.chosenSet) }
         .onChange(of: form) { old, new in formChanged(from: old, to: new) }
+        .onChange(of: b.event.seatFormats) { _, s in if let s { seats = s } }
         .onChange(of: schedule) { old, new in scheduleChanged(from: old, to: new) }
         // roto_set_cube renames the event's cube; take it in without saving it back.
         .onChange(of: b.event.cubeName) { _, name in
@@ -811,6 +844,24 @@ private struct EventDetailsEditor: View {
         } catch {
             if Task.isCancelled { return }   // a newer change replaced this save
             self.error = error.localizedDescription
+        }
+    }
+
+    /// Team Trios: a seat's format changed.
+    @MainActor
+    private func setSeats(_ next: [String]) {
+        let previous = seats
+        seats = next
+        let eventId = b.event.id
+        Task { @MainActor in
+            do {
+                try await Repo.setEventTrios(eventId, seats: next)
+                error = nil
+                await refresh()
+            } catch {
+                seats = previous
+                self.error = error.localizedDescription
+            }
         }
     }
 
@@ -910,6 +961,8 @@ private struct OrganizerLiveView: View {
 
     private var b: EventBundle { ctx.b }
     private var event: EventRow { ctx.b.event }
+    private var side: EventSide { EventSide.of(ctx.b.event.id) }
+    @State private var roomError: String?
     private var round: RoundRow? { b.activeRound }
     private var repairable: RoundRow? { RepairRound.repairable(b.rounds) }
     private var repairName: String { repairable.map { RepairRound.label(stage: $0.stage, number: $0.number) } ?? "" }
@@ -1033,6 +1086,9 @@ private struct OrganizerLiveView: View {
     @ViewBuilder
     private func roundTab(_ g: MatchGroups, hero: Bool = true) -> some View {
         HairlineList {
+            // Open judge calls lead the tab, oldest first (contract/room-tools-2026-11-13.md § 3).
+            JudgeCallRows(eventId: event.id) { roomError = $0 }
+            if let roomError { Notice(roomError, error: true) }
             if let prompt = RepairRound.prompt(b.rounds) {
                 Notice(prompt.text)
                 Ghost(text: "Re-pair \(repairName)") { repairFrom = "notice" }
@@ -1091,6 +1147,7 @@ private struct OrganizerLiveView: View {
                 switch b.nextStep {
                 case .pair: Notice("No round running. Pair round \((b.rounds.map(\.number).max() ?? 0) + 1) when everyone is ready.")
                 case .cut: Notice("Swiss is done. Cut to the top 8 to pair the quarterfinals.")
+                case .cut4: Notice("Swiss is done. Cut to the top 4 to pair the semifinals.")
                 case .semifinals, .final: Notice("No round running. Pair the next playoff round when everyone is ready.")
                 default: Notice("Every round is played. Finish the event to send final standings.")
                 }
@@ -1154,12 +1211,24 @@ private struct OrganizerLiveView: View {
     }
 
     private func matchButton(_ m: MatchRow, detail: String, value: String, tone: Color) -> some View {
-        Button { ctx.edit(m, true) } label: {
-            ListRow(title: matchTitle(m, b), detail: detail) {
-                Text(value).font(T1.mono(16)).foregroundStyle(tone)
+        // A table with extra time says so: `+5:00` (contract/room-tools-2026-11-13.md § 2).
+        let extra = RoomRules.extensionText(side.room?.extra(m.id) ?? 0)
+        return Button { ctx.edit(m, true) } label: {
+            ListRow(title: matchTitle(m, b), detail: seatDetail(m, detail)) {
+                HStack(spacing: 12) {
+                    if !extra.isEmpty { LabelText(extra, color: T1.text) }
+                    Text(value).font(T1.mono(16)).foregroundStyle(tone)
+                }
             }
         }
         .buttonStyle(.plain)
+    }
+
+    /// Team events: the seat this table plays, with its format in Team Trios (`A · MODERN · No result yet`).
+    private func seatDetail(_ m: MatchRow, _ text: String) -> String {
+        guard event.isTeamEvent, let pid = m.side(0)?.participantId,
+              let slot = b.participants.first(where: { $0.id == pid })?.teamSlot else { return text }
+        return "\(TeamRules.seatLabel(slot: slot, seatFormats: event.seatFormats)) · \(text)"
     }
 
     @MainActor
@@ -1176,7 +1245,8 @@ private struct OrganizerLiveView: View {
                 Notice("Live: updates as results come in. \(g.open) \(g.open == 1 ? "match" : "matches") still open.")
             }
             BracketRows(bracket: ctx.engine.bracket ?? [])
-            StandingsRows(engine: ctx.engine, highlight: nil, players: b.participants)
+            TeamBracketRows(bracket: ctx.engine.teamBracket ?? [], seatFormats: event.seatFormats)
+            StandingsRows(engine: ctx.engine, highlight: nil, players: b.participants, seatFormats: event.seatFormats)
         }
     }
 
@@ -1193,7 +1263,8 @@ private struct OrganizerLiveView: View {
                     ForEach(pod.items) { p in playingRow(p, seat: pod.pod == nil ? nil : p.seat) }
                 }
             } else {
-                Section1("Playing · \(playing.count)")
+                Section1("Playing · \(playing.count)" + side.unpaidSuffix)
+                if let roomError { Notice(roomError, error: true) }
                 ForEach(playing) { p in playingRow(p, seat: nil) }
             }
             if !dropped.isEmpty {
@@ -1224,6 +1295,7 @@ private struct OrganizerLiveView: View {
                 detail: [seat.map { "Seat \($0)" }, recordDetail(p), b.decklistDetail(p)].compactMap { $0 }.joined(separator: " · "),
                 avatar: AvatarView(name: p.displayName, userId: p.userId)) {
             HStack(spacing: 16) {
+                PayTagButton(eventId: event.id, participantId: p.id, name: p.displayName) { roomError = $0 }
                 if event.takesDecklists {
                     Button {
                         presentDecklist(event: event, participantId: p.id, playerName: p.displayName, byOrganizer: true, refresh: ctx.refresh)
@@ -1264,8 +1336,8 @@ private struct OrganizerLiveView: View {
                 HStack(spacing: 1) { Ghost(text: "Play on · pair round \(nextNumber)") { pair() } }
             }
             finishButton(clinch)
-        } else if event.isTeamEvent || event.pairing == "round_robin" {
-            // Team events and round robin stop at their round count (no top cut).
+        } else if (event.isTeamEvent && event.topCut != 4) || event.pairing == "round_robin" {
+            // Team events without a cut and round robin stop at their round count.
             if round == nil && nextNumber <= event.numberOfRounds {
                 BigAction(text: "Pair round \(nextNumber)", enabled: activePlayers >= 2, busy: ctx.busy, accent: true) { pair() }
             } else if round != nil && outstanding > 0 {
@@ -1287,6 +1359,15 @@ private struct OrganizerLiveView: View {
                         Button("Cut") { pair() }
                     } message: {
                         Text("Pairs the quarterfinals from the Swiss standings. Swiss is over: no more Swiss rounds.")
+                    }
+            case .cut4:
+                // Top 4: Swiss straight to the semifinals (team events: team against team).
+                BigAction(text: "Cut to top 4", busy: ctx.busy, accent: true) { confirmCut = true }
+                    .alert("Cut to top 4?", isPresented: $confirmCut) {
+                        Button("Not yet", role: .cancel) {}
+                        Button("Cut") { pair() }
+                    } message: {
+                        Text("Pairs the semifinals from the Swiss standings, 1 v 4 and 2 v 3. Swiss is over: no more Swiss rounds.")
                     }
             case .semifinals: BigAction(text: "Pair semifinals", busy: ctx.busy, accent: true) { pair() }
             case .final: BigAction(text: "Pair the final", busy: ctx.busy, accent: true) { pair() }
@@ -1334,7 +1415,10 @@ private struct OrganizerLiveView: View {
         let pairing = event.pairing
         let canRepair = repairable != nil
         let repairTitle = "Re-pair \(repairName)"
-        T1Overlays.shared.showMenu(event.name, [
+        T1Overlays.shared.showMenu(event.name, (side.room != nil ? [
+            // What the room's TV shows, and a second screen from this phone (contract/room-tools-2026-11-13.md § 1).
+            T1MenuItem(title: "Display") { T1Overlays.shared.present(full: true) { DisplayPanel(eventId: id, name: name).screen("event_display") } },
+        ] : []) + [
             T1MenuItem(title: "Deck photos") { open(.deckPhotos(id)) },
         ] + (event.isRoto ? [
             T1MenuItem(title: "Draft picks") { presentRotoDraft(eventId: id, title: name, isOrganizer: true, pairing: pairing) },
@@ -1415,7 +1499,10 @@ private struct OrganizerResultsView: View {
     private var b: EventBundle { ctx.b }
     private var event: EventRow { ctx.b.event }
     private var tabs: [(id: String, label: String)] {
-        [(id: "standings", label: "Standings"), (id: "rounds", label: "Rounds"), (id: "players", label: "Players")]
+        var list: [(id: String, label: String)] = [(id: "standings", label: "Standings"), (id: "rounds", label: "Rounds"), (id: "players", label: "Players")]
+        // An event with a fee: the pool and each place's prize (contract/entry-fees-2026-11-13.md § 4).
+        if EventSide.of(event.id).money?.fee != nil, !event.isCancelled { list.append((id: "prizes", label: "Prizes")) }
+        return list
     }
 
     var body: some View {
@@ -1430,6 +1517,7 @@ private struct OrganizerResultsView: View {
             switch tab {
             case "rounds": roundsTab
             case "players": playersTab
+            case "prizes": PrizesTab(eventId: event.id)
             default: standingsTab
             }
         }
@@ -1473,8 +1561,9 @@ private struct OrganizerResultsView: View {
                     }
                 }
                 BracketRows(bracket: ctx.engine.bracket ?? [])
-                if (ctx.engine.bracket ?? []).isEmpty { Section1("Final standings") }
-                StandingsRows(engine: ctx.engine, highlight: nil, players: b.participants)
+                TeamBracketRows(bracket: ctx.engine.teamBracket ?? [], seatFormats: event.seatFormats)
+                if (ctx.engine.bracket ?? []).isEmpty && (ctx.engine.teamBracket ?? []).isEmpty { Section1("Final standings") }
+                StandingsRows(engine: ctx.engine, highlight: nil, players: b.participants, seatFormats: event.seatFormats)
             }
         }
     }

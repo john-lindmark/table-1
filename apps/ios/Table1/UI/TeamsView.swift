@@ -236,8 +236,20 @@ struct TeamsEditor: View {
     private var unassigned: [ParticipantRow] { active.filter { p in !teams.contains { $0.members.contains(p.id) } } }
     private var canAddTeam: Bool { maxTeams.map { teams.count < $0 } ?? true }
 
+    /// Teams sign themselves up, with a captain and a code (contract/teams-finals-alerts-2026-11-13.md § 2).
+    private var signUp: Bool { EventSide.of(b.event.id).teams?.teamSignup ?? event.teamSignup }
+
     var body: some View {
         HairlineList {
+            LoadOnce { await EventSide.of(b.event.id).refreshTeams() }
+            if !locked, EventSide.of(b.event.id).teams != nil {
+                T1Switch(title: "Teams sign up", detail: signUp ? "Captains make teams; teammates join by code" : "You build the teams",
+                         isOn: Binding(get: { signUp }, set: { on in setSignUp(on) }))
+            }
+            if signUp, !locked {
+                if let error { Notice(error, error: true) }
+                SignUpTeamsList(eventId: b.event.id)
+            } else {
             if locked {
                 Notice("Teams lock when round 1 is paired.")
             } else {
@@ -262,9 +274,11 @@ struct TeamsEditor: View {
                 Section1("Unassigned · \(unassigned.count)")
                 ForEach(unassigned) { p in memberRow(p.id, slot: nil) }
             }
+            }
         }
         .task(id: b.participants.map(\.id)) {
-            if !dirty { await load() }
+            // Teams that sign themselves up are read with team_mine (SignUpTeamsList), not the organizer's editor.
+            if !dirty, !(signUp && !locked) { await load() }
         }
         .alert("Team name", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("Name", text: $nameDraft)
@@ -299,7 +313,7 @@ struct TeamsEditor: View {
     private func memberRow(_ pid: String, slot: Int?) -> some View {
         let p = b.participants.first { $0.id == pid }
         let name = p?.displayName ?? "—"
-        var detail = slot.map { "Seat \(slotLetter($0))" } ?? "Not on a team"
+        var detail = slot.map { "Seat \(TeamRules.seatLabel(slot: $0, seatFormats: event.seatFormats))" } ?? "Not on a team"
         if p?.status == "dropped" { detail += " · dropped" }
         return Button {
             if !locked { showMove(pid, name: name) }
@@ -312,6 +326,21 @@ struct TeamsEditor: View {
     }
 
     // MARK: changes
+
+    private func setSignUp(_ on: Bool) {
+        let id = event.id
+        Task { @MainActor in
+            do {
+                try await Repo.setTeamSignup(id, on: on)
+                await EventSide.of(id).refreshTeams()
+                error = nil
+                await refresh()
+                await load()
+            } catch {
+                self.error = error.localizedDescription
+            }
+        }
+    }
 
     /// "Move to…": every team with room, plus Unassigned.
     private func showMove(_ pid: String, name: String) {

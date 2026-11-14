@@ -178,6 +178,8 @@ fun LeagueScreen(league: String, from: String, foregrounds: Int, onBack: () -> U
                 } else Cell(season.name, Modifier.weight(1f))
                 Cell(stateWord(season.state), Modifier.weight(1f))
             }
+            // `Prize pool $1,400` when the season takes a cut of each entry (contract/entry-fees-2026-11-13.md § 5).
+            LeaguePoolRow(rememberLeagueMoney(season.id, foregrounds))
         }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (season == null) {

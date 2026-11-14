@@ -77,8 +77,16 @@ data class EventAbout(
     @SerialName("format_key") val formatKey: String? = null,
     val league: EventLeague? = null,
     val placed: Boolean = false,
+    /** The rules level: casual | competitive | null (contract/room-tools-2026-11-13.md § 4). */
+    val rel: String? = null,
+    @SerialName("decklist_due_at") val decklistDueAt: String? = null,
+    /** Team Trios: each seat's format. */
+    @SerialName("seat_formats") val seatFormats: List<String>? = null,
+    @SerialName("team_signup") val teamSignup: Boolean = false,
 ) {
-    val hasAbout: Boolean get() = !description.isNullOrBlank() || !venueAddress.isNullOrBlank()
+    /** `COMPETITIVE · DECKLISTS DUE SAT 14 NOV 09:30`, leading the About text; empty with neither. */
+    val rulesLine: String get() = RoomRules.rulesLine(rel, RoomRules.dueText(decklistDueAt))
+    val hasAbout: Boolean get() = !description.isNullOrBlank() || !venueAddress.isNullOrBlank() || rulesLine.isNotEmpty()
 }
 
 /** event_listing_set's answer. */
@@ -141,6 +149,8 @@ data class LeagueSeason(
     @SerialName("best_n") val bestN: Int? = null,
     val qualify: QualifyRule = QualifyRule(),
     val closed: Boolean = false,
+    /** What each paid entry of the season's events owes the league (contract/entry-fees-2026-11-13.md § 5). */
+    @SerialName("entry_cut_cents") val entryCutCents: Int = 0,
 )
 
 @Serializable

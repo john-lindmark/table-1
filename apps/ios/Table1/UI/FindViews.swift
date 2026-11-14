@@ -304,6 +304,11 @@ private struct FindEventsTab: View {
             } else if store.error == nil, !store.missing {
                 Notice("Loading…")
             }
+            // Alerts for new public events (contract/teams-finals-alerts-2026-11-13.md § 4).
+            if !store.missing, words.count < 2 {
+                Color.clear.frame(height: 15)
+                AlertsRow()
+            }
         }
         .refreshable { await store.load(); await search() }
         .task { if store.events == nil { await store.load() } }
@@ -538,7 +543,7 @@ struct EventAboutRows: View {
                     Button {
                         T1Overlays.shared.present(full: true) { EventAboutPanel(about: about).screen("event_about") }
                     } label: {
-                        ListRow(title: "About", detail: about.venueAddress) { T1Icon.arrowRight.fill(T1.text).frame(width: 18, height: 18) }
+                        ListRow(title: "About", detail: Self.rulesLine(about).nilIfEmpty ?? about.venueAddress) { T1Icon.arrowRight.fill(T1.text).frame(width: 18, height: 18) }
                     }
                     .buttonStyle(.plain)
                 }
@@ -554,6 +559,11 @@ struct EventAboutRows: View {
                 }
             }
         }
+    }
+
+    /// `COMPETITIVE · DECKLISTS DUE SAT 14 NOV 09:30` in the device's zone (contract/room-tools-2026-11-13.md § 4).
+    static func rulesLine(_ a: EventAbout) -> String {
+        RoomRules.rulesLine(rel: a.rel, due: a.decklistDueAt.flatMap(Leagues.parseDate).map { RoomRules.dueText($0) })
     }
 
     /// "League · final", "League · 2× points".
@@ -573,6 +583,14 @@ private struct EventAboutPanel: View {
             Bar(title: "About", back: { T1Overlays.shared.dismissPanel() })
             ScrollView {
                 VStack(spacing: 1) {
+                    let rules = EventAboutRows.rulesLine(about)
+                    if !rules.isEmpty {
+                        LabelText(rules, color: T1.text).frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16).padding(.vertical, 14).background(T1.surface)
+                    }
+                    if let seats = about.seatFormats, seats.count == 3 {
+                        InfoRow(label: "Seats", value: (1...3).map { TeamRules.seatLabel(slot: $0, seatFormats: seats) }.joined(separator: "\n"))
+                    }
                     if let d = about.description, !d.isEmpty { LinkedText(text: d) }
                     if let a = about.venueAddress, !a.isEmpty { InfoRow(label: "Address", value: a) }
                 }

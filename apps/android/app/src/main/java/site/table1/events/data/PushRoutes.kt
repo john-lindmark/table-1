@@ -64,7 +64,8 @@ object PushRoutes {
     }
 
     fun channel(kind: String): Channel = when {
-        kind.startsWith("event.") || kind.startsWith("round.") || kind.startsWith("result.") -> Channel.Events
+        // A judge call (contract/room-tools-2026-11-13.md § 3) rings like a pairing: Events, high importance.
+        kind.startsWith("event.") || kind.startsWith("round.") || kind.startsWith("result.") || kind.startsWith("judge.") -> Channel.Events
         kind.startsWith("follow.") || kind.startsWith("trade.") || kind.startsWith("want.") || kind.startsWith("ranking.") || kind.startsWith("deck.") -> Channel.Collection
         kind.startsWith("friend.") -> Channel.Friends
         kind.startsWith("insights.") -> Channel.Insights

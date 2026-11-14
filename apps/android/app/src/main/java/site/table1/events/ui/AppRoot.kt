@@ -148,6 +148,8 @@ fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: Web
     if (InsightsStore.demo) { InsightsDemoRoot(); return }
     // Debug: `--es t1Leagues find|leagues|boards|league|…` opens finding events, leagues and boards on stand-in data.
     if (site.table1.events.data.LeaguesDemo.shown) { LeaguesDemoRoot(); return }
+    // Debug: `--es t1Events setup|details|fee|…` opens entry fees, teams and the room tools on stand-in events.
+    if (site.table1.events.data.EventDemo.shown) { EventDemoRoot(); return }
     val status by T1App.supabase.auth.sessionStatus.collectAsState()
     // A failed refresh (offline, 5xx) keeps the app on the session it last had (SessionView).
     var kept by remember { mutableStateOf<UserSession?>(null) }
@@ -292,7 +294,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 val page = runCatching { Repo.eventPage(link.eventId) }.getOrNull()
                 when {
                     page?.access in setOf("organizer", "player") -> show("events", listOf("event/${link.eventId}"))
-                    else -> show("events", listOf("eventpage/${link.eventId}?signup=${signUp && page?.showsResults == false}"))
+                    // A captain's link (`?team=<CODE>`) arrives with the code filled in on Join a team.
+                    else -> show("events", listOf("eventpage/${link.eventId}?signup=${signUp && page?.showsResults == false}" + (link.team?.let { "&team=$it" } ?: "")))
                 }
             }
             is WebLink.Shared -> show("collection", listOf("collection/shared/${link.token}"))
@@ -389,8 +392,10 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 composable("account") {
                     AccountScreen(foregrounds = foregrounds, onFriends = { nav.navigate("friends") }, onSharing = { nav.navigate("sharing") },
                         onProfile = { nav.navigate("profile/$it") }, onNotices = { nav.navigate("notices") }, onReview = { nav.navigate("review") }, onBugs = { nav.navigate("bugs") },
-                        onDeckPhotos = { nav.navigate("mydeckphotos") }, onSupport = { nav.navigate("support") })
+                        onDeckPhotos = { nav.navigate("mydeckphotos") }, onSupport = { nav.navigate("support") }, onPayments = { nav.navigate("payments") })
                 }
+                // Account → Payments (contract/entry-fees-2026-11-13.md § 1): your Stripe connection.
+                composable("payments") { site.table1.events.ui.screens.PaymentsScreen(onBack = { nav.popBackStack() }) }
                 // Support (contract/support-2026-11-10.md): questions and the guide.
                 supportGraph(nav)
                 // Account → Deck photos (contract/event-night-2026-10-16.md § 7 On your account).
@@ -666,10 +671,10 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 composable("redraft/{id}") { e ->
                     site.table1.events.ui.screens.RedraftScreen(eventId = e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() })
                 }
-                composable("eventpage/{id}?signup={signup}") { e ->
+                composable("eventpage/{id}?signup={signup}&team={team}", arguments = listOf(navArgument("team") { nullable = true })) { e ->
                     val id = e.arguments?.getString("id") ?: ""
                     EventPageScreen(id, signUpNow = e.arguments?.getString("signup") == "true", onBack = { nav.popBackStack() },
-                        onOpenEvent = { nav.navigate("event/$it") }, go = { nav.navigate(it) })
+                        onOpenEvent = { nav.navigate("event/$it") }, go = { nav.navigate(it) }, teamCode = e.arguments?.getString("team"))
                 }
                 composable("photos/{id}?add={add}", arguments = listOf(navArgument("add") { nullable = true })) { e ->
                     DeckPhotosScreen(eventId = e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() },
@@ -772,6 +777,38 @@ private fun androidx.navigation.NavGraphBuilder.leaguesGraph(nav: androidx.navig
         site.table1.events.ui.screens.LeagueSeasonScreen(e.arguments?.getString("league") ?: "", e.arguments?.getString("season")?.takeIf { it != "new" }, back)
     }
     composable("league/{league}/organizers") { e -> site.table1.events.ui.screens.LeagueOrganizersScreen(e.arguments?.getString("league") ?: "", back) }
+    // What hosts owe the league (contract/entry-fees-2026-11-13.md § 5), and alerts for new public events
+    // (contract/teams-finals-alerts-2026-11-13.md § 4).
+    composable("league/{league}/dues") { e -> site.table1.events.ui.screens.LeagueDuesScreen(e.arguments?.getString("league") ?: "", back) }
+    composable("alerts") { site.table1.events.ui.screens.AlertsScreen(back) }
+}
+
+/** Debug only: entry fees, teams and the room tools on stand-in events, signed out (`--es t1Events <screen>`;
+ *  MainActivity lists them). You are Ann Ito. */
+@Composable
+private fun EventDemoRoot() {
+    val nav = rememberNavController()
+    site.table1.events.ui.components.KeyboardAwayOnNavigate(nav)
+    val demo = site.table1.events.data.EventDemo
+    val id = demo.eventId
+    val start = when (demo.screen) {
+        "payments", "ready" -> "payments"
+        "teampage" -> "eventpage/$id"
+        else -> "event/$id"
+    }
+    CompositionLocalProvider(site.table1.events.ui.components.LocalOpenProfile provides { _: String -> }) {
+        NavHost(navController = nav, startDestination = "home") {
+            composable("home") { T1Screen { Bar("Table 1") } }
+            composable("payments") { site.table1.events.ui.screens.PaymentsScreen(onBack = { nav.popBackStack() }) }
+            composable("event/{id}") {
+                EventScreen(eventId = id, onBack = { nav.popBackStack() }, onAddPlayers = {}, onOpenTracker = {}, onOpenPhotos = {})
+            }
+            composable("eventpage/{id}") {
+                EventPageScreen(id, signUpNow = false, onBack = { nav.popBackStack() }, onOpenEvent = { nav.navigate("event/$it") })
+            }
+        }
+    }
+    LaunchedEffect(Unit) { nav.navigate(start) }
 }
 
 /** Debug only: the new screens on stand-in data, signed out (`--es t1Leagues <screen>`; MainActivity lists them). */
@@ -799,6 +836,8 @@ private fun LeaguesDemoRoot() {
         "profile" -> "profile-demo"
         "tools" -> "league/${league.league.slug}/tools"
         "organizers" -> "league/${league.league.slug}/organizers"
+        "dues" -> "league/${league.league.slug}/dues"
+        "alerts" -> "alerts"
         else -> "find?tab=events"
     }
     CompositionLocalProvider(site.table1.events.ui.components.LocalOpenProfile provides { _: String -> }) {

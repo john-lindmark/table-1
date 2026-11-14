@@ -111,6 +111,8 @@ struct LifeTrackerView: View {
         }
         .task {
             await model.start()
+            // The table's extra time and judge call, with the event's room (contract/room-tools-2026-11-13.md).
+            if let e = model.eventId { await EventSide.of(e).refreshRoom() }
             #if DEBUG
             debugPreset()
             #endif
@@ -122,6 +124,7 @@ struct LifeTrackerView: View {
                 try? await Task.sleep(for: TrackerNext.every)
                 if Task.isCancelled { return }
                 await model.checkNext("poll")
+                if let e = model.eventId { await EventSide.of(e).refreshRoom() }
             }
         }
         .onChange(of: model.nextMatchId) { _, next in
@@ -266,7 +269,9 @@ struct LifeTrackerView: View {
                         if let remaining {
                             LabelText(TrackerClock.format(remaining), color: Self.color(TrackerClock.tone(remaining)))
                                 .monospacedDigit()
-                                .padding(.horizontal, 16)
+                                .padding(.leading, 16).padding(.trailing, extraTime.isEmpty ? 16 : 8)
+                            // This table's extra time: it runs that much past the round's clock.
+                            if !extraTime.isEmpty { LabelText(extraTime, color: T1.accent).monospacedDigit().padding(.trailing, 16) }
                         }
                         Spacer(minLength: 0)
                         LabelText(contextLine, color: contextColor)
@@ -336,13 +341,29 @@ struct LifeTrackerView: View {
 
     // MARK: menus (app-drawn)
 
+    /// `+5:00` when the organizer gave this table extra time (read with the event's room).
+    private var extraTime: String {
+        guard let e = model.eventId, let m = model.matchId else { return "" }
+        return RoomRules.extensionText(EventSide.of(e).room?.extra(m) ?? 0)
+    }
+
+    /// Your own table in the round being played: Call a judge, or cancel the call that's open.
+    private var judgeOption: (title: String, run: () -> Void)? {
+        guard !model.readOnly, let e = model.eventId, let m = model.matchId,
+              let mine = EventSide.of(e).room?.myMatch, mine.matchId == m else { return nil }
+        if mine.callOpen == true { return ("Judge called · cancel", { JudgeCalls.cancel(eventId: e, matchId: m) }) }
+        return ("Call a judge", { JudgeCalls.ask(eventId: e, matchId: m, table: mine.tableNumber) })
+    }
+
     private func showOptions() {
+        if let e = model.eventId { Task { await EventSide.of(e).refreshRoom() } }
         T1Overlays.shared.present {
             TrackerOptionsPanel(
                 chooser: { showChooser() },
                 dice: { T1Overlays.shared.present { TrackerDicePanel() } },
                 history: { showHistory() },
                 newMatch: model.isSynced ? nil : { newTable() },
+                judge: judgeOption,
                 leave: { onClose() }
             )
         }

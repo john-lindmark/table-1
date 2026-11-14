@@ -10,6 +10,9 @@ struct TrackerOptionsPanel: View {
     let dice: () -> Void
     let history: () -> Void
     var newMatch: (() -> Void)?
+    /// An event match in the round being played: Call a judge, or its Cancel while a call is open
+    /// (contract/room-tools-2026-11-13.md § 3).
+    var judge: (title: String, run: () -> Void)?
     let leave: () -> Void
 
     var body: some View {
@@ -17,6 +20,7 @@ struct TrackerOptionsPanel: View {
             row("Chooser", chooser)
             row("Roll dice", dice)
             row("History", history)
+            if let judge { row(judge.title, judge.run) }
             if let newMatch { row("New match", newMatch) }
             row("Leave tracker", leave)
         }

@@ -18,8 +18,9 @@ object EventRules {
     /** Swiss rounds for a number of players (t1_private.swiss_rounds; above 128 the MTR Appendix E bands). */
     fun swissRounds(players: Int): Int = bands.firstOrNull { players <= it.first }?.second ?: 10
 
-    /** start | waiting | pair | cut | semifinals | final | finish. */
-    fun nextStep(stages: List<String>, waiting: Boolean, numberOfRounds: Int, topCut: Int, activePlayers: Int): String {
+    /** start | waiting | pair | cut | cut4 | semifinals | final | finish. [activeTeams] is given for team events only
+     *  (teams with at least one active member): the cut then counts teams, and a team event has no top 8. */
+    fun nextStep(stages: List<String>, waiting: Boolean, numberOfRounds: Int, topCut: Int, activePlayers: Int, activeTeams: Int? = null): String {
         val last = stages.lastOrNull() ?: return "start"
         if (waiting) return "waiting"
         return when (last) {
@@ -28,7 +29,9 @@ object EventRules {
             "final" -> "finish"
             else -> when {
                 stages.count { it == "swiss" } < numberOfRounds -> "pair"
-                topCut == 8 && activePlayers > 8 -> "cut"
+                activeTeams == null && topCut == 8 && activePlayers > 8 -> "cut"
+                activeTeams == null && topCut == 4 && activePlayers > 4 -> "cut4"
+                activeTeams != null && topCut == 4 && activeTeams > 4 -> "cut4"
                 else -> "finish"
             }
         }
@@ -56,7 +59,7 @@ object EventRules {
     }
 
     fun roundsLine(auto: Boolean, rounds: Int, topCut: Int, open: Boolean): String =
-        (if (auto && open) "Auto rounds" else "$rounds round${if (rounds == 1) "" else "s"}") + if (topCut == 8) " · Top 8" else ""
+        (if (auto && open) "Auto rounds" else "$rounds round${if (rounds == 1) "" else "s"}") + if (topCut == 4 || topCut == 8) " · Top $topCut" else ""
 
     /** organizer | in | waitlisted | closed | sign_in | waitlist | sign_up. */
     fun button(signedIn: Boolean, signUp: String?, me: String?): String = when {
@@ -105,7 +108,7 @@ object EventRules {
 
     /** The deck format that fits an event's format; null = any deck (Other constructed). */
     fun deckFormat(eventFormat: String?): String? = when (eventFormat) {
-        null, "other_constructed" -> null
+        null, "other_constructed", "team_trios" -> null
         "canadian_highlander" -> "canlander"
         else -> eventFormat
     }
@@ -124,7 +127,7 @@ object EventRules {
     }
 
     val constructedFormats = setOf("standard", "pioneer", "modern", "legacy", "vintage", "pauper", "premodern",
-        "canadian_highlander", "other_constructed")
+        "canadian_highlander", "other_constructed", "team_trios")
 }
 
 /** event_preview / event_public: what the event page shows (contract §4). */

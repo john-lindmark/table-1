@@ -40,7 +40,7 @@ struct EventRow: Decodable, Identifiable, Hashable {
     var seatEnds = false
     /// swiss | round_robin (round robin is roto only for now).
     var pairing = "swiss"
-    /// 0 or 8 (contract/scheduled-events-2026-10-27.md).
+    /// 0, 4 or 8 (contract/scheduled-events-2026-10-27.md, teams-finals-alerts-2026-11-13.md § 1).
     var topCut = 0
     /// Rounds follow the players until round 1 is paired.
     var autoRounds = false
@@ -55,13 +55,21 @@ struct EventRow: Decodable, Identifiable, Hashable {
     /// What the event says about itself, and where (contract/public-events-leagues-2026-11-13.md § 1).
     var description: String?
     var venueAddress: String?
+    /// Team Trios: the format each seat (A, B, C) plays (contract/teams-finals-alerts-2026-11-13.md § 1).
+    var seatFormats: [String]?
+    /// Teams sign themselves up with a captain and a code (§ 2).
+    var teamSignup = false
+    /// casual | competitive | nil, and when decklists are due (contract/room-tools-2026-11-13.md § 4).
+    var rel: String?
+    var decklistDueAt: String?
 
     var isCancelled: Bool { status == "cancelled" }
     var isFinished: Bool { ["completed", "archived", "cancelled"].contains(status) }
     /// "Modern", "Draft · Duskmourn", "Team draft · Vintage Cube".
     var label: String { formatLabel ?? format.capitalized }
     var isDraft: Bool { ["draft", "team_draft"].contains(formatName ?? format) }
-    var isTeamEvent: Bool { teamSize != nil || ["team_draft", "team_sealed"].contains(formatName ?? "") }
+    var isTeamEvent: Bool { teamSize != nil || ["team_draft", "team_sealed", "team_trios"].contains(formatName ?? "") }
+    var isTrios: Bool { formatName == "team_trios" }
     /// Seats and teams can change until round 1 is paired.
     var isBeforeRound1: Bool { ["setup", "seated"].contains(status) && currentRound == 0 }
     var isConstructed: Bool { EventRules.constructedFormats.contains(formatName ?? "") }
@@ -72,7 +80,8 @@ struct EventRow: Decodable, Identifiable, Hashable {
              allowPlayerReporting, venueName, createdAt, cancelReason, isDemo,
              formatName, formatLabel, eventType, teamSize, setCode, setName, cubeName, cubeUrl,
              formatOther, visibility, startsAt, cancelledAt, updatedAt, showClock, autoName, seatEnds, pairing,
-             topCut, autoRounds, capacity, decklists, pods, podPairing, description, venueAddress
+             topCut, autoRounds, capacity, decklists, pods, podPairing, description, venueAddress,
+             seatFormats, teamSignup, rel, decklistDueAt
     }
 
     init(from decoder: Decoder) throws {
@@ -115,6 +124,10 @@ struct EventRow: Decodable, Identifiable, Hashable {
         podPairing = try c.decodeIfPresent(String.self, forKey: .podPairing) ?? "cross"
         description = try c.decodeIfPresent(String.self, forKey: .description)
         venueAddress = try c.decodeIfPresent(String.self, forKey: .venueAddress)
+        seatFormats = try c.decodeIfPresent([String].self, forKey: .seatFormats)
+        teamSignup = try c.decodeIfPresent(Bool.self, forKey: .teamSignup) ?? false
+        rel = try c.decodeIfPresent(String.self, forKey: .rel)
+        decklistDueAt = try c.decodeIfPresent(String.self, forKey: .decklistDueAt)
     }
 }
 
@@ -263,8 +276,10 @@ struct StandingsResponse: Decodable {
     /// Team events: the team the other can no longer catch, so the organizer may finish early (events-engine).
     var clinched: TeamClinch?
     var topCut: Int?
-    /// The playoff rounds paired so far (top 8).
+    /// The playoff rounds paired so far (top 8 or top 4).
     var bracket: [BracketStage]?
+    /// Team events with a top 4: the team semifinals and final, each with its seats' matches.
+    var teamBracket: [TeamBracketStage]?
 }
 
 /// Two teams head to head: one's match wins beat the other's plus every match still to play.
@@ -315,8 +330,11 @@ struct TeamStanding: Decodable, Identifiable, Hashable {
     var matchWins: Int = 0
     var gw: Double?
     var members: [Member] = []
+    /// Top 4 between teams: the Swiss place and how far the team went (winner | final | semifinal).
+    var swissRank: Int?
+    var playoff: String?
 
-    enum CodingKeys: String, CodingKey { case rank, teamId, name, points, wins, losses, draws, byes, matchWins, gw, members }
+    enum CodingKeys: String, CodingKey { case rank, teamId, name, points, wins, losses, draws, byes, matchWins, gw, members, swissRank, playoff }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -331,6 +349,8 @@ struct TeamStanding: Decodable, Identifiable, Hashable {
         matchWins = try c.decodeIfPresent(Int.self, forKey: .matchWins) ?? 0
         gw = try? c.decodeIfPresent(Double.self, forKey: .gw)
         members = try c.decodeIfPresent([Member].self, forKey: .members) ?? []
+        swissRank = try? c.decodeIfPresent(Int.self, forKey: .swissRank)
+        playoff = try? c.decodeIfPresent(String.self, forKey: .playoff)
     }
 }
 
@@ -622,7 +642,14 @@ struct EventBundle {
         let waiting = open?.matches.contains { !$0.isBye && ($0.status == "pending" || ($0.disputed && $0.status != "confirmed")) } ?? false
         return EventRules.nextStep(stages: rounds.map { $0.stage ?? "swiss" }, waiting: waiting,
                                    numberOfRounds: event.numberOfRounds, topCut: event.topCut,
-                                   activePlayers: participants.filter { $0.status == "active" }.count)
+                                   activePlayers: participants.filter { $0.status == "active" }.count,
+                                   activeTeams: activeTeams)
+    }
+
+    /// Team events: the teams with at least one active member (the cut counts teams); nil for events of players.
+    var activeTeams: Int? {
+        guard event.isTeamEvent else { return nil }
+        return Set(participants.filter { $0.status == "active" }.compactMap(\.teamId)).count
     }
 }
 

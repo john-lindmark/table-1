@@ -71,6 +71,11 @@ struct CutAndRoundsFields: View {
     let swiss: Bool
     /// Drafts with pods: the automatic count follows the pods (DraftPods.autoLabel).
     var autoDetail: String?
+    /// The top cuts the format can have (`cut_choices`): 8 for Swiss events of players, 4 for those and for team sealed
+    /// and Team Trios, none for a team draft, a roto or round robin.
+    var cuts: [Int] = [0, 4, 8]
+    /// Team events: players a team (the cut then counts teams).
+    var teams: Int?
 
     var body: some View {
         if swiss {
@@ -80,12 +85,19 @@ struct CutAndRoundsFields: View {
         if !swiss || !autoRounds {
             T1Stepper(label: "Rounds", value: $rounds, range: 1...15)
         }
-        if swiss {
-            T1Segmented(options: [(value: 0, label: "No top cut"), (value: 8, label: "Top 8")], selection: $topCut)
-            if topCut == 8 {
-                Notice(players > 8 || players < 2
+        if cuts.count > 1 {
+            T1Segmented(options: cuts.map { (value: $0, label: TeamRules.cutLabel($0)) },
+                        selection: Binding(get: { cuts.contains(topCut) ? topCut : 0 }, set: { topCut = $0 }))
+            let entrants = teams.map { players / $0 } ?? players
+            let unit = teams == nil ? "players" : "teams"
+            if topCut == 8, cuts.contains(8) {
+                Notice(entrants > 8 || players < 2
                        ? "After Swiss, the top 8 play single elimination: quarterfinals, semifinals, final."
                        : "Top 8 needs 9 or more players: with \(players) the event ends after Swiss.")
+            } else if topCut == 4, cuts.contains(4) {
+                Notice(entrants > 4 || players < 2
+                       ? "After Swiss, the top 4 \(teams == nil ? "" : "teams ")play semifinals (1 v 4, 2 v 3), then the final."
+                       : "Top 4 needs 5 or more \(unit): with \(entrants) the event ends after Swiss.")
             }
         }
     }
@@ -187,7 +199,8 @@ struct BracketRows: View {
 
     var body: some View {
         if !bracket.isEmpty {
-            Section1("Top 8")
+            // A top 4 starts at the semifinals.
+            Section1(bracket.contains { $0.stage == "quarterfinal" } ? "Top 8" : "Top 4")
             ForEach(bracket, id: \.stage) { stage in
                 LabelText(stage.title).frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16).padding(.vertical, 8).background(T1.bg)
@@ -247,6 +260,11 @@ struct EventPageView: View {
         EventRules.button(signedIn: true, signUp: page?.signUp, me: page?.me)
     }
 
+    /// The event's fee, pool, your payment and its teams (entry fees, team sign-up): nil parts draw nothing.
+    private var side: EventSide { EventSide.of(eventId) }
+    /// A team event whose teams sign themselves up: Sign up a team / Join a team stand in for Sign up.
+    private var teamSignUp: Bool { side.teams?.teamSignup == true }
+
     var body: some View {
         T1Screen {
             Bar(title: page?.name ?? "Event",
@@ -276,6 +294,10 @@ struct EventPageView: View {
                  : (page?.waitlist ?? 0) > 0 ? "Your place goes to the next person on the waitlist." : "You can sign up again while there's room.")
         }
         .onAppear { Telemetry.capture("event_page_viewed", ["state": page?.showsResults == true ? "results" : state.rawValue]) }
+        // Back from Stripe's checkout in a browser, or from anywhere: the payment state is read again.
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            Task { await side.refreshMoney() }
+        }
     }
 
     /// After round 1: Standings (the top 8 first once cut) and Matchups (every round, newest first).
@@ -283,6 +305,7 @@ struct EventPageView: View {
     private func results(_ page: EventPage) -> some View {
         if page.me == "waitlisted" { Notice("Sign-ups are closed: you didn't get in this time.") }
         EventAboutRows(eventId: eventId, open: { path.append($0) })
+        PrizePoolRow(eventId: eventId)
         followRow
         T1Segmented(options: [(value: false, label: "Standings"), (value: true, label: "Matchups")], selection: $matchups)
         HairlineList {
@@ -340,10 +363,17 @@ struct EventPageView: View {
                             if (page.decklists ?? "off") != "off" {
                                 LabelText(page.decklists == "required" ? "Decklist required" : "Decklists welcome")
                             }
+                            // The entry fee on the data line: `$25 · APP OR DOOR`.
+                            if let fee = side.money?.fee { LabelText(Money.feeLine(fee), color: T1.text) }
                         }
                         .padding(20).frame(maxWidth: .infinity, alignment: .leading).background(T1.surface)
                         ListRow(title: page.signUpLine)
+                        if state == .in { PayRows(eventId: eventId) { Task { await load(signUp: false) } } }
                         EventAboutRows(eventId: eventId, open: { path.append($0) }, loaded: { about = $0 })
+                        PrizePoolRow(eventId: eventId)
+                        TeamSignUpRows(eventId: eventId, open: state == .signUp || state == .waitlist || state == .signIn) {
+                            Task { await load(signUp: false) }
+                        }
                         followRow
                         // Once per device, before signing up for a public or league event.
                         if about?.resultsPublic == true, !PublicResultsNotice.seen, state == .signUp || state == .waitlist || state == .signIn {
@@ -375,6 +405,10 @@ struct EventPageView: View {
     @ViewBuilder
     private var action: some View {
         switch state {
+        // Teams that sign themselves up: Sign up a team and Join a team are in the list above.
+        case .signUp where teamSignUp: EmptyView()
+        case .signIn where teamSignUp: EmptyView()
+        case .waitlist where teamSignUp: EmptyView()
         case .signUp, .signIn: BigAction(text: "Sign up", busy: busy, accent: true) { signUp() }
         case .waitlist: BigAction(text: "Join the waitlist", busy: busy, accent: true) { signUp() }
         case .in, .organizer:
@@ -424,12 +458,13 @@ struct EventPageView: View {
             if page?.available == true, page?.me != "organizer", page?.me != "player" {
                 follow = try? await Repo.eventFollow(eventId)
             }
+            if page?.available == true { await side.refresh(teams: true) }
             if page?.available == true, page?.showsResults == true {
                 do { standings = try await Repo.standings(eventId); error = nil } catch where !error.isCancellation {
                     if standings == nil { self.error = error.localizedDescription }
                 }
             }
-            if signUp && !signedUpOnce && (state == .signUp || state == .waitlist) { self.signUp() }
+            if signUp && !signedUpOnce && !teamSignUp && (state == .signUp || state == .waitlist) { self.signUp() }
         } catch {
             if !error.isCancellation { page = EventPage(eventId: nil) }
         }

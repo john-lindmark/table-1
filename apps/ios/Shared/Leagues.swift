@@ -66,8 +66,14 @@ struct EventAbout: Codable, Hashable {
     var formatKey: String?
     var league: EventLeague?
     var placed: Bool?
+    /// casual | competitive | nil, and when decklists are due (contract/room-tools-2026-11-13.md § 4).
+    var rel: String?
+    var decklistDueAt: String?
+    /// Team Trios: each seat's format; and whether teams sign themselves up (teams-finals-alerts-2026-11-13.md).
+    var seatFormats: [String]?
+    var teamSignup: Bool?
 
-    var hasAbout: Bool { !(description ?? "").isEmpty || !(venueAddress ?? "").isEmpty }
+    var hasAbout: Bool { !(description ?? "").isEmpty || !(venueAddress ?? "").isEmpty || rel != nil || decklistDueAt != nil }
     /// Results here are public: a public event, or one in a league.
     var resultsPublic: Bool { visibility == "public" || league != nil }
 }

@@ -39,6 +39,7 @@ import site.table1.events.data.DraftableSet
 import site.table1.events.data.DraftPods
 import site.table1.events.data.Repo
 import site.table1.events.data.setEventListing
+import site.table1.events.data.setEventTrios
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BarAction
 import site.table1.events.ui.components.BigAction
@@ -58,7 +59,9 @@ import site.table1.events.util.currentFix
 internal val constructedFormats = listOf(
     "standard" to "Standard", "pioneer" to "Pioneer", "modern" to "Modern", "legacy" to "Legacy",
     "vintage" to "Vintage", "pauper" to "Pauper", "premodern" to "Premodern",
-    "canadian_highlander" to "Canadian Highlander", "other_constructed" to "Other",
+    "canadian_highlander" to "Canadian Highlander",
+    // Team Trios (contract/teams-finals-alerts-2026-11-13.md § 1): teams of three, each seat its own format.
+    "team_trios" to "Team Trios", "other_constructed" to "Other",
 )
 internal val limitedFormats = listOf("draft" to "Draft", "team_draft" to "Team draft", "sealed" to "Sealed", "team_sealed" to "Team sealed", "roto" to "Roto")
 
@@ -76,6 +79,8 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     var cubeName by remember { mutableStateOf("") }
     var cubeUrl by remember { mutableStateOf("") }
     var teamSize by remember { mutableIntStateOf(4) }
+    /** Team Trios: each seat's format, seat A first. */
+    var seats by remember { mutableStateOf(site.table1.events.data.TeamRules.defaultSeats) }
     var rounds by remember { mutableIntStateOf(3) }
     var showClock by remember { mutableStateOf(true) }
     var includeMe by remember { mutableStateOf(true) }
@@ -113,7 +118,9 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     val options = if (limited) limitedFormats else constructedFormats
     val formatLabel = options.firstOrNull { it.first == format }?.second ?: "Event"
     val isOther = format == "other_constructed"
-    val isTeam = format == "team_draft" || format == "team_sealed"
+    val isTrios = !limited && format == "team_trios"
+    val isTeam = format == "team_draft" || format == "team_sealed" || isTrios
+    val cuts = site.table1.events.data.TeamRules.cutChoices(format, if (limited && format == "roto") (pairingPicked ?: "swiss") else "swiss")
     // A roto is always a cube (contract/roto-2026-10-16.md).
     val isRoto = limited && format == "roto"
     val hasPods = limited && format == "draft"
@@ -148,7 +155,7 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
                     setName = if (limited && !cube) setLabel else null,
                     cubeName = if (limited && cube) cubeName.trim() else null,
                     cubeUrl = if (limited && cube) cubeUrl.trim().ifEmpty { null } else null,
-                    teamSize = if (isTeam) teamSize else null,
+                    teamSize = if (isTrios) 3 else if (isTeam) teamSize else null,
                     formatOther = if (isOther) formatOther.trim() else null,
                     includeMe = includeMe,
                     guests = guests,
@@ -156,12 +163,16 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
                     startsAt = schedule.iso,
                     venueName = schedule.venue,
                     capacity = schedule.capacity,
-                    topCut = if (swiss) topCut else 0,
+                    topCut = topCut.takeIf { it in cuts && !(isRoto && pairing == "round_robin") } ?: 0,
                     autoRounds = swiss && autoRounds,
                     decklists = if (limited) "off" else decklists,
                     localDate = schedule.localDate,
                     pairing = if (isRoto) pairing else null,
                 )
+                // Team Trios: the seats' formats, when not the defaults (Modern / Standard / Pioneer).
+                if (isTrios && seats != site.table1.events.data.TeamRules.defaultSeats) {
+                    runCatching { Repo.setEventTrios(created.eventId, seats) }
+                }
                 // Roto: the Library cube with that name, else the Cube Cobra link imported into the Library, becomes the pool.
                 if (isRoto) site.table1.events.roto.RotoApi.linkCube(created.eventId, cubeName, cubeUrl)
                 // Drafts: the pods, when not the defaults (automatic, inside pods). Setup → Seating can change them.
@@ -254,18 +265,19 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
                 }
             }
 
-            if (isTeam) {
+            if (isTeam && !isTrios) {
                 FormBlock("Players per team") {
                     T1Segmented(listOf("3", "4"), if (teamSize == 3) 0 else 1) { teamSize = if (it == 0) 3 else 4 }
                 }
             }
+            if (isTrios) TrioSeatsRow(seats) { seats = it }
 
             if (hasPods) DraftPodsBlock(podsPick, podPairing, playerCount) { n, p -> podsPick = n; podPairing = p }
 
             ScheduleBlock(schedule) { schedule = it }
             if (isRoto) FormBlock("Pairing") { site.table1.events.roto.RotoPairingFields(pairing, playerCount) { pairingPicked = it } }
             if (!(isRoto && pairing == "round_robin")) CutRoundsBlock(autoRounds, { autoRounds = it }, rounds, { rounds = it }, topCut, { topCut = it }, playerCount, swiss,
-                autoDetail = if (hasPods) DraftPods.autoLabel(playerCount, podsPick, podPairing) else null)
+                autoDetail = if (hasPods) DraftPods.autoLabel(playerCount, podsPick, podPairing) else null, cuts = cuts, teams = isTeam)
             RoundTimerRow(showClock) { showClock = it }
             if (!limited) DecklistsBlock(decklists) { decklists = it }
 

@@ -29,11 +29,14 @@ class ScheduledEventsTest {
     private fun JsonObject.int(k: String) = this[k]!!.let { if (it is JsonNull) null else it.jsonPrimitive.int }
 
     @Test fun roundsAndNextStep() {
+        assertEquals(40, list("next").size)
+        assertEquals(9, list("rounds_line").size)
         for (c in list("rounds")) assertEquals("${c["players"]}", c.int("want"), EventRules.swissRounds(c.int("players")!!))
         for (c in list("next")) {
             val stages = (c["stages"] as JsonArray).map { it.jsonPrimitive.content }
+            // `active_teams` comes with team events only: the cut then counts teams.
             assertEquals(c.toString(), c.str("want"), EventRules.nextStep(stages, c["waiting"]!!.jsonPrimitive.boolean,
-                c.int("number_of_rounds")!!, c.int("top_cut")!!, c.int("active_players")!!))
+                c.int("number_of_rounds")!!, c.int("top_cut")!!, c.int("active_players")!!, c["active_teams"]?.jsonPrimitive?.int))
         }
         for (c in list("round_name")) assertEquals(c.str("want"), EventRules.roundName(c.str("stage"), c.int("number")!!, c.int("of")!!))
         for (c in list("auto_label")) assertEquals(c.str("want"), EventRules.autoLabel(c.int("players")!!))

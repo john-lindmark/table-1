@@ -13,7 +13,8 @@ sealed interface WebLink {
     data class JoinQr(val link: JoinLink) : WebLink
     data class JoinCode(val code: String) : WebLink
     /** The event if you organize or play in it, else the public standings page in the browser. */
-    data class Standings(val eventId: String) : WebLink
+    /** [team]: a team's join code (`/s/<event>?team=<CODE>`), filled in on the event page's Join a team. */
+    data class Standings(val eventId: String, val team: String? = null) : WebLink
     /** A share link's token: the shared part for someone signed in, else the web page (no account needed). */
     data class Shared(val token: String) : WebLink
     /** A tab ("events", "collection", "account") and the nav routes above it, parents first. */
@@ -107,7 +108,7 @@ sealed interface WebLink {
                 p.size == 2 && p[0] == "e" -> events("event/${p[1]}")
                 p.size == 3 && p[0] == "e" && p[2] == "add" -> events("event/${p[1]}", "add/${p[1]}")
                 p.size == 2 && p[0] == "p" -> events("event/${p[1]}")
-                p.size == 2 && p[0] == "s" -> Standings(p[1])
+                p.size == 2 && p[0] == "s" -> Standings(p[1], query["team"]?.takeIf { Regex("[A-Za-z0-9]{8}").matches(it) }?.uppercase())
                 p.size == 2 && p[0] == "l" -> Shared(p[1])
                 p.size == 2 && p[0] == "join" -> JoinCode(p[1])
                 p.firstOrNull() == "j" -> JoinLink.parse(raw)?.let { JoinQr(it) } ?: Web

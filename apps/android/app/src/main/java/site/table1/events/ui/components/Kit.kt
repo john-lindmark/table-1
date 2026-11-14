@@ -337,6 +337,8 @@ fun ListRow(
     avatar: (@Composable () -> Unit)? = null,
     /** A long press: a person's menu (Block, Report) on rows that show someone. */
     onLongClick: (() -> Unit)? = null,
+    /** Data that leads the quiet line and can be tapped by itself (a player's payment tag). */
+    detailLead: (@Composable RowScope.() -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
@@ -355,7 +357,10 @@ fun ListRow(
         avatar?.invoke()
         Column(Modifier.weight(1f)) {
             Text(title, color = T1.text, fontFamily = T1.mono, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (detail != null) Label(detail)
+            if (detailLead != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                detailLead()
+                if (detail != null) Label(detail)
+            } else if (detail != null) Label(detail)
         }
         trailing()
     }

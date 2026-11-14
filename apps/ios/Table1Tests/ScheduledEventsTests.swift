@@ -8,7 +8,7 @@ private let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().ap
 
 private struct Cases: Decodable {
     struct Rounds: Decodable { let players, want: Int }
-    struct Next: Decodable { let stages: [String]; let waiting: Bool; let number_of_rounds, top_cut, active_players: Int; let want: String }
+    struct Next: Decodable { let stages: [String]; let waiting: Bool; let number_of_rounds, top_cut, active_players: Int; let active_teams: Int?; let want: String }
     struct RoundName: Decodable { let stage: String; let number, of: Int; let want: String }
     struct SignUp: Decodable { let players: Int; let capacity: Int?; let waitlist: Int; let want: String }
     struct Auto: Decodable { let players: Int; let want: String }
@@ -38,9 +38,11 @@ final class ScheduledEventsTests: XCTestCase {
     func testRoundsAndNextStep() throws {
         let c = try cases()
         for r in c.rounds { XCTAssertEqual(EventRules.swissRounds(r.players), r.want, "\(r.players) players") }
+        XCTAssertEqual(c.next.count, 40, "the regenerated cases: top 4 and team events")
+        XCTAssertEqual(c.rounds_line.count, 9)
         for n in c.next {
             XCTAssertEqual(EventRules.nextStep(stages: n.stages, waiting: n.waiting, numberOfRounds: n.number_of_rounds,
-                                               topCut: n.top_cut, activePlayers: n.active_players).rawValue, n.want, "\(n)")
+                                               topCut: n.top_cut, activePlayers: n.active_players, activeTeams: n.active_teams).rawValue, n.want, "\(n)")
         }
         for r in c.round_name { XCTAssertEqual(EventRules.roundName(stage: r.stage, number: r.number, of: r.of), r.want) }
         for a in c.auto_label { XCTAssertEqual(EventRules.autoLabel(players: a.players), a.want) }

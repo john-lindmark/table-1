@@ -87,6 +87,8 @@ struct LeagueView: View {
                 if let page {
                     seasonCell(page)
                     if let season = page.season {
+                        // The season's prize pool from its cut of each entry (contract/entry-fees-2026-11-13.md § 5).
+                        LeaguePoolRow(seasonId: season.id)
                         if let mine = page.myRow {
                             LeagueStandingRow(row: mine, mine: true).onTapGesture { open(mine, season) }
                         }

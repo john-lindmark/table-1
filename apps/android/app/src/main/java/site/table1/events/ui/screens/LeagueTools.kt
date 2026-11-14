@@ -135,11 +135,16 @@ fun LeagueToolsScreen(league: String, foregrounds: Int, onBack: () -> Unit, go: 
             return@T1Screen
         }
         val id = p.league.id
+        val dues = rememberLeagueMoney(p.season?.id, foregrounds)
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             item(key = "edit") { ArrowRow("Edit league", p.league.region?.uppercase()) { go("league/$id/edit") } }
             item(key = "h-seasons") { Section("Seasons") }
             items(p.seasons, key = { it.id }) { s -> ArrowRow(s.name, Leagues.seasonLine(s.startsOn, s.endsOn, s.state)) { go("league/$id/season/${s.id}") } }
             item(key = "add") { ListRow("Add a season", onClick = { go("league/$id/season/new") }) { site.table1.events.library.IconGlyph(site.table1.events.library.T1Icon.Plus) } }
+            // What hosts owe the league from each paid entry (contract/entry-fees-2026-11-13.md § 5).
+            if (dues != null && (dues.entryCutCents > 0 || !dues.events.isNullOrEmpty())) item(key = "dues") {
+                ArrowRow("Dues", "${site.table1.events.data.Fees.money(dues.poolCents)} OWED · ${site.table1.events.data.Fees.money(dues.receivedCents ?: 0)} RECEIVED") { go("league/$id/dues") }
+            }
             item(key = "h-organizers") { Section("Organizers") }
             item(key = "organizers") { ArrowRow(p.league.organizers.joinToString(", ").ifEmpty { "Organizers" }) { go("league/$id/organizers") } }
         }
@@ -220,6 +225,8 @@ fun LeagueSeasonScreen(league: String, seasonId: String?, onBack: () -> Unit) {
     var bestN by remember { mutableStateOf<Int?>(null) }
     var qualify by remember { mutableStateOf(QualifyRule(winners = true, passDown = true, top = 10)) }
     var closed by remember { mutableStateOf(false) }
+    /** What each paid entry owes the league, as typed (blank = none). */
+    var cut by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var confirmClose by remember { mutableStateOf(false) }
 
@@ -231,6 +238,7 @@ fun LeagueSeasonScreen(league: String, seasonId: String?, onBack: () -> Unit) {
             name = s.name
             runCatching { startsOn = LocalDate.parse(s.startsOn.take(10)); endsOn = LocalDate.parse(s.endsOn.take(10)) }
             rule = s.points; preset = Leagues.preset(s.points); bestN = s.bestN; qualify = s.qualify; closed = s.closed
+            cut = site.table1.events.data.Fees.field(s.entryCutCents)
             loaded = true
         }.onFailure { it.rethrowIfCancelled(); error = userMessage(it) }
     }
@@ -250,6 +258,7 @@ fun LeagueSeasonScreen(league: String, seasonId: String?, onBack: () -> Unit) {
                     put("points", Leagues.pointsJson(rule))
                     if (bestN == null) put("best_n", JsonNull) else put("best_n", bestN)
                     put("qualify", Leagues.qualifyJson(qualify))
+                    put("entry_cut_cents", if (cut.isBlank()) 0 else site.table1.events.data.Fees.cents(cut) ?: 0)
                     if (close) put("closed", true)
                 }, preset = Leagues.preset(rule))
                 page?.let(LeagueCache::forget)
@@ -309,10 +318,12 @@ fun LeagueSeasonScreen(league: String, seasonId: String?, onBack: () -> Unit) {
             Section("Qualify")
             ListRow("Event winners", onClick = { qualify = qualify.copy(winners = !qualify.winners) }) { T1Switch(qualify.winners) { qualify = qualify.copy(winners = it) } }
             FormBlock("Top on points") { T1Stepper("Players", qualify.top, 0..64, Modifier.fillMaxWidth()) { qualify = qualify.copy(top = it) } }
+            CutPerEntryField(cut) { cut = it }
             if (seasonId != null && !closed) ListRow("Close season", onClick = { confirmClose = true }) { Label("Close", color = T1.danger) }
             if (closed) ListRow("Closed")
         }
-        BigAction("Save", busy = busy, enabled = loaded && name.isNotBlank() && endsOn >= startsOn && Leagues.pointsWords(rule).isNotEmpty()) { save() }
+        BigAction("Save", busy = busy, enabled = loaded && name.isNotBlank() && endsOn >= startsOn && Leagues.pointsWords(rule).isNotEmpty() &&
+            (cut.isBlank() || (site.table1.events.data.Fees.cents(cut) ?: -1) in 0..100000)) { save() }
     }
     if (confirmClose) T1AlertDialog("Close $name?", { confirmClose = false },
         confirm = { BarAction("Close season") { confirmClose = false; save(close = true) } },

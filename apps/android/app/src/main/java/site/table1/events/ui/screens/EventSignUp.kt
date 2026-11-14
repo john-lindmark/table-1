@@ -42,6 +42,7 @@ import site.table1.events.data.EventRow
 import site.table1.events.data.EventRules
 import site.table1.events.data.ParticipantRow
 import site.table1.events.data.Repo
+import site.table1.events.data.eventMoney
 import site.table1.events.data.WebLink
 import site.table1.events.library.CatalogStore
 import site.table1.events.library.ListExport
@@ -104,7 +105,7 @@ data class ScheduleDraft(val startsAt: LocalDateTime? = null, val venue: String 
 
 /** − value + for the day and the time (15-minute steps), in the T1 style. */
 @Composable
-private fun StepRow(title: String, value: String, minusEnabled: Boolean = true, onMinus: () -> Unit, onPlus: () -> Unit) {
+internal fun StepRow(title: String, value: String, minusEnabled: Boolean = true, onMinus: () -> Unit, onPlus: () -> Unit) {
     Row(Modifier.fillMaxWidth().background(T1.surface), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp)) {
             Label(title)
@@ -158,6 +159,10 @@ fun CutRoundsBlock(
     topCut: Int, onTopCut: (Int) -> Unit, players: Int, swiss: Boolean,
     /** Drafts with pods: the automatic count follows the pods (DraftPods.autoLabel). */
     autoDetail: String? = null,
+    /** The cuts the format can have (TeamRules.cutChoices): 0 / 4 / 8 for players, 0 / 4 for team sealed and Team Trios. */
+    cuts: List<Int> = if (swiss) listOf(0, 4, 8) else listOf(0),
+    /** What the cut counts: players, or teams for a team event. */
+    teams: Boolean = false,
 ) {
     if (swiss) {
         ListRow("Automatic rounds", if (autoRounds) autoDetail ?: EventRules.autoLabel(players) else "Set by hand", onClick = { onAutoRounds(!autoRounds) }) {
@@ -167,11 +172,16 @@ fun CutRoundsBlock(
     if (!swiss || !autoRounds) {
         FormBlock("Rounds") { T1Stepper(null, rounds, 1..15, Modifier.fillMaxWidth()) { onRounds(it) } }
     }
-    if (swiss) {
-        FormBlock("Top cut") { T1Segmented(listOf("None", "Top 8"), if (topCut == 8) 1 else 0) { onTopCut(if (it == 1) 8 else 0) } }
-        if (topCut == 8) {
-            Notice(if (players > 8 || players < 2) "After Swiss, the top 8 play single elimination: quarterfinals, semifinals, final."
-                   else "Top 8 needs 9 or more players: with $players the event ends after Swiss.")
+    if (cuts.size > 1) {
+        FormBlock("Top cut") {
+            T1Segmented(cuts.map(site.table1.events.data.TeamRules::cutLabel), cuts.indexOf(topCut).coerceAtLeast(0)) { onTopCut(cuts[it]) }
+        }
+        val who = if (teams) "teams" else "players"
+        when (topCut.takeIf { it in cuts }) {
+            8 -> Notice(if (players > 8 || players < 2) "After Swiss, the top 8 play single elimination: quarterfinals, semifinals, final."
+                        else "Top 8 needs 9 or more players: with $players the event ends after Swiss.")
+            4 -> Notice(if (teams || players > 4 || players < 2) "After Swiss, the top 4 $who play single elimination: semifinals, then the final."
+                        else "Top 4 needs 5 or more players: with $players the event ends after Swiss.")
         }
     }
 }
@@ -230,10 +240,10 @@ fun LazyListScope.waitlistItems(b: EventBundle, busy: Boolean, act: (suspend () 
     }
 }
 
-/** Standings → Top 8: each playoff stage paired so far, "(1) Ana 2–0 (8) Bo", the winner in the accent. */
+/** Standings → Top 8 (or Top 4): each playoff stage paired so far, "(1) Ana 2–0 (8) Bo", the winner in the accent. */
 fun LazyListScope.bracketItems(bracket: List<BracketStage>) {
     if (bracket.isEmpty()) return
-    item { Section("Top 8") }
+    item { Section(if (bracket.any { it.stage == "quarterfinal" }) "Top 8" else "Top 4") }
     for (stage in bracket) {
         item(key = "stage-${stage.stage}") { Label(stage.title, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
         items(stage.matches, key = { "bm-${it.matchId}" }) { m ->
@@ -359,7 +369,9 @@ fun DecklistPanel(event: EventRow, participantId: String, playerName: String, by
  * isn't in it can Follow it (contract/event-links-2026-11-09.md, contract/event-follows-2026-11-09.md).
  */
 @Composable
-fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onOpenEvent: (String) -> Unit, go: (String) -> Unit = {}) {
+fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onOpenEvent: (String) -> Unit, go: (String) -> Unit = {},
+                    /** A team's join code from `/s/<event>?team=<CODE>`: Join a team opens with it filled in. */
+                    teamCode: String? = null) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     /** The description, address and league (contract/public-events-leagues-2026-11-13.md § 1). */
@@ -376,10 +388,14 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
     var follow by remember { mutableStateOf<site.table1.events.data.EventFollow?>(null) }
     var followMenu by remember { mutableStateOf(false) }
     val state = EventRules.button(true, page?.signUp, page?.me)
+    // The fee, the pool and your own payment (contract/entry-fees-2026-11-13.md); null while the server has no fees.
+    var money by remember { mutableStateOf<site.table1.events.data.EventMoney?>(null) }
+    var teamReloads by remember { mutableStateOf(0) }
 
     suspend fun reload() {
         val p = runCatching { Repo.eventPage(eventId) }.getOrElse { EventPage() }
         page = p
+        if (p.available) money = runCatching { Repo.eventMoney(eventId) }.getOrNull() ?: money
         if (p.available && p.me != "organizer" && p.me != "player") follow = runCatching { Repo.eventFollow(eventId) }.getOrNull()
         if (p.available && p.showsResults) {
             runCatching { Repo.standingsFull(eventId) }.onSuccess { standings = it; error = null }
@@ -429,7 +445,7 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
         load {
             Telemetry.capture("event_page_viewed", mapOf("state" to if (page?.showsResults == true) "results" else EventRules.button(true, page?.signUp, page?.me)))
             val s = EventRules.button(true, page?.signUp, page?.me)
-            if (signUpNow && !signedUpOnce && (s == "sign_up" || s == "waitlist")) signUp()
+            if (signUpNow && !signedUpOnce && teamCode == null && (s == "sign_up" || s == "waitlist")) signUp()
         }
     }
 
@@ -449,7 +465,8 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
         T1Screen {
             Bar(p.name ?: "Event", p.resultsTitle, onBack = onBack)
             if (p.me == "waitlisted") Notice("Sign-ups are closed: you didn't get in this time.")
-            EventAboutRows(eventId, go)
+            EventAboutRows(eventId, go) { about = it }
+            PrizePoolRow(money, about?.league?.name)
             followRow()
             T1Segmented(listOf("Standings", "Matchups"), if (matchups) 1 else 0) { matchups = it == 1 }
             error?.let { Notice(it, error = true) }
@@ -458,6 +475,7 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
                 if (!matchups) {
                     if (st != null) {
                         StandingsList(st.standings, st.teams, emptyMap(), null, bracket = st.bracket.orEmpty(), seating = st.seating,
+                            teamBracket = st.teamBracket, seatFormats = about?.seatFormats,
                             footer = { item { Notice("Ordered by match points, then opponents' match-win %, then game-win %, then opponents' game-win %. Percentages floored at 33% per the Magic Tournament Rules.") } })
                     } else if (error == null) Notice("Loading…")
                 } else {
@@ -495,11 +513,18 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
                 Column(Modifier.fillMaxWidth().background(T1.surface).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(p.name ?: "Event", color = T1.text, fontFamily = T1.mono, fontSize = 22.sp)
                     if (p.facts.isNotEmpty()) Text(p.facts, color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp)
-                    Label(p.roundsLine)
+                    // The rounds, the fee (`$25 · APP OR DOOR`) and a Team Trios event's seats on the data line.
+                    Label(listOfNotNull(p.roundsLine, money?.fee?.let { site.table1.events.data.Fees.feeLine(it) }).joinToString(" · "))
+                    seatsLine(about?.seatFormats)?.let { Label(it) }
                     if (p.decklists != "off") Label(if (p.decklists == "required") "Decklist required" else "Decklists welcome")
                 }
                 ListRow(p.signUpLine)
                 EventAboutRows(eventId, go) { about = it }
+                PrizePoolRow(money, about?.league?.name)
+                // Your own payment once you're in, and a team event's teams (sign up a team, join one, your team).
+                if (state == "in") PlayerPayBlock(eventId, p.name ?: "the event", money, onChanged = { reload() }) { load() }
+                TeamSignupBlock(eventId, p.name ?: "the event", startCode = teamCode, reloads = teamReloads,
+                    canSignUp = state == "sign_up" || state == "waitlist" || state == "in", onChanged = { reload() }) { load() }
                 followRow()
                 // Once per device, before signing up for a public or league event.
                 if (resultsPublic && (state == "sign_up" || state == "waitlist" || state == "sign_in") && !PublicResultsNotice.seen(context)) {
@@ -517,7 +542,9 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
                 Notice("That event isn't available.", error = true)
             }
         }
-        when (state) {
+        // A team event whose teams sign themselves up is entered with a team (above), never alone.
+        val byTeam = about?.teamSignup == true
+        when (state.takeUnless { byTeam && (it == "sign_up" || it == "sign_in" || it == "waitlist") }) {
             "sign_up", "sign_in" -> BigAction("Sign up", accent = true, busy = busy) { signUp() }
             "waitlist" -> BigAction("Join the waitlist", accent = true, busy = busy) { signUp() }
             "in", "organizer" -> Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {

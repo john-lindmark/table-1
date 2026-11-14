@@ -19,6 +19,8 @@ struct CreateEventView: View {
     @State private var cubeName = ""
     @State private var cubeUrl = ""
     @State private var teamSize = 3
+    /// Team Trios: the format each seat plays.
+    @State private var seats = TeamRules.defaultSeats
     @State private var rounds = 3
     @State private var showClock = true
     @State private var name = ""
@@ -71,8 +73,10 @@ struct CreateEventView: View {
     private var hasPods: Bool { isLimited && format == .draft }
     private var trimmedCubeUrl: String { cubeUrl.trimmingCharacters(in: .whitespaces) }
     private var cubeUrlValid: Bool { EventProduct.cubeUrlValid(cubeUrl) }
-    /// Swiss events of players: automatic rounds and the top cut apply.
+    /// Swiss events of players: automatic rounds apply.
     private var swiss: Bool { !format.isTeam && !(isRoto && pairing == "round_robin") }
+    /// The top cuts this format can have (0 alone = none to pick).
+    private var cuts: [Int] { TeamRules.cutChoices(formatName: format.rawValue, pairing: isRoto ? pairing : "swiss") }
     private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
     }
@@ -121,6 +125,7 @@ struct CreateEventView: View {
                     if format.isTeam {
                         TeamSizeFields(format: format, teamSize: $teamSize)
                     }
+                    if format == .teamTrios { TriosSeatsRow(seats: $seats) }
                     if hasPods {
                         DraftPodFields(pods: $podsPick, pairing: $podPairing, players: playerCount)
                     }
@@ -134,7 +139,8 @@ struct CreateEventView: View {
                     Section1("Rounds")
                     if !(isRoto && pairing == "round_robin") {
                         CutAndRoundsFields(autoRounds: $autoRounds, rounds: $rounds, topCut: $topCut, players: playerCount, swiss: swiss,
-                                           autoDetail: hasPods ? DraftPods.autoLabel(players: playerCount, pods: podsPick, pairing: podPairing) : nil)
+                                           autoDetail: hasPods ? DraftPods.autoLabel(players: playerCount, pods: podsPick, pairing: podPairing) : nil,
+                                           cuts: cuts, teams: format.isTeam ? max(1, teamSize) : nil)
                     }
                     RoundTimerSwitch(isOn: $showClock)
                     if isRoto {
@@ -186,10 +192,10 @@ struct CreateEventView: View {
             setName: limitedSet ? (chosenSet?.name ?? typedSetName) : nil,
             cubeName: cube ? cubeName : nil,
             cubeUrl: cube ? trimmedCubeUrl : nil,
-            teamSize: format.isTeam ? teamSize : nil,
+            teamSize: format.isTeam ? (format == .teamTrios ? 3 : teamSize) : nil,
             formatOther: format == .otherConstructed ? formatOther : nil,
             pairing: isRoto ? pairing : nil,
-            topCut: swiss ? topCut : 0,
+            topCut: cuts.contains(topCut) ? topCut : 0,
             autoRounds: swiss && autoRounds,
             decklists: isLimited ? "off" : decklists
         )
@@ -197,6 +203,7 @@ struct CreateEventView: View {
         let venue = schedule.venue.trimmingCharacters(in: .whitespaces)
         let roto = isRoto
         let pods = hasPods ? (podsPick, podPairing) : nil
+        let trios = format == .teamTrios && seats != TeamRules.defaultSeats ? seats : nil
         let guests = guests
         let includeMe = includeMe
         // Listed events and Private ones are joined by QR, code or link; Nearby is only the older choice.
@@ -213,6 +220,8 @@ struct CreateEventView: View {
                 if let pods, pods.0 != nil || pods.1 != DraftPods.inside {
                     try? await Repo.setEventPods(created.eventId, pods: pods.0, pairing: pods.1)
                 }
+                // Team Trios: the seats' formats, when not the default Modern / Standard / Pioneer.
+                if let trios { try? await Repo.setEventTrios(created.eventId, seats: trios) }
                 // Pin it where the organizer stands; for nearby events this also alerts opted-in players around.
                 // A scheduled event is usually made away from the venue: no pin then (Details can set it there).
                 var here: Fix?
@@ -328,6 +337,8 @@ enum FormatOption: String, CaseIterable, Identifiable {
     case standard, pioneer, modern, legacy, vintage, pauper, premodern
     case canadianHighlander = "canadian_highlander"
     case otherConstructed = "other_constructed"
+    /// Team Trios: three players a team, each seat its own constructed format.
+    case teamTrios = "team_trios"
     case draft
     case teamDraft = "team_draft"
     case sealed
@@ -346,6 +357,7 @@ enum FormatOption: String, CaseIterable, Identifiable {
         case .premodern: "Premodern"
         case .canadianHighlander: "Canadian Highlander"
         case .otherConstructed: "Other"
+        case .teamTrios: "Team Trios"
         case .draft: "Draft"
         case .teamDraft: "Team draft"
         case .sealed: "Sealed"
@@ -353,10 +365,10 @@ enum FormatOption: String, CaseIterable, Identifiable {
         case .roto: "Roto"
         }
     }
-    var isTeam: Bool { self == .teamDraft || self == .teamSealed }
+    var isTeam: Bool { self == .teamDraft || self == .teamSealed || self == .teamTrios }
 
     static let constructed: [FormatOption] = [.standard, .pioneer, .modern, .legacy, .vintage, .pauper, .premodern,
-                                              .canadianHighlander, .otherConstructed]
+                                              .canadianHighlander, .teamTrios, .otherConstructed]
     static let limited: [FormatOption] = [.draft, .teamDraft, .sealed, .teamSealed, .roto]
 }
 
@@ -617,9 +629,12 @@ struct TeamSizeFields: View {
     @Binding var teamSize: Int
 
     var body: some View {
-        Section1("Players per team")
-        T1Segmented(options: [(value: 3, label: "3"), (value: 4, label: "4")], selection: $teamSize)
-        Notice(format == .teamDraft ? "Two teams of \(teamSize) draft at one table." : "Teams of \(teamSize) play team against team.")
+        // Team Trios is always three a team: its Seats row says the rest.
+        if format != .teamTrios {
+            Section1("Players per team")
+            T1Segmented(options: [(value: 3, label: "3"), (value: 4, label: "4")], selection: $teamSize)
+            Notice(format == .teamDraft ? "Two teams of \(teamSize) draft at one table." : "Teams of \(teamSize) play team against team.")
+        }
     }
 }
 

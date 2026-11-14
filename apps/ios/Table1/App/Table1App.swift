@@ -130,6 +130,20 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         MainActor.assumeIsolated { WindowFold.shared.mask }
     }
 
+    /// A connected display (a cable, AirPlay) gets its own scene, so the organizer's Display panel can fill it with the
+    /// event's display page (contract/room-tools-2026-11-13.md § 1). Nothing is put on it until they ask. The app's own
+    /// window scene is left to SwiftUI.
+    func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession,
+                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        let config = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+        // Debug only until it has run on a real display: it isn't known whether ordinary mirroring carries on while
+        // the app holds the external scene with nothing on it (SecondScreen.available).
+        if SecondScreen.available, connectingSceneSession.role == .windowExternalDisplayNonInteractive {
+            config.delegateClass = SecondScreenSceneDelegate.self
+        }
+        return config
+    }
+
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         PushController.shared.didRegister(deviceToken)
     }
@@ -229,6 +243,8 @@ final class SessionModel {
     func openWebLink(_ url: URL) {
         guard let link = WebLink.parse(url) else { return }
         Telemetry.capture("link_opened", ["to": link.kind])
+        // A team's link (`/s/<event>?team=<CODE>`): the event page fills the code in.
+        TeamLinkCode.note(url)
         switch link {
         case .signIn:
             emailLinkError = nil

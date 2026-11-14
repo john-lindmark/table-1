@@ -70,7 +70,7 @@ object ListingLive {
     private var live: Boolean? = null
 
     suspend fun check(): Boolean {
-        if (LeaguesDemo.on || live == true) return true
+        if (LeaguesDemo.on || site.table1.events.data.EventDemo.shown || live == true) return true
         val now = try {
             Repo.findEvents(site.table1.events.data.FindFilters(), limit = 1)
             true
@@ -199,6 +199,8 @@ fun EventListingBlock(event: EventRow, onChanged: suspend () -> Unit, onError: (
             save { Repo.setEventListing(event.id, address = address) }
         }
     }
+    // The rules level and the decklist deadline (contract/room-tools-2026-11-13.md § 4).
+    EventRulesRows(event.id, about, decklistsOn = event.takesDecklists, startsAt = event.startsAt, enabled = !busy, onSaved = { reloads++ }, onError = onError)
     EventLeagueRow(event.id, about?.league, private = event.visibility == "private", onError = onError) { reloads++; scope.launch { onChanged() } }
 }
 
@@ -286,7 +288,8 @@ fun EventAboutRows(eventId: String, go: (String) -> Unit, loaded: (EventAbout) -
         runCatching { Repo.eventAbout(eventId) }.onSuccess { about = it; loaded(it) }.onFailure { it.rethrowIfCancelled() }
     }
     val a = about ?: return
-    if (a.hasAbout) ArrowRow("About", a.venueAddress?.takeIf { it.isNotBlank() }) { open = true }
+    // The second line is data: the rules level and decklist deadline, else the address.
+    if (a.hasAbout) ArrowRow("About", a.rulesLine.ifEmpty { a.venueAddress?.takeIf { it.isNotBlank() } }) { open = true }
     a.league?.let { l ->
         ArrowRow(l.name, listOfNotNull(l.season, Leagues.leagueEventMark(l.final, l.multiplier)).joinToString(" · ").ifEmpty { null }) {
             go(leagueRoute(l.slug.ifEmpty { l.id }, "event"))
@@ -294,6 +297,8 @@ fun EventAboutRows(eventId: String, go: (String) -> Unit, loaded: (EventAbout) -
     }
     if (open) T1Panel("About", { open = false }) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            // The text leads with `COMPETITIVE · DECKLISTS DUE SAT 14 NOV 09:30`.
+            a.rulesLine.takeIf { it.isNotEmpty() }?.let { Section(it) }
             a.description?.takeIf { it.isNotBlank() }?.let { LinkedText(it) }
             a.venueAddress?.takeIf { it.isNotBlank() }?.let { InfoRow("Address", it) }
         }
