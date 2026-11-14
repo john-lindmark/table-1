@@ -328,7 +328,7 @@
       "id": "play-deck-photo",
       "topic": "play",
       "q": "How do I add a photo of my deck?",
-      "a": "On the event screen, Deck photo lets you take or pick a photo with a note, and turn it upright before saving. Once your last match is in (or the event is over), the event screen opens on Add a deck photo, which goes straight to the camera or your photos; if you haven't added one ten minutes later, a notification reminds you once. Only you and the organizer see it until the event is over; then everyone in the event does. Account → Deck photos lists every photo of a deck you've played. Hold a photo to copy it, save it to Photos or share it.",
+      "a": "On the event screen, Deck photo lets you take or pick a photo with a note, and turn it upright before saving. Once your last match is in (or the event is over), the event screen opens on Add a deck photo, which goes straight to the camera or your photos; if you haven't added one ten minutes later, a notification reminds you once. Only you and the organizer see it until the event is over; then everyone in the event does. Account → Deck photos lists every photo of a deck you've played. Hold a photo to copy it, save it to Photos or share it. A photo already up can be turned with Rotate right or Rotate left by you, whoever took it, or the event's organizer.",
       "keywords": [
         "photo",
         "picture",
