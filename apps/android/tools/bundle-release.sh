@@ -11,4 +11,5 @@ CODE=$(( $(date +%s) / 60 ))
 OUT=app/build/outputs/bundle/release/app-release.aab
 echo
 echo "versionCode $CODE → $PWD/$OUT"
-echo "Upload it in Play Console → Test and release → Testing → Internal testing → Create new release."
+echo "Upload to internal testing: node tools/play-upload.mjs $OUT --notes <release notes .md>"
+echo "(or by hand: Play Console → Test and release → Testing → Internal testing → Create new release)."
