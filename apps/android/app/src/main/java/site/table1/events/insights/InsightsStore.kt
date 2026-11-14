@@ -240,7 +240,7 @@ object InsightsStore {
                 }
             }
             val age = Offline.age(at)
-            val n = Offline.notice(true, if (index.isEmpty()) null else age, e.message)
+            val n = Offline.notice(true, if (index.isEmpty()) null else age, site.table1.events.util.ErrorText.of(e))
             if (n != null && !n.second) {
                 stale = n.first
                 Telemetry.capture("offline_shown", mapOf("screen" to "insights", "age_s" to (age ?: 0L)))

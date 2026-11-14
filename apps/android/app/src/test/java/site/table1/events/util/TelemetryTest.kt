@@ -62,6 +62,21 @@ class TelemetryTest {
         assertEquals("POST", event.request?.method)
     }
 
+    /** supabase-kt's exception messages carry the request's headers, the access token among them. */
+    @Test fun reportedExceptionsLoseTheHeaders() {
+        val token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1In0.c2lnbmF0dXJl"
+        val event = SentryEvent()
+        event.exceptions = listOf(io.sentry.protocol.SentryException().apply {
+            value = "That event isn't available\nURL: https://x.supabase.co/rest/v1/rpc/event_bundle\n" +
+                "Headers: [Authorization=[Bearer $token], apikey=[$token]]\nHttp Method: POST"
+        })
+        Telemetry.scrub(event)
+        val v = event.exceptions!!.single().value!!
+        assertFalse("eyJ" in v)
+        assertFalse("Headers" in v)
+        assertEquals("That event isn't available\nURL: https://x.supabase.co/rest/v1/rpc/event_bundle\nHttp Method: POST", v)
+    }
+
     @Test fun eventWithoutRequestIsUnchanged() {
         val event = SentryEvent()
         Telemetry.scrub(event)

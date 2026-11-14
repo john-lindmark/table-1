@@ -28,7 +28,7 @@ object Offline {
     fun notice(failed: Boolean, savedAgo: Long?, error: String?): Pair<String, Boolean>? {
         if (!failed) return null
         if (savedAgo != null) return "Couldn't refresh · last updated ${ago(savedAgo)}" to false
-        val e = error?.trim().orEmpty()
+        val e = error?.trim().orEmpty().let { if (it.isEmpty()) it else ErrorText.safe(it) }
         return (e.ifEmpty { "Couldn't load. Check your connection." }) to true
     }
 

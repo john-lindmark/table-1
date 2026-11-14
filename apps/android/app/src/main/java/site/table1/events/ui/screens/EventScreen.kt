@@ -29,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import site.table1.events.ui.components.BigAction
+import io.github.jan.supabase.auth.auth
+import site.table1.events.util.ErrorText
 import site.table1.events.util.Offline
 import site.table1.events.util.Telemetry
 import site.table1.events.util.rethrowIfCancelled
@@ -85,7 +87,10 @@ import site.table1.events.ui.components.rememberOpenProfile
 fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit, onOpenRedraft: () -> Unit = {},
                 onOpenList: (String) -> Unit = {}, onAddPhoto: () -> Unit = onOpenPhotos,
                 /** The league an event is in, by route (the About and league rows). */
-                go: (String) -> Unit = {}) {
+                go: (String) -> Unit = {},
+                /** The server refused the event to this account, which can still see its page (sign-up, standings,
+                 *  Follow): open that instead (contract/android-errors-2026-11-14.md § Not in the event). */
+                onNotMember: () -> Unit = {}) {
     var bundle by remember { mutableStateOf<EventBundle?>(null) }
     var standings by remember { mutableStateOf(StandingsResponse()) }
     // The event's money and room (contracts entry-fees and room-tools 2026-11-13), read wherever the event is; each
@@ -106,8 +111,20 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
             .onSuccess { bundle = it; error = null; stale = null; savedAt = System.currentTimeMillis() }
             .onFailure { e ->
                 e.rethrowIfCancelled()
+                // Not this account's event (a restored screen, a widget, a push, an old link): its page if it has one.
+                if (EventRules.refusedEvent(e) && site.table1.events.T1App.supabase.auth.currentAccessTokenOrNull() != null) {
+                    val page = runCatching { Repo.eventPage(eventId) }.onFailure { it.rethrowIfCancelled() }.getOrNull()
+                    if (EventRules.opensPage(page)) {
+                        Telemetry.capture("event_opened_as_page", mapOf("from" to "event_screen"))
+                        onNotMember()
+                        return@onFailure
+                    }
+                    bundle = null
+                    error = "That event isn't available."
+                    return@onFailure
+                }
                 val age = Offline.age(savedAt)
-                val n = Offline.notice(true, if (bundle == null) null else age, e.message)
+                val n = Offline.notice(true, if (bundle == null) null else age, ErrorText.of(e))
                 if (n != null && !n.second) {
                     stale = n.first
                     Telemetry.capture("offline_shown", mapOf("screen" to "event", "age_s" to (age ?: 0L)))

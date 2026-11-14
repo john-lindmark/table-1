@@ -12,6 +12,8 @@ import io.github.jan.supabase.storage.Storage
 import io.ktor.client.engine.okhttp.OkHttp
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
+import io.github.jan.supabase.auth.auth
+import site.table1.events.util.FreshToken
 import site.table1.events.util.Push
 import site.table1.events.util.Telemetry
 import site.table1.events.util.TestLab
@@ -48,8 +50,14 @@ class T1App : Application() {
                 // 25 s of silence (and 15 s to connect) instead of "Loading…" for good; a slow upload that keeps
                 // moving gets 120 s in all (contract/offline-2026-10-31.md § 2).
                 httpEngine = OkHttp.create {
+                    // Calls made while the session is loading or its token is spent wait for a fresh token
+                    // (util/FreshToken.kt): they had gone out as anon or expired and flashed an error on opening.
+                    addInterceptor(FreshToken(BuildConfig.SUPABASE_ANON_KEY, FreshToken.source { supabase.auth }))
                     addInterceptor(Telemetry.httpInterceptor())
                     config {
+                        // Every call goes to one host, and OkHttp allows 5 at a time per host by default: calls held
+                        // by FreshToken must never leave the token refresh itself waiting for a slot.
+                        dispatcher(okhttp3.Dispatcher().apply { maxRequests = 64; maxRequestsPerHost = 32 })
                         connectTimeout(15, TimeUnit.SECONDS)
                         readTimeout(25, TimeUnit.SECONDS)
                         writeTimeout(25, TimeUnit.SECONDS)

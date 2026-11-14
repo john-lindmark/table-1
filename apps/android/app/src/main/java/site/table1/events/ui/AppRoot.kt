@@ -672,6 +672,10 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         onOpenList = { nav.navigate("collection/list/$it") },
                         onAddPhoto = { nav.navigate("photos/$id?add=true") },
                         go = { nav.navigate(it) },
+                        // Not in this event: its page takes the screen's place, so Back still goes where it went.
+                        onNotMember = {
+                            nav.navigate("eventpage/$id?signup=false") { popUpTo(e.destination.id) { inclusive = true } }
+                        },
                     )
                 }
                 composable("redraft/{id}") { e ->

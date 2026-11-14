@@ -111,7 +111,7 @@ fun EventsHomeScreen(
             .onFailure { e ->
                 e.rethrowIfCancelled()
                 val age = Offline.age(savedAt)
-                val n = Offline.notice(true, age, e.message)
+                val n = Offline.notice(true, age, site.table1.events.util.ErrorText.of(e))
                 if (n != null && !n.second) {
                     stale = n.first
                     Telemetry.capture("offline_shown", mapOf("screen" to "home", "age_s" to (age ?: 0L)))

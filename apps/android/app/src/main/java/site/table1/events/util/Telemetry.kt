@@ -269,6 +269,7 @@ object Telemetry {
 
     internal fun scrub(crumb: Breadcrumb): Breadcrumb {
         scrubData(crumb.data)
+        crumb.message?.let { crumb.message = ErrorText.redacted(it) }
         return crumb
     }
 
@@ -278,6 +279,9 @@ object Telemetry {
             r.queryString = null
             r.fragment = null
         }
+        // supabase-kt puts the request's headers (the access token among them) in its exception messages.
+        event.exceptions?.forEach { x -> x.value?.let { x.value = ErrorText.redacted(it) } }
+        event.message?.let { m -> m.formatted?.let { m.formatted = ErrorText.redacted(it) }; m.message?.let { m.message = ErrorText.redacted(it) } }
         return event
     }
 

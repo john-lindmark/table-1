@@ -15,6 +15,16 @@ import kotlinx.serialization.Serializable
 object EventRules {
     private val bands = listOf(2 to 1, 4 to 2, 8 to 3, 16 to 4, 32 to 5, 64 to 6, 128 to 7, 226 to 8, 409 to 9)
 
+    /** event_bundle's refusal of an account that doesn't run or play in the event (42501 "That event isn't available";
+     *  PostgREST answers 403 signed in, 401 as anon). contract/android-errors-2026-11-14.md § Not in the event. */
+    fun refusedEvent(e: Throwable): Boolean =
+        e is io.github.jan.supabase.exceptions.RestException && (e.statusCode == 403 || e.statusCode == 401) &&
+            (e.error.contains("isn't available") || e.message?.lineSequence()?.firstOrNull()?.contains("isn't available") == true)
+
+    /** The event page stands in for the event screen: the event is there and this account isn't in it. */
+    fun opensPage(page: EventPage?): Boolean =
+        page != null && page.available && page.access !in setOf("organizer", "player", "guest")
+
     /** Swiss rounds for a number of players (t1_private.swiss_rounds; above 128 the MTR Appendix E bands). */
     fun swissRounds(players: Int): Int = bands.firstOrNull { players <= it.first }?.second ?: 10
 

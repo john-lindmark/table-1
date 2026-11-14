@@ -278,7 +278,8 @@ fun RowScope.Ghost(text: String, enabled: Boolean = true, accent: Boolean = fals
 @Composable
 fun Notice(text: String, error: Boolean = false) {
     Text(
-        text,
+        // A raw supabase-kt message carries the request's headers, the access token among them (util/ErrorText.kt).
+        site.table1.events.util.ErrorText.safe(text),
         modifier = Modifier.fillMaxWidth()
             .background(if (error) T1.danger.copy(alpha = 0.15f) else T1.surface)
             .padding(horizontal = 16.dp, vertical = 12.dp),

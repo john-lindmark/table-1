@@ -135,9 +135,8 @@ private fun phaseTabs(phase: OrganizerPhase, b: EventBundle, hasFee: Boolean = f
     OrganizerPhase.Results -> listOfNotNull("standings" to "Standings", "rounds" to "Rounds", "players" to "Players", if (hasFee) "prizes" to "Prizes" else null)
 }
 
-/** First line of a server error (supabase-kt appends the URL and headers below it). */
-internal fun userMessage(e: Throwable): String =
-    e.message?.lineSequence()?.firstOrNull { it.isNotBlank() }?.trim() ?: "Something went wrong."
+/** First line of a server error (supabase-kt appends the URL and headers below it; util/ErrorText.kt). */
+internal fun userMessage(e: Throwable): String = site.table1.events.util.ErrorText.of(e)
 
 private fun plural(n: Int, one: String, many: String = one + "s") = "$n ${if (n == 1) one else many}"
 
