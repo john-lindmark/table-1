@@ -1311,7 +1311,7 @@
       "id": "discord-commands",
       "topic": "discord",
       "q": "What can the Discord bot do?",
-      "a": "/event create, post, signup, drop and results run events from a channel, with a card that updates itself as people sign up. /deck posts a deck as a picture, /wants and /trades post your lists, /card looks up a card, /meta posts Insights charts and /ranking posts a ranking. /help lists everything.",
+      "a": "/event create, post, signup, drop and results run events from a channel, with a card that updates itself as people sign up; final results are followed by every player's deck photos, in standings order. /deck posts a deck as a picture, /wants and /trades post your lists, /card looks up a card, /meta posts Insights charts and /ranking posts a ranking. /help lists everything.",
       "keywords": [
         "discord",
         "commands",
