@@ -235,7 +235,7 @@
       "id": "play-leagues",
       "topic": "play",
       "q": "How do league points and standings work?",
-      "a": "A league runs seasons. Each event in a season gives points for where you finish (for example 12 for first, 10 for second, 8 for top 4, 6 for top 8, 3 for top 16 and 1 for playing), and some leagues add points per match won. A bigger event can count 1.5, 2 or 3 times. A season can count only your best few results.\n\nStandings go by points, then your best finish, then your second best, and so on. A Q marks players who have qualified for the season's final: usually each event's winner (the next best finisher when the winner has already qualified), then the top players on points.\n\nOpen a league from Find → Leagues, or from the league row on an event's page. The list icon shows the league's own points rule; tap a player's row to see their events. Follow the league to hear about new events, results and when you qualify.",
+      "a": "A league runs seasons. Each event in a season gives points for where you finish (for example 12 for first, 10 for second, 8 for top 4, 6 for top 8, 3 for top 16 and 1 for playing), and some leagues add points per match won. A bigger event can count 1.5, 2 or 3 times. A season can count only your best few results.\n\nStandings go by points, then your best finish, then your second best, and so on. A Q marks players who have qualified for the season's final: usually each event's winner (the next best finisher when the winner has already qualified), then the top players on points.\n\nOpen a league from the Leagues section on the Events tab, Find → Leagues (Running now lists leagues under way), or the league row on an event's page. The list icon shows the league's own points rule; tap a player's row to see their events. Follow the league to hear about new events, results and when you qualify.",
       "keywords": [
         "league",
         "season",
@@ -633,7 +633,7 @@
       "id": "organize-league",
       "topic": "organize",
       "q": "How do I run a league?",
-      "a": "Open Find → Leagues and tap + to make one: a name, region, description and link. From the organizer button on its page, add a season with its dates and a points rule (by place, by match wins, or your own brackets), how many best results count and who qualifies for the final. Add other organizers from your friends.\n\nTo put an event in the season, open the event's Setup → Details → League and pick the league, the season, a multiplier for a bigger event and whether it's the final. On the final, Setup → Players has a Qualified list to invite everyone who qualified. Private events can't be in a league.",
+      "a": "On the Events tab, tap + New → New league (or tap + on Find → Leagues): a name, region, description and link, then the new league's page opens. From the organizer button on its page, add a season with its dates and a points rule (by place, by match wins, or your own brackets), how many best results count and who qualifies for the final. Add other organizers from your friends.\n\nTo put an event in the season, open the event's Setup → Details → League and pick the league, the season, a multiplier for a bigger event and whether it's the final. On the final, Setup → Players has a Qualified list to invite everyone who qualified. Private events can't be in a league.",
       "keywords": [
         "league",
         "season",

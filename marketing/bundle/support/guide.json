@@ -176,7 +176,7 @@
    "id": "overview-2",
    "s": "overview",
    "h": "Events",
-   "x": "A live card for the event you're in, invitations, upcoming events, and past events tucked away, then Find events for public events and your friends' (the search icon opens Find: Events, Leagues and Boards). + New creates an event; Life opens the life tracker for the match you're playing, or a local one."
+   "x": "A live card for the event you're in, invitations, upcoming events, and past events tucked away, then Find events for public events and your friends' (the search icon opens Find: Events, Leagues and Boards), then Leagues: yours, the ones you follow and ones running now. + New creates an event or a league; Life opens the life tracker for the match you're playing, or a local one."
   },
   {
    "id": "overview-3",
@@ -845,7 +845,7 @@
    "id": "find-3",
    "s": "find",
    "t": "Find events",
-   "x": "on the Events tab, under your own events: a row of filters, the first five events, soonest first, and All N. The search icon in the bar opens Find, whose tabs are Events | Leagues | Boards, with a search box over names, venues, addresses and leagues."
+   "x": "on the Events tab, under your own events: a row of filters, the first five events, soonest first, and All N. The search icon in the bar opens Find, whose tabs are Events | Leagues | Boards, with a search box over names, venues, addresses and leagues. Leagues shows Running now under its search box until you type, and the Events tab has its own Leagues section after Find events (see Leagues)."
   },
   {
    "id": "find-4",
@@ -890,122 +890,129 @@
    "id": "leagues-2",
    "s": "leagues",
    "h": "Following a league",
-   "t": "Find → Leagues",
-   "x": "lists Yours and Following, then a search by name or region. A row reads \"2026 · DENVER, COLORADO · NEXT MODERN OPEN\"."
+   "t": "On the Events tab",
+   "x": "a Leagues section after Find events lists the leagues you run, then the ones you follow, then leagues running now (a season that isn't over, or an event still to play), four at most, then All leagues (when there are more) or Find leagues, which open Find → Leagues. It shows on an empty Events tab too, and is hidden when there's no league to show."
   },
   {
    "id": "leagues-3",
+   "s": "leagues",
+   "h": "Following a league",
+   "t": "Find → Leagues",
+   "x": "lists Yours and Following, then a search by name or region, and under it, until you type, Running now: up to 20 running leagues you neither run nor follow, soonest next event first (on the website signed out too). A row reads \"2026 · DENVER, COLORADO · NEXT MODERN OPEN\"."
+  },
+  {
+   "id": "leagues-4",
    "s": "leagues",
    "h": "Following a league",
    "t": "The league's page",
    "x": "opens on the standings: the season (a dropdown when there are several), your own row outlined, then rank, name and points, with a Q beside everyone who has qualified. All N opens the whole table."
   },
   {
-   "id": "leagues-4",
+   "id": "leagues-5",
    "s": "leagues",
    "h": "Following a league",
    "t": "A player's season",
    "x": "tap a row for their events, each with their place and points; a dot marks results that don't count toward their best. Their picture opens their profile."
   },
   {
-   "id": "leagues-5",
+   "id": "leagues-6",
    "s": "leagues",
    "h": "Following a league",
    "t": "Events",
    "x": "upcoming ones soonest first, then finished ones with their winner. A tap opens the event."
   },
   {
-   "id": "leagues-6",
+   "id": "leagues-7",
    "s": "leagues",
    "h": "Following a league",
    "t": "Follow",
    "x": "in the bar; hold it, or open details, to turn the league's notifications on or off. Signing up for a league event, or finishing one, follows the league for you once; unfollowing sticks."
   },
   {
-   "id": "leagues-7",
+   "id": "leagues-8",
    "s": "leagues",
    "h": "Following a league",
    "t": "Details",
    "x": "(the list icon): the description, region, link, organizers, and the points rule and qualification in words (\"1st 12 · 2nd 10 · Top 4 8 · Top 8 6 · Top 16 3 · Others 1\", \"Event winners and the top 10 on points\")."
   },
   {
-   "id": "leagues-8",
+   "id": "leagues-9",
    "s": "leagues",
    "h": "Points and standings",
    "t": "Points",
    "x": "your finish earns the points for its bracket (first, second, top 4, top 8…), or the points for playing when it's outside them; some leagues add points per match won. A bigger event can count 1.5, 2 or 3 times. The season's final earns no points."
   },
   {
-   "id": "leagues-9",
+   "id": "leagues-10",
    "s": "leagues",
    "h": "Points and standings",
    "t": "Best results",
    "x": "a season can count only each player's best few results; the rest still show, marked as not counted."
   },
   {
-   "id": "leagues-10",
+   "id": "leagues-11",
    "s": "leagues",
    "h": "Points and standings",
    "t": "Order",
    "x": "points, then your best finish, then your second best, and so on. Players level on all of it share a rank."
   },
   {
-   "id": "leagues-11",
+   "id": "leagues-12",
    "s": "leagues",
    "h": "Points and standings",
    "t": "Qualifying",
    "x": "a league can send each event's winner to the final (when the winner has already qualified, the next best finisher goes instead, down to 8th; a winning team goes together), then the top players on points among the rest. You're told at once when you qualify by a win, and when the season closes if it's on points."
   },
   {
-   "id": "leagues-12",
+   "id": "leagues-13",
    "s": "leagues",
    "h": "Points and standings",
    "x": "Standings follow the events' final places, so a corrected result changes them too. Guests are on the table by name."
   },
   {
-   "id": "leagues-13",
+   "id": "leagues-14",
    "s": "leagues",
    "h": "Running a league",
-   "t": "+",
-   "x": "on Find → Leagues makes one: name, region, description and a link. You can own three. Names and descriptions are checked like other public text."
+   "t": "Make one",
+   "x": "from + New on the Events tab → New league, or the + on Find → Leagues: name, region, description and a link, then the new league's page opens. You can own three. Names and descriptions are checked like other public text."
   },
   {
-   "id": "leagues-14",
+   "id": "leagues-15",
    "s": "leagues",
    "h": "Running a league",
    "t": "The organizer button",
    "x": "on your league's page: Edit league, Seasons and Organizers."
   },
   {
-   "id": "leagues-15",
+   "id": "leagues-16",
    "s": "leagues",
    "h": "Running a league",
    "t": "Seasons",
    "x": "a name, start and end dates, and a points rule from a preset: Places (12 for first, 10 for second, 8 for top 4, 6 for top 8, 3 for top 16, 1 for playing), Match wins (1 a win and 1 for playing) or Custom brackets. Then how many best results count, whether winners qualify, and how many qualify on points. Close season asks first and tells followers who finished first."
   },
   {
-   "id": "leagues-16",
+   "id": "leagues-17",
    "s": "leagues",
    "h": "Running a league",
    "t": "Organizers",
    "x": "add up to 20 from your friends (on iPhone also from people you've played); the league always keeps an owner."
   },
   {
-   "id": "leagues-17",
+   "id": "leagues-18",
    "s": "leagues",
    "h": "Running a league",
    "t": "Add an event",
    "x": "on an event you run, Setup → Details → League picks the league, the season, the multiplier and whether it's the final. Private and cancelled events can't be in a league. Followers are told once about a new upcoming event."
   },
   {
-   "id": "leagues-18",
+   "id": "leagues-19",
    "s": "leagues",
    "h": "Running a league",
    "t": "The final",
    "x": "see Qualified under Running an event."
   },
   {
-   "id": "leagues-19",
+   "id": "leagues-20",
    "s": "leagues",
    "h": "Running a league",
    "x": "On all three platforms. A league's page (table-1.site/league/…) opens signed out too, with names only."

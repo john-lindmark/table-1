@@ -164,6 +164,11 @@
       "section": "find",
       "from": " Seen on made-up events on all three; no real public event has been listed yet.",
       "to": ""
+    },
+    {
+      "section": "leagues",
+      "from": " With no real league yet, the Events tab's section is hidden for everyone.",
+      "to": ""
     }
   ],
   "forbidden": [
