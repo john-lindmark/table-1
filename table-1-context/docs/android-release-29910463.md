@@ -16,3 +16,5 @@ On top of 29910395 (everything in its notes, plus):
 
 ---
 Build notes: built 2026-11-13 at a60e230 from a clean worktree (`.claude/worktrees/ship-62`) with `tools/bundle-release.sh`; the Android unit suite passed on the branch before the merge (528 of 529, the one a load-sensitive import budget that passed alone) and the deck photo, push route and support tests after it. Uploaded to Play internal testing from the command line with `tools/play-upload.mjs` (Play accepted the signed bundle).
+
+Promoted to closed testing (alpha) 2026-11-13 with `tools/play-upload.mjs --promote 29910463 --track alpha`.

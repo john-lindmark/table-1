@@ -6,6 +6,8 @@
 //       signs in and lists each track's current release (nothing changes)
 //   node apps/android/tools/play-upload.mjs <bundle.aab> [--track internal] [--notes <file>]
 //       [--name <release name>] [--status completed|draft] [--dry-run]
+//   node apps/android/tools/play-upload.mjs --promote <versionCode> --track alpha [--notes <file>]
+//       puts a bundle Play already has (uploaded to another track) on this track; nothing is uploaded
 //
 // --notes: a file with Play's "What's new" blocks (<en-US>…</en-US>, one per language, as in
 //   table-1-context/docs/android-release-*.md), or plain text taken as en-US. 500 characters each.
@@ -40,10 +42,12 @@ function parseArgs(argv) {
     else if (a === '--notes') o.notes = val();
     else if (a === '--name') o.name = val();
     else if (a === '--status') o.status = val();
+    else if (a === '--promote') o.promote = val();
     else if (a.startsWith('--')) die(`Unknown option ${a}`);
     else o.aab = a;
   }
-  if (!o.check && !o.aab) die('Give a bundle (.aab) or --check. See the top of this file.');
+  if (o.promote && !/^\d+$/.test(o.promote)) die('--promote takes a versionCode');
+  if (!o.check && !o.aab && !o.promote) die('Give a bundle (.aab) or --check. See the top of this file.');
   if (!['completed', 'draft'].includes(o.status)) die('--status is completed or draft');
   return o;
 }
@@ -121,7 +125,7 @@ async function main() {
   const keyPath = process.env.T1_PLAY_KEY || join(homedir(), '.playconsole', 'table1-play.json');
   const notes = o.notes ? parseNotes(readFileSync(o.notes, 'utf8')) : null;
   let bundle, sha256;
-  if (!o.check) {
+  if (!o.check && !o.promote) {
     if (!existsSync(o.aab)) die(`No bundle at ${o.aab}`);
     bundle = readFileSync(o.aab);
     sha256 = createHash('sha256').update(bundle).digest('hex');
@@ -150,13 +154,19 @@ async function main() {
       return;
     }
 
-    console.log(`Uploading ${o.aab} (${(bundle.length / 1048576).toFixed(1)} MB)…`);
-    const up = await call('POST', `${UPLOAD}/edits/${edit.id}/bundles?uploadType=media`, {
-      body: bundle, headers: { 'content-type': 'application/octet-stream' },
-    });
-    if (up.sha256 && up.sha256 !== sha256) throw new Error(`Play's sha256 ${up.sha256} doesn't match the file's ${sha256}`);
-    const versionCode = String(up.versionCode);
-    console.log(`Uploaded versionCode ${versionCode}`);
+    let versionCode;
+    if (o.promote) {
+      versionCode = o.promote;
+      console.log(`Promoting versionCode ${versionCode} to ${o.track} (no upload)`);
+    } else {
+      console.log(`Uploading ${o.aab} (${(bundle.length / 1048576).toFixed(1)} MB)…`);
+      const up = await call('POST', `${UPLOAD}/edits/${edit.id}/bundles?uploadType=media`, {
+        body: bundle, headers: { 'content-type': 'application/octet-stream' },
+      });
+      if (up.sha256 && up.sha256 !== sha256) throw new Error(`Play's sha256 ${up.sha256} doesn't match the file's ${sha256}`);
+      versionCode = String(up.versionCode);
+      console.log(`Uploaded versionCode ${versionCode}`);
+    }
 
     const release = (status) => ({
       track: o.track,
