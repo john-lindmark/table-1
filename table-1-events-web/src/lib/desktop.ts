@@ -154,13 +154,13 @@ export function navKeyFor(pathname: string, listKind?: (id: string) => "deck" | 
 
 /**
  * Whether a path gets the desktop sidebar (signed in). Not on the full-screen life tracker, sign-in, the legal
- * pages, the shared standings page or dev demos.
+ * pages, the shared standings page, the TV display or dev demos.
  */
 export function sidebarOn(pathname: string): boolean {
   const p = pathname.replace(/\/+$/, "") || "/";
   if (p === "/life" || p.startsWith("/life/")) return false;
   if (["/sign-in", "/terms", "/privacy", "/delete-account"].includes(p)) return false;
-  if (/^\/(auth|s|dev)\//.test(p)) return false;
+  if (/^\/(auth|s|d|dev)\//.test(p)) return false;
   return true;
 }
 

@@ -125,6 +125,25 @@ def league_line(c):
     return " · ".join(p for p in parts if p)
 
 
+def achievement_text(i):
+    """A profile achievement as a small tile: a code, a label under it, and whether it takes the accent."""
+    if i["kind"] == "board":
+        if i.get("rank"):
+            return {"code": f"#{i['rank']}", "label": i["label"], "accent": i["rank"] == 1}
+        return {"code": str(i["rating"]), "label": i["label"], "accent": False}
+    label = f"{i['league_name']} · {i['season_name']}"
+    rank, over = i.get("rank"), i["state"] == "over"
+    if i.get("champion"):
+        return {"code": "CHAMPION", "label": label, "accent": True}
+    if over and rank and rank <= 8:
+        return {"code": "1ST" if rank == 1 else "TOP 4" if rank <= 4 else "TOP 8", "label": label, "accent": rank == 1}
+    if i.get("qualified"):
+        return {"code": "QUALIFIED", "label": label, "accent": False}
+    if rank and rank <= 8:
+        return {"code": f"#{rank}", "label": label, "accent": False}
+    return {"code": "1 WIN" if i.get("wins") == 1 else f"{i.get('wins', 0)} WINS", "label": label, "accent": False}
+
+
 def display_auto(status, round_number, elapsed, results_in, matches, t):
     """Which view the TV shows on auto. elapsed: seconds into the round; t: seconds the display has been open."""
     if status in ("completed", "archived"):
@@ -178,6 +197,23 @@ autos = [("setup", 0, 0, 0, 0, 10), ("in_progress", 1, 60, 0, 8, 10), ("in_progr
          ("in_progress", 3, 2000, 8, 8, 30), ("completed", 3, 9000, 8, 8, 30), ("seated", 0, 0, 0, 0, 500)]
 pages = [(8, 1080, 72, 240), (64, 1080, 72, 240), (65, 1080, 72, 240), (0, 1080, 72, 240), (200, 720, 60, 180), (5, 200, 72, 240)]
 
+lg = {"kind": "league", "league_name": "The Mountain Magic Series", "season_name": "2026"}
+achievements = [
+    {**lg, "state": "over", "rank": 5, "wins": 1, "qualified": "winner", "champion": True},
+    {**lg, "state": "over", "rank": 1, "wins": 3, "qualified": "winner", "champion": False},
+    {**lg, "state": "over", "rank": 3, "wins": 0, "qualified": "points", "champion": False},
+    {**lg, "state": "over", "rank": 8, "wins": 0, "qualified": None, "champion": False},
+    {**lg, "state": "over", "rank": 14, "wins": 1, "qualified": "winner", "champion": False},
+    {**lg, "state": "active", "rank": 1, "wins": 2, "qualified": "winner", "champion": False},
+    {**lg, "state": "active", "rank": 4, "wins": 0, "qualified": None, "champion": False},
+    {**lg, "state": "active", "rank": 20, "wins": 1, "qualified": None, "champion": False},
+    {**lg, "state": "over", "rank": 30, "wins": 2, "qualified": None, "champion": False},
+    {**lg, "state": "over", "rank": None, "wins": 0, "qualified": None, "champion": True},
+    {"kind": "board", "board": "modern", "label": "Modern", "rank": 14, "rating": 1612, "players": 124},
+    {"kind": "board", "board": "legacy", "label": "Legacy", "rank": 1, "rating": 1790, "players": 40},
+    {"kind": "board", "board": "cube", "label": "Cube", "rank": None, "rating": 1540, "players": 9},
+]
+
 cases = {
     "format_keys": [{"key": k, "label": v} for k, v in FORMAT_KEYS],
     "presets": PRESETS,
@@ -192,6 +228,7 @@ cases = {
     "when_window": [{"pick": p, "now": n, "zone": z, "want": when_window(p, n, z)} for p, n, z in windows],
     "filter_labels": [{"filters": f, "want": filter_labels(f)} for f in filters],
     "board_line": [{"board": b, "want": board_line(b)} for b in boards],
+    "achievement_text": [{"item": i, "want": achievement_text(i)} for i in achievements],
     "league_line": [{"card": c, "want": league_line(c)} for c in cards],
     "display_auto": [{"status": s, "round": r, "elapsed": e, "results_in": i, "matches": m, "t": t, "want": display_auto(s, r, e, i, m, t)}
                      for s, r, e, i, m, t in autos],

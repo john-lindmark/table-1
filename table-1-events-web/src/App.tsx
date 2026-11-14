@@ -118,6 +118,8 @@ const InsightsPair = lazyNamed(insights, "InsightsPair");
 const InsightsLimitedCard = lazyNamed(insights, "InsightsLimitedCard");
 const InsightsReview = lazyNamed(insights, "InsightsReview");
 const CollectionImportScreen = lazyNamed(() => import("./screens/CollectionImport"), "CollectionImportScreen");
+// The TV display (/d/<event>) is its own chunk: only the screen that shows it downloads it.
+const DisplayScreen = lazyNamed(() => import("./screens/Display"), "DisplayScreen");
 const EventsDemo = lazyNamed(() => import("./screens/EventsDemo"), "EventsDemo");
 // Dev only: production builds drop the demo and its fixture.
 const RotoDemo = import.meta.env.DEV ? lazyNamed(() => import("./screens/RotoDemo"), "RotoDemo") : () => null;
@@ -628,6 +630,13 @@ function StandingsRoute() {
   return <PublicStandings eventId={eventId} onBack={back} />;
 }
 
+/** The TV display (contract/public-events-leagues-2026-11-13.md § 5): full screen, no chrome, never claimed by the apps. */
+function DisplayRoute() {
+  const { eventId } = useParams();
+  if (!eventId) return <Navigate to="/" replace />;
+  return <DisplayScreen key={eventId} eventId={eventId} />;
+}
+
 /** Sends one redacted page view per navigation, including the first. */
 function RouteAnalytics() {
   const location = useLocation();
@@ -679,6 +688,7 @@ export default function App() {
         <Route path="/p/:eventId" element={<PlayerRoute />} />
         <Route path="/p/:eventId/photos" element={<DeckPhotosRoute organizer={false} />} />
         <Route path="/s/:eventId" element={<StandingsRoute />} />
+        <Route path="/d/:eventId" element={<DisplayRoute />} />
         <Route path="/l/:token" element={<SharedLinkRoute />} />
         {import.meta.env.DEV && <Route path="/dev/events" element={<EventsDemo />} />}
         {import.meta.env.DEV && <Route path="/dev/roto" element={<RotoDemo />} />}

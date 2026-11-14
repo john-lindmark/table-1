@@ -2,7 +2,7 @@
 
 Phase 1 of `table-1-context/docs/plan-public-events-leagues-2026-11-13.md` (John's picks there). Server: migration
 `20261113120000_public_events_leagues.sql`, events-engine `placements` action, notify-worker `league.ts`. Tests
-`supabase/tests/73_public_events_leagues_test.sql`, `perf_50_leagues.sql`, `events-engine/placements.test.ts`,
+`supabase/tests/73_public_events_leagues_test.sql`, `73b_profile_achievements_test.sql`, `perf_50_leagues.sql`, `events-engine/placements.test.ts`,
 `notify-worker/league.test.ts`. Shared client cases `testdata/leagues/cases.json` (reference `make_cases.py`).
 
 Not in this phase: captains and team sign-up, Team Trios, top 4, championship invites, alerts for new public events by
@@ -249,3 +249,42 @@ Everywhere until there is one. Refreshes every 30 minutes.
 - A row: `SUN 29 · 10:00` `Modern Open` `MODERN · MEH GAMES`; `IN` in accent when you're signed up. Empty: "No
   events" with the formats picked.
 - A tap opens the event (`table1://event/<id>` → the event page); the header opens Find.
+
+## 7. Achievements on profiles
+
+John, 2026-11-13: "users should have have little achievements on their profile if they've had top placements in a
+league and their current placement in a general leaderboard. viewability toggleable by the user of course".
+Migration `20261113130000_profile_achievements.sql`, tests `73b_profile_achievements_test.sql`. Nothing is stored:
+achievements are read from the league standings and the format boards each time.
+
+- **League**, one per season (newest 12; archived and demo leagues never): when you are the season's champion (won
+  its final), finished in the top 8 of a season that is over or stand there in one that's running, qualified for the
+  final, or won an event.
+- **Board**, one per format board that lists you: your rank now. On your own profile also boards that don't list
+  you yet, as the rating alone.
+
+Who sees them is one more profile part, **Achievements**: Private | Friends | Anyone, default Anyone, capped by who
+sees the profile like every other part; never across a block, never for a restricted account. Hiding yourself from
+the boards (§ 4) takes board achievements off your profile for everyone else.
+
+- `profile_achievements(p_user_id) → {items}`; on your own profile also `{visibility, listed}`. Signed in only.
+  P0002 for an unknown, deleted or someone else's demo account; a viewer the part doesn't reach reads `{items: []}`.
+  League item: `{kind: "league", league_id, league_slug, league_name, season_id, season_name, state, rank, players,
+  points, wins, qualified, champion}` (`rank` null when they only played the final). Board item: `{kind: "board",
+  board, label, rank, rating, matches, to_go, players}`. Champions first, then leagues newest first, then boards by
+  rank.
+- `achievements_visibility_set(p_visibility) → {visibility}` (`private` | `friends` | `public`; 22023 otherwise).
+  Audited `sharing.achievements`.
+
+### Clients
+
+- A profile (yours and others') shows **Achievements** right under the name and record: a row of small tiles that
+  scrolls sideways, each a code over a label (`achievement_text` in `testdata/leagues/cases.json`): `CHAMPION`,
+  `1ST`, `TOP 4`, `TOP 8`, `QUALIFIED`, `#4` (a running season), `2 WINS` over `The Mountain Magic Series · 2026`;
+  `#14` over `Modern` (the bare rating when unlisted, own profile only). The accent outline marks a champion and a
+  first place, nothing else. A league tile opens the league on that season; a board tile opens the board. No tiles,
+  no section. Not drawn in View as when the part wouldn't reach that viewer.
+- **Account → Sharing → Achievements**: Private | Friends | Anyone, after Rankings, with the same widening confirm
+  as the other parts ("your league finishes and board ranks"). Loaded from your own `profile_achievements`.
+- A failed or missing call (the server part isn't live yet) draws no section.
+- Telemetry: `achievement_opened {kind}`, `achievements_visibility {visibility}`.

@@ -5,6 +5,7 @@ import { toBundle } from "../lib/api";
 import { TAB_LABELS, type OrganizerTab } from "../lib/organizer";
 import type { EventTeam, Participant, SeatingPod } from "../lib/types";
 import { DeckPhotoDemo } from "./DeckPhotos";
+import { DisplayPanel } from "../components/DisplayPanel";
 import { NewEvent } from "./Home";
 import { LiveView } from "./organizer/LiveView";
 import { SetupView } from "./organizer/SetupView";
@@ -209,6 +210,8 @@ export function EventsDemo() {
   // feature-spot shots, tools/spots/shoot.mjs).
   const params = new URLSearchParams(window.location.search);
   const bare = params.has("bare");
+  // `&display`: the organizer's Display panel (the TV display's address) over the screen; it opens /d/demo?demo.
+  const [display, setDisplay] = useState(params.has("display"));
   const [screen, setScreen] = useState<DemoScreen>(() => {
     const asked = params.get("screen") as DemoScreen | null;
     return asked && DEMO_SCREENS.includes(asked) ? asked : "seating";
@@ -248,6 +251,7 @@ export function EventsDemo() {
           <SeatingPanel pods={[pod(10, "pod10")]} formatName="draft" participants={people} teams={null} seatEnds />
         </div>
       )}
+      {display && <DisplayPanel eventId="demo?demo" onClose={() => setDisplay(false)} />}
     </Screen>
   );
 }

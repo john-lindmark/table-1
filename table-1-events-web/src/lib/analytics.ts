@@ -9,6 +9,7 @@
  *   /join/ABCD            →  /join/:id
  *   /j/ABCD?s=…           →  /j/:id        (the QR secret is dropped from the query too)
  *   /e/8f3c…/add          →  /e/:id/add
+ *   /d/8f3c…              →  /d/:id        (the TV display)
  *   /life/8f3c…           →  /life/:id
  *   /library/list/8f3c…   →  /library/list/:id   (also card/…, trade/…, match/…; /library/trade/new stays)
  *   /u/8f3c…/deck/2b1d…   →  /u/:id/deck/:id     (profiles and their binders, decks and cubes)
@@ -16,7 +17,7 @@
  */
 export function redactPath(pathname: string): string {
   return pathname
-    .replace(/^\/(join|j|e|p|s|l|life|u)\/[^/]+/, "/$1/:id")
+    .replace(/^\/(join|j|e|p|s|d|l|life|u)\/[^/]+/, "/$1/:id")
     .replace(/^(\/u\/:id\/(?:binder|deck|cube))\/[^/]+/, "$1/:id")
     .replace(/^\/library\/(card|list|trade|match)\/(?!new(?:\/|$))[^/]+/, "/library/$1/:id")
     .replace(/^(\/library\/following\/(?:binder|deck|cube))\/[^/]+/, "$1/:id");
@@ -90,6 +91,7 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
   const support = p.match(/^\/support\/(topic|faq|guide)\/[^/]+$/);
   if (support) return `support_${support[1]}`;
   if (/^\/(e|p|s|join|j)\/[^/]+$/.test(p)) return "event";
+  if (/^\/d\/[^/]+$/.test(p)) return "display";
   if (/^\/e\/[^/]+\/add$/.test(p)) return "add_players";
   if (/^\/(e|p)\/[^/]+\/photos$/.test(p)) return "deck_photos";
   if (/^\/life(\/[^/]+)?$/.test(p)) return "life_tracker";

@@ -14,6 +14,7 @@ describe("redactPath", () => {
     expect(redactPath(`/e/${UUID}/add`)).toBe("/e/:id/add");
     expect(redactPath(`/p/${UUID}`)).toBe("/p/:id");
     expect(redactPath(`/s/${UUID}`)).toBe("/s/:id");
+    expect(redactPath(`/d/${UUID}`)).toBe("/d/:id");
   });
 
   it("strips match, card, list and trade ids", () => {
@@ -116,6 +117,7 @@ describe("screenName", () => {
     expect(screenName(`/e/${UUID}`)).toBe("event");
     expect(screenName(`/p/${UUID}`)).toBe("event");
     expect(screenName("/j/ABCD")).toBe("event");
+    expect(screenName(`/d/${UUID}`)).toBe("display");
     expect(screenName(`/e/${UUID}/add`)).toBe("add_players");
     expect(screenName(`/e/${UUID}/photos`)).toBe("deck_photos");
     expect(screenName(`/p/${UUID}/photos`)).toBe("deck_photos");

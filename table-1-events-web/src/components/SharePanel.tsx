@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getJoinQr } from "../lib/api";
+import { useQr } from "../lib/useQr";
 
 /**
  * The organizer's join QR. It encodes /j/<code>?s=<secret>: phones with the app open it
@@ -25,19 +26,9 @@ export function SharePanel({ shortCode, eventId }: { shortCode: string; eventId:
     }
   }
   const standingsUrl = `${window.location.origin}/s/${eventId}`;
-  const [qr, setQr] = useState<string | null>(null);
+  // The QR encoder loads only when an organizer opens sharing.
+  const qr = useQr(joinUrl);
   const [copied, setCopied] = useState<string | null>(null);
-
-  useEffect(() => {
-    // The QR encoder loads only when an organizer opens sharing.
-    import("qrcode").then(({ default: QRCode }) => QRCode.toDataURL(joinUrl, {
-      margin: 1,
-      width: 480,
-      color: { dark: "#171725", light: "#ffffff" },
-    }))
-      .then(setQr)
-      .catch(() => setQr(null));
-  }, [joinUrl]);
 
   async function copy(label: string, url: string) {
     try {

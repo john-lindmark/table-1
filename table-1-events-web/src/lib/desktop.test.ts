@@ -56,7 +56,7 @@ describe("sidebarOn", () => {
   });
 
   it("stays off full-screen and public pages", () => {
-    for (const p of ["/life", `/life/${ID}`, "/sign-in", "/terms", "/privacy", "/delete-account", "/auth/confirm", `/s/${ID}`, "/dev/events"]) {
+    for (const p of ["/life", `/life/${ID}`, "/sign-in", "/terms", "/privacy", "/delete-account", "/auth/confirm", `/s/${ID}`, `/d/${ID}`, "/dev/events"]) {
       expect(sidebarOn(p)).toBe(false);
     }
   });

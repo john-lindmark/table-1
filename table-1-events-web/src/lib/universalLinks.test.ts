@@ -59,6 +59,17 @@ describe("universal links", () => {
     if (!u.hash && !u.search) expect(androidClaims(u)).toBe(false);
   });
 
+  // The TV display (contract/public-events-leagues-2026-11-13.md § 5) is a web page only: a phone that scans the
+  // organizer's Display QR, or a TV's browser, must not be handed to the app.
+  it("the TV display stays in the browser and is a page here", () => {
+    for (const host of ["table-1.site", "www.table-1.site"]) {
+      const u = new URL(`https://${host}/d/8f3c1d2e-0000-4000-8000-000000000000`);
+      expect(appleClaims(u)).toBe(false);
+      expect(androidClaims(u)).toBe(false);
+      expect(routes.some((r) => matchPath(r, u.pathname))).toBe(true);
+    }
+  });
+
   it("claims both hosts", () => {
     expect(androidClaims(new URL("https://www.table-1.site/library"))).toBe(true);
     expect(read("../../../apps/ios/project.yml")).toContain('"applinks:table-1.site", "applinks:www.table-1.site"');

@@ -23,6 +23,7 @@ import { SetupView } from "./organizer/SetupView";
 import { LiveView } from "./organizer/LiveView";
 import { ResultsView } from "./organizer/ResultsView";
 import { ResultPanel } from "./organizer/ResultPanel";
+import { DisplayPanel } from "../components/DisplayPanel";
 import type { PhaseViewProps } from "./organizer/shared";
 import { RotoDraftGate, RotoDraftOverlay } from "./roto/lazy";
 
@@ -57,6 +58,8 @@ export function Organizer({
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [openMatchId, setOpenMatchId] = useState<string | null>(null);
   const [draftOpen, setDraftOpen] = useState(false);
+  // The TV display's address (contract/public-events-leagues-2026-11-13.md § 5).
+  const [displayOpen, setDisplayOpen] = useState(false);
   // Re-pair (contract/repair-round-2026-11-09.md): where it was asked from, while the confirm is up.
   const [repairing, setRepairing] = useState<"notice" | "menu" | null>(null);
   const [repairBusy, setRepairBusy] = useState(false);
@@ -174,6 +177,11 @@ export function Organizer({
                 Redraft
               </button>
             )}
+            {event.status !== "cancelled" && (
+              <button type="button" onClick={() => setDisplayOpen(true)} className="t1-label hover:text-t1-text">
+                Display
+              </button>
+            )}
             {onOpenPhotos && event.status !== "cancelled" && (
               <button type="button" onClick={onOpenPhotos} className="t1-label hover:text-t1-text">
                 Deck photos
@@ -281,6 +289,7 @@ export function Organizer({
           />
         </Dialog>
       )}
+      {displayOpen && <DisplayPanel eventId={eventId} onClose={() => setDisplayOpen(false)} />}
       {draftOpen && (
         <RotoDraftOverlay eventId={eventId} title={event.name} isOrganizer pairing={event.pairing} onClose={() => setDraftOpen(false)} />
       )}

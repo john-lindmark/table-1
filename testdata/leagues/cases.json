@@ -878,6 +878,223 @@
    "want": "9 LISTED · YOU 1580 · NOT LISTED"
   }
  ],
+ "achievement_text": [
+  {
+   "item": {
+    "kind": "league",
+    "league_name": "The Mountain Magic Series",
+    "season_name": "2026",
+    "state": "over",
+    "rank": 5,
+    "wins": 1,
+    "qualified": "winner",
+    "champion": true
+   },
+   "want": {
+    "code": "CHAMPION",
+    "label": "The Mountain Magic Series · 2026",
+    "accent": true
+   }
+  },
+  {
+   "item": {
+    "kind": "league",
+    "league_name": "The Mountain Magic Series",
+    "season_name": "2026",
+    "state": "over",
+    "rank": 1,
+    "wins": 3,
+    "qualified": "winner",
+    "champion": false
+   },
+   "want": {
+    "code": "1ST",
+    "label": "The Mountain Magic Series · 2026",
+    "accent": true
+   }
+  },
+  {
+   "item": {
+    "kind": "league",
+    "league_name": "The Mountain Magic Series",
+    "season_name": "2026",
+    "state": "over",
+    "rank": 3,
+    "wins": 0,
+    "qualified": "points",
+    "champion": false
+   },
+   "want": {
+    "code": "TOP 4",
+    "label": "The Mountain Magic Series · 2026",
+    "accent": false
+   }
+  },
+  {
+   "item": {
+    "kind": "league",
+    "league_name": "The Mountain Magic Series",
+    "season_name": "2026",
+    "state": "over",
+    "rank": 8,
+    "wins": 0,
+    "qualified": null,
+    "champion": false
+   },
+   "want": {
+    "code": "TOP 8",
+    "label": "The Mountain Magic Series · 2026",
+    "accent": false
+   }
+  },
+  {
+   "item": {
+    "kind": "league",
+    "league_name": "The Mountain Magic Series",
+    "season_name": "2026",
+    "state": "over",
+    "rank": 14,
+    "wins": 1,
+    "qualified": "winner",
+    "champion": false
+   },
+   "want": {
+    "code": "QUALIFIED",
+    "label": "The Mountain Magic Series · 2026",
+    "accent": false
+   }
+  },
+  {
+   "item": {
+    "kind": "league",
+    "league_name": "The Mountain Magic Series",
+    "season_name": "2026",
+    "state": "active",
+    "rank": 1,
+    "wins": 2,
+    "qualified": "winner",
+    "champion": false
+   },
+   "want": {
+    "code": "QUALIFIED",
+    "label": "The Mountain Magic Series · 2026",
+    "accent": false
+   }
+  },
+  {
+   "item": {
+    "kind": "league",
+    "league_name": "The Mountain Magic Series",
+    "season_name": "2026",
+    "state": "active",
+    "rank": 4,
+    "wins": 0,
+    "qualified": null,
+    "champion": false
+   },
+   "want": {
+    "code": "#4",
+    "label": "The Mountain Magic Series · 2026",
+    "accent": false
+   }
+  },
+  {
+   "item": {
+    "kind": "league",
+    "league_name": "The Mountain Magic Series",
+    "season_name": "2026",
+    "state": "active",
+    "rank": 20,
+    "wins": 1,
+    "qualified": null,
+    "champion": false
+   },
+   "want": {
+    "code": "1 WIN",
+    "label": "The Mountain Magic Series · 2026",
+    "accent": false
+   }
+  },
+  {
+   "item": {
+    "kind": "league",
+    "league_name": "The Mountain Magic Series",
+    "season_name": "2026",
+    "state": "over",
+    "rank": 30,
+    "wins": 2,
+    "qualified": null,
+    "champion": false
+   },
+   "want": {
+    "code": "2 WINS",
+    "label": "The Mountain Magic Series · 2026",
+    "accent": false
+   }
+  },
+  {
+   "item": {
+    "kind": "league",
+    "league_name": "The Mountain Magic Series",
+    "season_name": "2026",
+    "state": "over",
+    "rank": null,
+    "wins": 0,
+    "qualified": null,
+    "champion": true
+   },
+   "want": {
+    "code": "CHAMPION",
+    "label": "The Mountain Magic Series · 2026",
+    "accent": true
+   }
+  },
+  {
+   "item": {
+    "kind": "board",
+    "board": "modern",
+    "label": "Modern",
+    "rank": 14,
+    "rating": 1612,
+    "players": 124
+   },
+   "want": {
+    "code": "#14",
+    "label": "Modern",
+    "accent": false
+   }
+  },
+  {
+   "item": {
+    "kind": "board",
+    "board": "legacy",
+    "label": "Legacy",
+    "rank": 1,
+    "rating": 1790,
+    "players": 40
+   },
+   "want": {
+    "code": "#1",
+    "label": "Legacy",
+    "accent": true
+   }
+  },
+  {
+   "item": {
+    "kind": "board",
+    "board": "cube",
+    "label": "Cube",
+    "rank": null,
+    "rating": 1540,
+    "players": 9
+   },
+   "want": {
+    "code": "1540",
+    "label": "Cube",
+    "accent": false
+   }
+  }
+ ],
  "league_line": [
   {
    "card": {

@@ -378,15 +378,50 @@ export async function fetchPublicStandings(eventId: string): Promise<PublicStand
   return (await fetchPublicStandingsAndBracket(eventId)).rows;
 }
 
-export async function fetchPublicStandingsAndBracket(eventId: string): Promise<{
-  rows: PublicStandingRow[]; bracket: PublicBracketStage[]; pods: { id: string; name: string | null }[];
-}> {
+/** A team's row in the engine's standings (team events; teams.ts `computeTeamStandings`), members best first. */
+export interface PublicTeamRow {
+  rank: number;
+  teamId: string;
+  name: string;
+  points: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  /** Individual match wins across the team's members. */
+  matchWins: number;
+  members: { participantId: string; displayName: string; matchWins: number; matchLosses: number; matchDraws: number; status: string }[];
+}
+
+export interface PublicStandings {
+  rows: PublicStandingRow[];
+  bracket: PublicBracketStage[];
+  pods: { id: string; name: string | null }[];
+  /** Team events only; null otherwise. */
+  teams: PublicTeamRow[] | null;
+}
+
+export async function fetchPublicStandingsAndBracket(eventId: string): Promise<PublicStandings> {
   const token = getLocalParticipant(eventId)?.token ?? null;
-  const data = await invokeEngine<{ standings?: any[]; bracket?: PublicBracketStage[]; seating?: SeatingPod[] | null }>(
-    { action: "standings", event_id: eventId, token });
+  return toPublicStandings(await invokeEngine<Parameters<typeof toPublicStandings>[0]>({ action: "standings", event_id: eventId, token }));
+}
+
+/** events-engine's `standings` answer, as the public pages read it. */
+export function toPublicStandings(data: {
+  standings?: any[]; bracket?: PublicBracketStage[]; seating?: SeatingPod[] | null; teams?: any[] | null;
+}): PublicStandings {
   // Drafts: the pods in order (engine seating), for Matchups by pod.
   const pods = (data.seating ?? []).map((p) => ({ id: p.pod_id, name: p.name ?? null }));
-  return { bracket: data.bracket ?? [], pods, rows: (data.standings ?? []).map((s) => ({
+  const teams = data.teams
+    ? data.teams.map((t): PublicTeamRow => ({
+        rank: t.rank, teamId: t.team_id, name: t.name, points: t.points ?? 0, wins: t.wins ?? 0, losses: t.losses ?? 0,
+        draws: t.draws ?? 0, matchWins: t.match_wins ?? 0,
+        members: (t.members ?? []).map((m: any) => ({
+          participantId: m.participant_id, displayName: m.display_name, matchWins: m.match_wins ?? 0,
+          matchLosses: m.match_losses ?? 0, matchDraws: m.match_draws ?? 0, status: m.status ?? "active",
+        })),
+      }))
+    : null;
+  return { bracket: data.bracket ?? [], pods, teams, rows: (data.standings ?? []).map((s) => ({
     podId: s.pod_id ?? null,
     rank: s.rank,
     participantId: s.participant_id,
