@@ -192,7 +192,8 @@ function PodsDemo() {
   }];
   return (
     <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
-      <SetupView eventId="demo-pods" bundle={bundle} tab="seating" isTeam={false} isDraft teams={null} teamNames={new Map()}
+      {/* `&tab=details` shows Setup → Details (with `&demo`: description, address, league and who can find it). */}
+      <SetupView eventId="demo-pods" bundle={bundle} tab={new URLSearchParams(window.location.search).get("tab") === "details" ? "details" : "seating"} isTeam={false} isDraft teams={null} teamNames={new Map()}
                  refetch={async () => {}} setActionError={setError} onAddPlayers={() => {}} onTeamsSaved={() => {}}
                  onOpenMatch={() => {}} />
       {error && <div className="bg-t1-surface px-4 py-2 text-[11px] text-t1-muted">Demo: {error}</div>}

@@ -78,7 +78,9 @@ import site.table1.events.ui.components.rememberOpenProfile
 /** One event: the organizer's control room, or a player's match card — chosen by role. */
 @Composable
 fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit, onOpenRedraft: () -> Unit = {},
-                onOpenList: (String) -> Unit = {}, onAddPhoto: () -> Unit = onOpenPhotos) {
+                onOpenList: (String) -> Unit = {}, onAddPhoto: () -> Unit = onOpenPhotos,
+                /** The league an event is in, by route (the About and league rows). */
+                go: (String) -> Unit = {}) {
     var bundle by remember { mutableStateOf<EventBundle?>(null) }
     var standings by remember { mutableStateOf(StandingsResponse()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -141,7 +143,7 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
             onSeated = { standings = standings.copy(seating = it) }, onOpenPhotos = onOpenPhotos, onOpenRedraft = onOpenRedraft, onOpenList = onOpenList,
         )
     }
-    val player: @Composable () -> Unit = { PlayerView(b, standings, onBack, onOpenTracker, onOpenPhotos, onOpenRedraft, onOpenList, onAddPhoto, onChanged = { refresh() }) }
+    val player: @Composable () -> Unit = { PlayerView(b, standings, onBack, onOpenTracker, onOpenPhotos, onOpenRedraft, onOpenList, onAddPhoto, go, onChanged = { refresh() }) }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             // Roto: the Draft phase sits between Setup and round 1 (contract/roto-2026-10-16.md); Pair round 1 from there.
@@ -423,6 +425,7 @@ private fun PlayerView(
     b: EventBundle, standings: StandingsResponse, onBack: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit, onOpenRedraft: () -> Unit,
     onOpenList: (String) -> Unit,
     onAddPhoto: () -> Unit,
+    go: (String) -> Unit,
     onChanged: suspend () -> Unit,
 ) {
     var rotoOverlay by remember { mutableStateOf(false) }
@@ -556,6 +559,8 @@ private fun PlayerView(
             }
             notice?.let { item { Notice(it) } }
             error?.let { item { Notice(it, error = true) } }
+            // The event's description and address, and its league (contract/public-events-leagues-2026-11-13.md § 1).
+            item(key = "about") { Column(verticalArrangement = Arrangement.spacedBy(1.dp)) { EventAboutRows(b.event.id, go) } }
             if (me != null && b.event.takesDecklists) item {
                 val list = b.decklist(me.id)
                 ListRow("Decklist", list?.let { EventRules.countsText(it.mainCount, it.sideCount) + (it.listName?.let { n -> " · from $n" } ?: "") }

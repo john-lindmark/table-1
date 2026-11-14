@@ -72,6 +72,8 @@ fun EventsHomeScreen(
     onCreate: () -> Unit,
     /** An event you're on the waitlist for: its sign-up page. */
     onOpenPage: (String) -> Unit = {},
+    /** Find (events, leagues, boards) and anything it opens, by route. */
+    go: (String) -> Unit = {},
     onNearby: () -> Unit,
     onJoinLink: (JoinLink) -> Unit,
     onLife: () -> Unit,
@@ -89,14 +91,16 @@ fun EventsHomeScreen(
     var stale by remember { mutableStateOf<String?>(null) }
     /** Events you follow but aren't in (contract/event-follows-2026-11-09.md). */
     var followed by remember { mutableStateOf<List<site.table1.events.data.FollowedEvent>>(emptyList()) }
+    /** Events you can find (contract/public-events-leagues-2026-11-13.md § 1): read again on each return. */
+    val found = rememberFound(refresh = foregrounds)
 
     suspend fun load() {
+        // Debug `--es t1Leagues home`: no account, so no events of your own; Find events draws its stand-in rows.
+        if (site.table1.events.data.LeaguesDemo.on) { data = HomeData(); return }
         // What this account last saw shows at once; the server's answer replaces it.
         if (data == null) Repo.savedHome()?.let { (h, at) -> data = h; savedAt = at }
         runCatching { Repo.eventsHome() }
             .onSuccess { data = it; error = null; stale = null; savedAt = System.currentTimeMillis(); site.table1.events.widgets.Widgets.saveNext(context, it) }
-        // A server without event follows (or a failed read) just shows no Following section.
-        runCatching { Repo.eventsFollowed() }.onSuccess { followed = it }.onFailure { it.rethrowIfCancelled() }
             .onFailure { e ->
                 e.rethrowIfCancelled()
                 val age = Offline.age(savedAt)
@@ -106,6 +110,8 @@ fun EventsHomeScreen(
                     Telemetry.capture("offline_shown", mapOf("screen" to "home", "age_s" to (age ?: 0L)))
                 } else if (data == null) { error = n?.first; data = HomeData() }
             }
+        // A server without event follows (or a failed read) just shows no Following section.
+        runCatching { Repo.eventsFollowed() }.onSuccess { followed = it }.onFailure { it.rethrowIfCancelled() }
         snaps = Repo.liveSnapshots().associateBy { it.eventId }
         TrackerSettings.refresh()
     }
@@ -139,7 +145,11 @@ fun EventsHomeScreen(
     // Keep this account's area cell fresh for nearby alerts while the app is open (opt-in on the Nearby screen). Never
     // asks: the permissions step after sign-in does, or Nearby / Create when they need a fix.
     LaunchedEffect(Unit) {
-        if (PermissionsStep.locationAllowed(context)) currentFix(context)?.let { runCatching { Repo.updatePresence(it.lat, it.lng) } }
+        if (PermissionsStep.locationAllowed(context)) currentFix(context)?.let {
+            // The Upcoming events widget's Near me reads this rough place (0.1°), kept on the device only.
+            site.table1.events.widgets.UpcomingPlace.save(context, it.lat, it.lng)
+            runCatching { Repo.updatePresence(it.lat, it.lng) }
+        }
     }
 
     fun scan() = scope.launch {
@@ -167,6 +177,7 @@ fun EventsHomeScreen(
         Bar("Events", if (live.isEmpty()) null else "${live.size} live") {
             BarAction("Life", onLife)
             BarAction("+ New", onCreate)
+            BarIcon(site.table1.events.library.T1Icon.Search, "Find events, leagues and boards") { go("find") }
         }
         error?.let { Notice(it, error = true) }
         stale?.let { Notice(it) }
@@ -175,7 +186,9 @@ fun EventsHomeScreen(
             Notice("Loading…")
             return@T1Screen
         }
-        if (d.events.isEmpty() && invites.isEmpty() && d.waitlist.isEmpty() && followed.isEmpty()) {
+        // Nothing of your own, and nothing to find either (or no listings on this server yet): the ways in are the screen.
+        val nothingFound = found.missing || (found.events.isNullOrEmpty() && FindStore.filters.isDefault && found.error == null)
+        if (d.events.isEmpty() && invites.isEmpty() && d.waitlist.isEmpty() && followed.isEmpty() && nothingFound) {
             if (error != null) BigAction("Try again") { scope.launch { load() } }
             EmptyEvents(onScan = { scan() }, onNearby = onNearby, onCreate = onCreate, onJoined = onOpenEvent)
             return@T1Screen
@@ -227,6 +240,7 @@ fun EventsHomeScreen(
                 item { Section("Following") }
                 items(followed, key = { "f-${it.eventId}" }) { f -> ListRow(f.name, f.detail, onClick = { onOpenPage(f.eventId) }) }
             }
+            findEventsSection(found, onOpen = { go(foundEventRoute(it)) }, onAll = { go("find") }, onCreate = onCreate)
             if (past.isNotEmpty()) {
                 item {
                     Row(Modifier.fillMaxWidth().clickable { showPast = !showPast }) {

@@ -15,6 +15,12 @@ describe("navKeyFor", () => {
     expect(navKeyFor("/join/ABCD")).toBe("events");
   });
 
+  it("keeps Find marked on a league and a board", () => {
+    expect(navKeyFor("/find")).toBe("find");
+    expect(navKeyFor("/league/the-mountain-magic-series")).toBe("find");
+    expect(navKeyFor("/boards/modern")).toBe("find");
+  });
+
   it("keeps the parent marked on pushed Library screens", () => {
     expect(navKeyFor(`/library/card/${ID}`)).toBe("cards");
     expect(navKeyFor(`/library/binder/${ID}`)).toBe("binders");

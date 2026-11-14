@@ -50,7 +50,7 @@ sealed interface WebLink {
         /**
          * The app's own table1:// addresses (contract/widgets-2026-10-22.md), opened by widgets, the live notification,
          * Quick Settings tiles and launcher shortcuts, as on iOS: `table1://event/<id>`, `table1://events`,
-         * `table1://collection`, `table1://tracker`, `table1://scan`. A `src` query names the surface for telemetry.
+         * `table1://collection`, `table1://tracker`, `table1://scan`, `table1://find`. A `src` query names the surface for telemetry.
          * null for anything else (auth-callback is supabase-kt's).
          */
         fun parseApp(raw: String?): Pair<WebLink, String?>? {
@@ -61,6 +61,8 @@ sealed interface WebLink {
             val link = when (u.host) {
                 "event" -> p.singleOrNull()?.let { Screens("events", listOf("event/$it")) }
                 "events", "home" -> Screens("events", emptyList())
+                // The Upcoming events widget's header: Find, on its Events tab.
+                "find" -> Screens("events", listOf("find"))
                 "collection" -> Screens("collection", emptyList())
                 "tracker" -> Tracker(null)
                 "scan" -> Screens("collection", listOf("collection/add/scan"))

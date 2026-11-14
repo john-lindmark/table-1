@@ -255,7 +255,9 @@ fun FriendAddScreen(onBack: () -> Unit) {
 fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: String, id: String?) -> Unit, onMatch: () -> Unit, onSharing: () -> Unit,
                       onFriends: () -> Unit = {}, onRanking: (String) -> Unit = {},
                       /** Your own profile: a popular cube's Rankings ("set:PLSV"). */
-                      onPopular: (String) -> Unit = {}) {
+                      onPopular: (String) -> Unit = {},
+                      /** An achievement's league or board, by route. */
+                      go: (String) -> Unit = {}) {
     val scope = rememberCoroutineScope()
     /** Your own profile ends its Rankings with the popular cubes (contract/cube-rankings-2026-10-21.md § Popular cubes). */
     var popular by remember { mutableStateOf<List<PopularCube>>(emptyList()) }
@@ -324,6 +326,8 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
                     }
                 }
             }
+            // Achievements, right under the name and record (contract/public-events-leagues-2026-11-13.md § 7).
+            if (p.visible) item(key = "achievements") { site.table1.events.ui.screens.ProfileAchievementsRow(userId, if (own?.relation == "self") viewAs else 2, sharing, go) }
             when (p.relation) {
                 "none" -> item { Box { BigAction("Add friend", busy = busy, accent = true) { run { FriendsStore.request(userId, "profile") } } } }
                 "requested" -> item { ListRow("Requested", "They haven't answered yet") { RowAction("Cancel") { run { FriendsStore.remove(userId) } } } }
@@ -747,6 +751,10 @@ fun SharingScreen(onBack: () -> Unit) {
             part(SharePart.Profile)
             part(SharePart.Record)
             part(SharePart.Rankings)
+            // Achievements on your profile (§ 7): who sees your league finishes and board ranks.
+            item(key = "achievements") { site.table1.events.ui.screens.AchievementsControl(s, confirm) }
+            // Format boards (contract/public-events-leagues-2026-11-13.md § 4): Listed | Hidden.
+            item(key = "leaderboards") { site.table1.events.ui.screens.LeaderboardsControl() }
             item { Section("Friends") }
             part(SharePart.Friends)
             part(SharePart.Listed)

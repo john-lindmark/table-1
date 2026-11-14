@@ -69,7 +69,7 @@ export function peekPosition(x: number, y: number, w: number, h: number) {
 }
 
 export type NavKey =
-  | "events" | "life"
+  | "events" | "find" | "life"
   | "library" | "cards" | "add" | "binders" | "wants" | "decks" | "cubes" | "rankings" | "trades" | "matches" | "import"
   | "constructed" | "limited"
   | "account" | "friends" | "sharing";
@@ -86,6 +86,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Play",
     items: [
       { key: "events", title: "Events", to: "/" },
+      { key: "find", title: "Find", to: "/find" },
       { key: "life", title: "Life tracker", to: "/life" },
     ],
   },
@@ -130,6 +131,8 @@ export function navKeyFor(pathname: string, listKind?: (id: string) => "deck" | 
   const p = pathname.replace(/\/+$/, "") || "/";
   if (p === "/" || /^\/(e|p|join|j)\/./.test(p)) return "events";
   if (p === "/life" || p.startsWith("/life/")) return "life";
+  // Finding events, a league and a format board (contract/public-events-leagues-2026-11-13.md).
+  if (p === "/find" || p.startsWith("/league/") || p.startsWith("/boards/")) return "find";
   if (p === "/me") return "account";
   if (p === "/sharing") return "sharing";
   if (p === "/friends" || p.startsWith("/friends/") || p.startsWith("/u/")) return "friends";

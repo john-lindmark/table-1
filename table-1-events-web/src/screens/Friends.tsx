@@ -35,6 +35,7 @@ import { cardMatches } from "../lib/librarySearch";
 import { COLLAPSED, addPart, isOpen, lineGroups, sortParts, toggleOne, type Disclosure, type LineGroup, type Part } from "../lib/printings";
 import type { Finish } from "../lib/collection";
 import { useFollows } from "../lib/follows";
+import { AchievementTiles, AchievementsSharing, achievementsReach, useAchievements } from "../components/Achievements";
 
 /* Friends, profiles, sharing and trade matches (contract/friends-sharing-2026-10-18.md). Same screens as the iOS app:
    Account → Friends / Sharing / Your profile; Library → Trade matches. */
@@ -309,6 +310,13 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends,
   useEffect(() => { if (own?.relation === "self") void loadSharing(); }, [own?.relation]);
   useEffect(() => { if (own?.relation === "self") fetchPopularCubes().then(setPopular).catch(() => setPopular([])); }, [own?.relation]);
   const d = own && own.relation === "self" && as < 2 && sharing ? viewAs(own, sharing, as) : own;
+  // Achievements (contract/public-events-leagues-2026-11-13.md § 7): read for every profile, drawn only when there are
+  // some. View as: none when the part wouldn't reach that viewer, and never a board that doesn't list you.
+  const achievements = useAchievements(own ? userId : null);
+  const tiles = !achievements || !d?.visible ? null
+    : own?.relation !== "self" || as === 2 ? achievements.items
+    : sharing && achievementsReach(sharing, achievements.visibility ?? "public", as)
+      ? achievements.items.filter((i) => i.kind !== "board" || (i.rank != null && achievements.listed !== false)) : null;
   const load = async (first = false) => {
     try {
       const p = await fetchProfile(userId);
@@ -364,6 +372,7 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends,
             )}
           </div>
         )}
+        <AchievementTiles items={tiles} />
         {d?.relation === "none" && <BigAction label="Add friend" tone="accent" busy={busy} onClick={() => run(() => requestFriend(userId, "profile"))} />}
         {d?.relation === "requested" && <Row title="Requested" detail="They haven't answered yet" action={{ label: "Cancel", onClick: () => run(() => removeFriend(userId)) }} />}
         {d?.relation === "incoming" && (
@@ -791,6 +800,7 @@ function SharingControl({ title, detail, own, parent, settings, isProfile, onCha
 
 function SharingBody({ onBack }: { onBack: () => void }) {
   const st = useFriends();
+  const { userId } = useLibrarySession();
   const [open, setOpen] = useState<string | null>(null);
   const { ask, dialog } = useWideningConfirm();
   useEffect(() => void loadSharing(), []);
@@ -836,6 +846,7 @@ function SharingBody({ onBack }: { onBack: () => void }) {
             {part("profile")}
             {part("record")}
             {part("rankings")}
+            <AchievementsSharing userId={userId} settings={s} ask={ask} />
             <Section title="Friends" />
             {part("friends")}
             {part("listed")}

@@ -187,8 +187,11 @@ object Repo {
     suspend fun eventsFollowed(): List<FollowedEvent> = supabase.postgrest.rpc("events_followed").decodeAs()
 
     /** The event page: what anyone with the link sees (works signed out). */
-    suspend fun eventPage(eventId: String): EventPage =
-        supabase.postgrest.rpc("event_public", buildJsonObject { put("p_event_id", eventId) }).decodeAs()
+    suspend fun eventPage(eventId: String): EventPage {
+        // Debug `--es t1Leagues …`: a found event's stand-in page.
+        LeaguesDemo.data?.page(eventId)?.let { return it }
+        return supabase.postgrest.rpc("event_public", buildJsonObject { put("p_event_id", eventId) }).decodeAs()
+    }
 
     /** Sign up from the link: a seat, or the waitlist when it's full. */
     suspend fun signUp(eventId: String, signedInNow: Boolean): SignUpResult {

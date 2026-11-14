@@ -14,6 +14,8 @@
     <string name="widget_grid_description">How the most played archetypes do against each other.</string>
     <string name="widget_archetype_name">Archetype matchups</string>
     <string name="widget_archetype_description">One archetype\'s win rate and how it does against the rest of the meta.</string>
+    <string name="widget_upcoming_name">Upcoming events</string>
+    <string name="widget_upcoming_description">The next events you can find, by format, near you or everywhere.</string>
     <string name="widget_limited_name">Limited cards</string>
     <string name="widget_limited_description">A set\'s best cards in draft from 17Lands data. Pick the set, rarities and colors.</string>
     <string name="control_tracker">Life tracker</string>

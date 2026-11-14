@@ -303,6 +303,12 @@ select pg_temp.eq('season push: followers with notifications on and organizers (
 select pg_temp.eq('points qualifiers hear it', pg_temp.pushes('league.qualified'), 'b1,c1,d1,f1');
 select pg_temp.throws('a closed season takes no more events', format('select public.league_event_set(%L, %L)', :E3, :'SE'), '22023');
 select pg_temp.eq('an organizer is added', public.league_member_set(:'L', :H, 'organizer')->>'role', 'organizer');
+select pg_temp.eq('organizers see who runs it, with accounts',
+  (select string_agg((m->>'name') || ' ' || (m->>'role') || ' ' || right(m->>'user_id', 2), ', ') from jsonb_array_elements(public.league_view(:'L')->'members') m),
+  'Ana Org owner a1, Hoi Host organizer 04');
+select pg_temp.as_user(:S);
+select pg_temp.eq('nobody else does', ((public.league_view(:'L')->>'members') is null)::text, 'true');
+select pg_temp.as_user(:A);
 select pg_temp.throws('a league keeps an owner', format('select public.league_member_set(%L, %L, null)', :'L', :A), '22023');
 select pg_temp.throws('blocked people can''t be added', format('select public.league_member_set(%L, %L, %L)', :'L', :K, 'organizer'), '42501');
 select pg_temp.eq('archive', public.league_update(:'L', '{"archived": true}')->>'archived', 'true');

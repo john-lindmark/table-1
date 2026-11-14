@@ -945,6 +945,8 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
     var pickingSet by remember { mutableStateOf(false) }
     var setsUnavailable by remember { mutableStateOf(false) }
     var pendingVisibility by remember { mutableStateOf<String?>(null) }
+    var listing by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(Unit) { listing = ListingLive.check() }
     val saveLock = remember { Mutex() }
     var schedule by remember(event.id) { mutableStateOf(ScheduleDraft.from(event)) }
     var scheduleEdits by remember { mutableIntStateOf(0) }
@@ -1135,7 +1137,14 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
         RoundTimerRow(d.showClock) { editNow(draft.copy(showClock = it)) }
         if (!d.limited) DecklistsBlock(d.decklists) { editNow(draft.copy(decklists = it)) }
 
-        FormBlock("Who can find it") {
+        // Who can find it, the description, the address and the league (contract/public-events-leagues-2026-11-13.md
+        // § 1, § 3). Until the server lists events, the three choices Details had.
+        if (listing == true) {
+            EventListingBlock(event, onChanged, onError = { error = it }, pending = pendingVisibility != null) { v ->
+                pendingVisibility = v
+                permission.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
+            }
+        } else if (listing == false) FormBlock("Who can find it") {
             T1Segmented(
                 visibilities.map { it.second },
                 visibilities.indexOfFirst { it.first == visibility }.coerceAtLeast(0),

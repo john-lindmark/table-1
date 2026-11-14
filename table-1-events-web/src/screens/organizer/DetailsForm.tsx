@@ -1,15 +1,33 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { errorMessage, setEventSchedule, updateEventDetails } from "../../lib/api";
 import { CutAndRoundsFields, DecklistsFields, ScheduleFields, type ScheduleValue } from "../../components/EventExtras";
 import { isTeamFormat, typeOfFormat } from "../../lib/formats";
 import { detailsFromEvent, detailsToInput, type DetailsState } from "../../lib/organizer";
 import type { Table1Event } from "../../lib/types";
-import { Field, Notice, Segmented } from "../../components/kit";
+import { Field, Notice, Row, Segmented } from "../../components/kit";
+import { TextPanel } from "../../components/EventListing";
+import { BAR_ICON, Icon } from "../../components/icons";
+import {
+  ADDRESS_MAX, DESCRIPTION_MAX, FIND_PICKS, counter, eventAboutOrMissing, eventListingSet, leaguesError, type EventAbout, type FindPick,
+} from "../../lib/leagues";
 import { FormatPicker, ProductPicker, RoundTimerSwitch, cubeUrlProblem } from "../../components/EventFormFields";
 import { RotoPairingFields, RotoSetupFields } from "../roto/lazy";
 import { VISIBILITY_LABEL, currentFix, setEventLocation, type EventVisibility } from "../../lib/nearby";
 
 const DEBOUNCE_MS = 600;
+
+/** An event's League row: only organizers who run a league download it. */
+const EventLeagueRow = lazy(() => import("../LeagueTools").then((m) => ({ default: m.EventLeagueRow })));
+
+/** A place for distances, only where the browser already allows location: listing an event never asks for it. */
+async function allowedFix() {
+  try {
+    const p = await navigator.permissions?.query({ name: "geolocation" as PermissionName });
+    return p?.state === "granted" ? await currentFix(6000) : null;
+  } catch {
+    return null;
+  }
+}
 
 /** What we refuse to send at all (the server's 22023 messages cover the rest). */
 function localProblem(s: DetailsState): string | null {
@@ -28,8 +46,47 @@ export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Even
   const [schedule, setSchedule] = useState<ScheduleValue>(() => ({
     startsAt: event.startsAt, venueName: event.venueName ?? "", capacity: event.capacity,
   }));
-  /** Who can find it moves at once; it pins the event where the organizer stands (the browser asks for location). */
-  const [pendingVis, setPendingVis] = useState<EventVisibility | null>(null);
+  /** Description, address and league (contract/public-events-leagues-2026-11-13.md § 1): "missing" while the server
+   *  has no listings, and then only the older choices show, as before. */
+  const [about, setAbout] = useState<EventAbout | "missing" | null>(null);
+  const [address, setAddress] = useState("");
+  const [describing, setDescribing] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void eventAboutOrMissing(event.id).then((a) => {
+      if (!live) return;
+      setAbout(a);
+      if (a && a !== "missing") setAddress(a.venue_address ?? "");
+    });
+    return () => { live = false; };
+  }, [event.id]);
+  const listing = about !== "missing";
+  const info = about && about !== "missing" ? about : null;
+  /** Who can find it moves at once. Public, Friends and Private go through event_listing_set; the two older choices
+   *  pin the event where the organizer stands (the browser asks for location), after unlisting a listed event. */
+  const [pendingVis, setPendingVis] = useState<Table1Event["visibility"] | null>(null);
+  const listed = event.visibility === "public" || event.visibility === "friends";
+  async function changeFind(pick: FindPick) {
+    const to = pick === "private" ? "link_only" : pick;
+    if (to === event.visibility) return;
+    setPendingVis(to);
+    try {
+      const fix = pick === "private" ? null : await allowedFix();
+      const r = await eventListingSet(event.id, { find: pick, ...(fix ? { lat: fix.lat, lng: fix.lng } : {}) });
+      // An older Nearby or invitation-only event stays as it is on Private: move it to the link by hand.
+      if (pick === "private" && r.visibility !== "link_only") {
+        const here = await currentFix();
+        if (!here) throw new Error("Turn on location to change who can find it.");
+        await setEventLocation(event.id, here, event.venueName, "link_only");
+      }
+      setError(null);
+      onSaved();
+    } catch (e) {
+      setError(leaguesError(e));
+    } finally {
+      setPendingVis(null);
+    }
+  }
   async function changeVisibility(v: EventVisibility) {
     if (v === event.visibility) return;
     setPendingVis(v);
@@ -37,6 +94,7 @@ export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Even
       const fix = await currentFix();
       if (!fix) setError("Turn on location to change who can find it.");
       else {
+        if (listed) await eventListingSet(event.id, { find: "private" });
         await setEventLocation(event.id, fix, event.venueName, v);
         setError(null);
         onSaved();
@@ -47,6 +105,16 @@ export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Even
       setPendingVis(null);
     }
   }
+  async function saveListing(patch: { description?: string | null; venue_address?: string | null }) {
+    const r = await eventListingSet(event.id, patch);
+    setAbout((a) => (a && a !== "missing" ? { ...a, description: r.description, venue_address: r.venue_address } : a));
+    setError(null);
+  }
+  const saveAddress = () => {
+    const next = address.trim();
+    if (!info || next === (info.venue_address ?? "")) return;
+    saveListing({ venue_address: next || null }).catch((e) => setError(leaguesError(e)));
+  };
   const scheduleTimer = useRef<number | null>(null);
   const scheduleLatest = useRef(schedule);
 
@@ -135,6 +203,7 @@ export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Even
   const limited = typeOfFormat(state.formatName) === "limited";
   const team = isTeamFormat(state.formatName);
   const roto = state.formatName === "roto";
+  const shownVis = pendingVis ?? event.visibility;
 
   return (
     <>
@@ -189,13 +258,36 @@ export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Even
       )}
       <RoundTimerSwitch on={state.showClock} onChange={(on) => commit({ showClock: on }, true)} />
       {!limited && <DecklistsFields mode={state.decklists} onMode={(m) => commit({ decklists: m }, true)} />}
-      <Segmented label="Who can find it" value={pendingVis ?? event.visibility} onChange={(v) => void changeVisibility(v)}
-                 options={(["nearby", "link_only", "private"] as const).map((v) => ({ value: v, label: VISIBILITY_LABEL[v] }))} />
+      {info && (
+        <>
+          <Row title="Description" detail={info.description?.trim() ? counter(info.description.length, DESCRIPTION_MAX) : "None"}
+               value={<Icon d={BAR_ICON.arrow} />} onClick={() => setDescribing(true)} />
+          <Field label="Address" value={address} onChange={(v) => setAddress(v.slice(0, ADDRESS_MAX))} onBlur={saveAddress} placeholder="Street and city" />
+          <Suspense fallback={null}><EventLeagueRow eventId={event.id} onChanged={onSaved} /></Suspense>
+        </>
+      )}
+      {listing ? (
+        <>
+          <Segmented label="Who can find it" value={shownVis === "public" || shownVis === "friends" ? shownVis : shownVis === "link_only" ? "private" : null}
+                     onChange={(v) => void changeFind(v)} options={FIND_PICKS} />
+          <Segmented value={shownVis === "nearby" || shownVis === "private" ? shownVis : null} onChange={(v) => void changeVisibility(v)}
+                     options={[{ value: "nearby" as const, label: "Nearby + QR" }, { value: "private" as const, label: "Invitation only" }]} />
+        </>
+      ) : (
+        <Segmented label="Who can find it" value={shownVis === "public" || shownVis === "friends" ? null : shownVis} onChange={(v) => void changeVisibility(v)}
+                   options={(["nearby", "link_only", "private"] as const).map((v) => ({ value: v, label: VISIBILITY_LABEL[v] }))} />
+      )}
       <Notice tone="info">
-        {(pendingVis ?? event.visibility) === "nearby" ? "Players within 150 m can find and join it. Pinned where you stand."
-          : (pendingVis ?? event.visibility) === "link_only" ? "Anyone with the code, link or QR code can join."
+        {shownVis === "public" ? "Listed for everyone in Find events. Anyone can open its page and sign up."
+          : shownVis === "friends" ? "Listed for the organizers' friends. The link still opens for whoever has it."
+          : shownVis === "nearby" ? "Players within 150 m can find and join it. Pinned where you stand."
+          : shownVis === "link_only" ? "Anyone with the code, link or QR code can join."
           : "Only people you add or invite can join."}
       </Notice>
+      {describing && info && (
+        <TextPanel title="Description" value={info.description ?? ""} max={DESCRIPTION_MAX} placeholder="What players should know"
+                   onSave={(text) => saveListing({ description: text || null })} onClose={() => setDescribing(false)} />
+      )}
       {error && <Notice tone="error">{error}</Notice>}
       <Notice tone="info">Details lock when round 1 is paired. Changes save as you make them.</Notice>
     </>

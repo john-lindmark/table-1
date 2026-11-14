@@ -112,7 +112,7 @@ const toEvent = (r: any): Table1Event => ({
   topCut: r.top_cut === 8 ? 8 : 0,
   autoRounds: r.auto_rounds ?? false,
   seatEnds: r.seat_ends ?? false,
-  visibility: r.visibility === "nearby" || r.visibility === "private" ? r.visibility : "link_only",
+  visibility: ["public", "friends", "nearby", "private"].includes(r.visibility) ? r.visibility : "link_only",
   capacity: r.capacity ?? null,
   startsAt: r.starts_at ?? null,
   venueName: r.venue_name ?? null,

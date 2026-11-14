@@ -359,8 +359,12 @@ fun DecklistPanel(event: EventRow, participantId: String, playerName: String, by
  * isn't in it can Follow it (contract/event-links-2026-11-09.md, contract/event-follows-2026-11-09.md).
  */
 @Composable
-fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onOpenEvent: (String) -> Unit) {
+fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onOpenEvent: (String) -> Unit, go: (String) -> Unit = {}) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    /** The description, address and league (contract/public-events-leagues-2026-11-13.md § 1). */
+    var about by remember { mutableStateOf<site.table1.events.data.EventAbout?>(null) }
+    val resultsPublic = about?.let { site.table1.events.data.Leagues.resultsArePublic(it.visibility, it.league) } == true
     var page by remember { mutableStateOf<EventPage?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -401,6 +405,7 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
         scope.launch {
             try {
                 val r = Repo.signUp(eventId, signUpNow)
+                if (resultsPublic) PublicResultsNotice.markSeen(context)
                 message = if (r.status == "waitlisted" || r.status == "already_waitlisted") "It's full, so you're on the waitlist (number ${r.position ?: 1})." else "You're signed up."
                 page = Repo.eventPage(eventId)
             } catch (e: Exception) {
@@ -444,6 +449,7 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
         T1Screen {
             Bar(p.name ?: "Event", p.resultsTitle, onBack = onBack)
             if (p.me == "waitlisted") Notice("Sign-ups are closed: you didn't get in this time.")
+            EventAboutRows(eventId, go)
             followRow()
             T1Segmented(listOf("Standings", "Matchups"), if (matchups) 1 else 0) { matchups = it == 1 }
             error?.let { Notice(it, error = true) }
@@ -493,7 +499,12 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
                     if (p.decklists != "off") Label(if (p.decklists == "required") "Decklist required" else "Decklists welcome")
                 }
                 ListRow(p.signUpLine)
+                EventAboutRows(eventId, go) { about = it }
                 followRow()
+                // Once per device, before signing up for a public or league event.
+                if (resultsPublic && (state == "sign_up" || state == "waitlist" || state == "sign_in") && !PublicResultsNotice.seen(context)) {
+                    Notice(site.table1.events.data.Leagues.PUBLIC_NOTICE)
+                }
                 message?.let { Notice(it) }
                 error?.let { Notice(it, error = true) }
                 when (state) {

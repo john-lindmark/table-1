@@ -198,6 +198,7 @@ object Telemetry {
         MetaWidgetReceiver::class.java to "meta",
         MatchupGridWidgetReceiver::class.java to "matchup_grid",
         ArchetypeWidgetReceiver::class.java to "archetype",
+        site.table1.events.widgets.UpcomingWidgetReceiver::class.java to "upcoming",
     )
 
     /**

@@ -1,6 +1,7 @@
 import { currentFix, setEventLocation } from "../lib/nearby";
 import { JOIN_NOTICE } from "../lib/joinPreview";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
 import {
@@ -31,6 +32,9 @@ import { eventNamePreview, isTeamFormat, typeOfFormat } from "../lib/formats";
 import { useDesktop } from "../lib/desktop";
 import { ageOf, isNetworkError, offlineNotice } from "../lib/offline";
 import { capture } from "../lib/telemetry";
+import { BAR_ICON, Icon } from "../components/icons";
+import { TextPanel } from "../components/EventListing";
+import { ADDRESS_MAX, DESCRIPTION_MAX, FIND_PICKS, counter, demoPath, eventListingSet, listingsLive, type FindPick } from "../lib/leagues";
 import {
   Bar,
   BigAction,
@@ -47,6 +51,19 @@ import {
   TabNav,
   shortWhen,
 } from "../components/kit";
+
+/** Find events under your own (contract/public-events-leagues-2026-11-13.md § 1): its own chunk, drawn only when the
+ *  server lists events. */
+const FindEventsSection = lazy(() => import("./Find").then((m) => ({ default: m.FindEventsSection })));
+
+/** Dev server, `/?demo`: the Events home on stand-in events, to look at Find events without an account. */
+const DEMO_HOME: HomeData = {
+  events: [{
+    id: "demo-ev-fri", name: "Friday draft", status: "setup", bucket: "upcoming", organizing: false, playing: true, current_round: 0,
+    number_of_rounds: 3, players: 5, capacity: 8, format_label: "Draft", starts_at: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+  } as unknown as HomeEvent],
+  invites: [],
+};
 
 /**
  * The Events tab. What's happening now comes first and biggest; joining and creating are secondary
@@ -69,7 +86,8 @@ export function Home({
 }) {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
-  const [data, setData] = useState<HomeData | null>(null);
+  const demoHome = import.meta.env.DEV && new URLSearchParams(useLocation().search).has("demo");
+  const [data, setData] = useState<HomeData | null>(demoHome ? DEMO_HOME : null);
   const [followed, setFollowed] = useState<FollowedEvent[]>([]);
   const [snaps, setSnaps] = useState<Record<string, LiveSnapshot>>({});
   const [showPast, setShowPast] = useState(false);
@@ -122,8 +140,8 @@ export function Home({
   }, []);
 
   useEffect(() => {
-    if (session) load();
-  }, [session, load]);
+    if (session && !demoHome) load();
+  }, [session, load, demoHome]);
 
   const live = data?.events.filter((e) => e.bucket === "live") ?? [];
   const upcoming = data?.events.filter((e) => e.bucket === "upcoming") ?? [];
@@ -157,7 +175,7 @@ export function Home({
     );
   }
 
-  if (!session) return <Landing />;
+  if (!session && !demoHome) return <Landing />;
 
   if (creating) {
     return (
@@ -233,6 +251,7 @@ export function Home({
           ))}
         </>
       )}
+      <Suspense fallback={null}><FindEventsSection onCreate={() => setCreating(true)} /></Suspense>
       {past.length > 0 && (
         <>
           <button onClick={() => setShowPast((v) => !v)} className="bg-t1-surface px-4 py-2 t1-label text-left">
@@ -251,7 +270,12 @@ export function Home({
         title="Events"
         subtitle={live.length ? `${live.length} live` : undefined}
         right={
-          <div className="flex gap-5 shrink-0">
+          <div className="flex items-center gap-5 shrink-0">
+            {/* Find (events, leagues, boards): the sidebar has it on a desktop. */}
+            <Link to={demoPath("/find")} aria-label="Find" title="Find"
+                  className="lg:hidden w-[50px] h-[50px] -my-3 -mx-4 flex items-center justify-center hover:text-t1-accent">
+              <Icon d={BAR_ICON.search} />
+            </Link>
             <button onClick={() => onOpenLife()} className="t1-label">
               Life
             </button>
@@ -267,6 +291,7 @@ export function Home({
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {data === null && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
         {empty && <EmptyEvents onCreate={() => setCreating(true)} onNearby={onNearby} />}
+        {empty && <Suspense fallback={null}><FindEventsSection /></Suspense>}
         {!empty && data && desktop && (
           // Desktop: your events on the left; joining, creating and the tracker on the right.
           <Columns aside={<HomeActions onCreate={() => setCreating(true)} onOpenLife={() => onOpenLife()} onNearby={onNearby} />}>
@@ -549,7 +574,19 @@ export function NewEvent({
   const [pairing, setPairing] = useState<"swiss" | "round_robin" | null>(null);
   const [name, setName] = useState("");
   const [schedule, setSchedule] = useState<ScheduleValue>({ startsAt: null, venueName: "", capacity: null });
-  /** Who can find it: Nearby + QR (players within 150 m, and alerts) or QR only. */
+  /** Who can find it (contract/public-events-leagues-2026-11-13.md § 1): Public, Friends or Private (the default:
+   *  QR, code, link or invitation). Until the server lists events, the older Nearby + QR | QR only shows instead. */
+  const [find, setFind] = useState<FindPick>("private");
+  const [listings, setListings] = useState(true);
+  useEffect(() => {
+    let live = true;
+    void listingsLive().then((on) => live && setListings(on));
+    return () => { live = false; };
+  }, []);
+  const [description, setDescription] = useState("");
+  const [address, setAddress] = useState("");
+  const [describing, setDescribing] = useState(false);
+  /** The older picker: Nearby + QR (players within 150 m, and alerts) or QR only. */
   const [nearby, setNearby] = useState(true);
   const [autoRounds, setAutoRounds] = useState(true);
   const [topCut, setTopCut] = useState<0 | 8>(0);
@@ -622,9 +659,15 @@ export function NewEvent({
       if (hasPods && (podsPick != null || podPairing !== "pod")) await setEventPods(eventId, podsPick, podPairing).catch(() => {});
       // Pin it where the organizer stands. For nearby events this also alerts opted-in players around. A scheduled
       // event is usually made away from the venue: no pin then (Details can set it there).
-      if (!schedule.startsAt) {
-        const fix = await currentFix(6000);
-        if (fix) await setEventLocation(eventId, fix, schedule.venueName.trim() || null, nearby ? "nearby" : "link_only").catch(() => {});
+      const listed = listings && find !== "private";
+      const fix = schedule.startsAt ? null : await currentFix(6000);
+      if (fix && !listed) {
+        await setEventLocation(eventId, fix, schedule.venueName.trim() || null, !listings && nearby ? "nearby" : "link_only").catch(() => {});
+      }
+      // Listed, or with a description or address: the listing, with the place when the organizer shared it.
+      const about = { description: description.trim() || null, venue_address: address.trim() || null };
+      if (listings && (listed || about.description || about.venue_address)) {
+        await eventListingSet(eventId, { ...(listed ? { find } : {}), ...about, ...(fix && listed ? { lat: fix.lat, lng: fix.lng } : {}) }).catch(() => {});
       }
       onCreated(eventId);
     } catch (e) {
@@ -698,16 +741,36 @@ export function NewEvent({
         <RoundTimerSwitch on={showClock} onChange={setShowClock} />
         {!limited && <DecklistsFields mode={decklists} onMode={setDecklists} />}
         <PlayersEditor includeMe={includeMe} onIncludeMe={setIncludeMe} myName={myName} guests={guests} onGuests={setGuests} />
-        <Segmented label="Who can find it" value={nearby ? "nearby" : "qr"} onChange={(v) => setNearby(v === "nearby")}
-                   options={[{ value: "nearby", label: "Nearby + QR" }, { value: "qr", label: "QR only" }]} />
-        <Notice tone="info">
-          {schedule.startsAt ? "Scheduled events are pinned from Details at the venue."
-            : nearby ? "Players within 150 m can find and join it, and players nearby who turned on alerts get a Join / Decline notification. Your browser asks for your location once."
-            : "Only people with the code, link or QR code can join."}
-        </Notice>
+        {listings ? (
+          <>
+            <Row title="Description" detail={description.trim() ? counter(description.length, DESCRIPTION_MAX) : "None"}
+                 value={<Icon d={BAR_ICON.arrow} />} onClick={() => setDescribing(true)} />
+            <Field label="Address" value={address} onChange={(v) => setAddress(v.slice(0, ADDRESS_MAX))} placeholder="Street and city" />
+            <Segmented label="Who can find it" value={find} onChange={setFind} options={FIND_PICKS} />
+            <Notice tone="info">
+              {find === "public" ? "Listed for everyone in Find events. Results in public events are public."
+                : find === "friends" ? "Listed for your friends. The link still opens for whoever has it."
+                : "Only people with the code, link or QR code can join."}
+            </Notice>
+          </>
+        ) : (
+          <>
+            <Segmented label="Who can find it" value={nearby ? "nearby" : "qr"} onChange={(v) => setNearby(v === "nearby")}
+                       options={[{ value: "nearby", label: "Nearby + QR" }, { value: "qr", label: "QR only" }]} />
+            <Notice tone="info">
+              {schedule.startsAt ? "Scheduled events are pinned from Details at the venue."
+                : nearby ? "Players within 150 m can find and join it, and players nearby who turned on alerts get a Join / Decline notification. Your browser asks for your location once."
+                : "Only people with the code, link or QR code can join."}
+            </Notice>
+          </>
+        )}
         {error && <Notice tone="error">{error}</Notice>}
       </div>
       <BigAction label="Create event" tone="accent" busy={busy} disabled={!!problem} onClick={submit} />
+      {describing && (
+        <TextPanel title="Description" value={description} max={DESCRIPTION_MAX} placeholder="What players should know"
+                   onSave={(text) => setDescription(text)} onClose={() => setDescribing(false)} />
+      )}
     </Screen>
   );
 }

@@ -70,6 +70,18 @@ describe("universal links", () => {
     }
   });
 
+  // Find, a league and a board (contract/public-events-leagues-2026-11-13.md §§ 1, 3, 4) are pages here, signed in
+  // or out. The apps' builds on phones have no screen for them yet, so the links stay in the browser until a build
+  // that has one ships and the claim lands in all three places together (AASA, the Android manifest, the cases).
+  it("Find, leagues and boards are pages here and stay in the browser", () => {
+    for (const path of ["/find", "/league/the-mountain-magic-series", "/boards/modern"]) {
+      const u = new URL(`https://table-1.site${path}`);
+      expect(appleClaims(u), path).toBe(false);
+      expect(androidClaims(u), path).toBe(false);
+      expect(routes.some((r) => matchPath(r, u.pathname)), path).toBe(true);
+    }
+  });
+
   it("claims both hosts", () => {
     expect(androidClaims(new URL("https://www.table-1.site/library"))).toBe(true);
     expect(read("../../../apps/ios/project.yml")).toContain('"applinks:table-1.site", "applinks:www.table-1.site"');

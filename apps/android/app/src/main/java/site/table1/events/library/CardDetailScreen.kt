@@ -760,6 +760,10 @@ private fun Glyph(icon: Icon, color: Color) {
     }
 }
 
+/** The details flip's glyphs for other screens' bars (a league's details and its organizer tools). */
+@Composable internal fun ListGlyph(color: Color = T1.text) = Glyph(Icon.List, color)
+@Composable internal fun TuneGlyph(color: Color = T1.text) = Glyph(Icon.Tune, color)
+
 @Composable
 private fun BackArrowGlyph() {
     Canvas(Modifier.size(18.dp)) {

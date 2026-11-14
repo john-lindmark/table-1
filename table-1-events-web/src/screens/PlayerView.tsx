@@ -41,6 +41,7 @@ import { isDraftFormat, isTeamFormat, slotLetter } from "../lib/formats";
 import { useTrackerMode } from "../lib/settings";
 import { RotoDraftGate, RotoDraftOverlay, RotoSchedule } from "./roto/lazy";
 import { participantsKey, toTeams, useEventTeams, useSeating } from "../lib/useEventExtras";
+import { EventAboutRows, PublicResultsNotice, useEventAbout } from "../components/EventListing";
 
 const teamTitle = (name: string) => (/^team\b/i.test(name) ? name : `Team ${name}`);
 
@@ -90,6 +91,8 @@ export function PlayerView({
   }, [code, eventId]);
 
   const { bundle, error: bundleError, stale, refetch } = useEvent(eventId);
+  // Description, address and league (contract/public-events-leagues-2026-11-13.md § 1); nothing until the server has them.
+  const about = useEventAbout(eventId, me?.token);
 
   // A link (no code) to an event you're not in yet: the preview for the join form.
   useEffect(() => {
@@ -201,6 +204,7 @@ export function PlayerView({
         {facts && <Notice tone="info">{facts}</Notice>}
         <Notice tone="info">Enter the name your opponents will see at the table.</Notice>
         <Notice tone="info">{JOIN_NOTICE}</Notice>
+        <PublicResultsNotice about={about} shown />
         <Field label="Your name" value={name} onChange={setName} autoFocus placeholder="e.g. John L" />
         {joinError && <Notice tone="error">{joinError}</Notice>}
         <div className="flex-1" />
@@ -358,6 +362,7 @@ export function PlayerView({
             : beforeRound1 ? when(event.startsAt) ?? "Before round 1" : `Round ${event.currentRound} of ${event.numberOfRounds}`}`}
         onBack={onBack}
       />
+      <EventAboutRows about={about} eventName={event.name} />
       {/* Desktop: your match on the left, seating and standings on the right; a phone stacks them. */}
       <Columns at="xl" asideWidth={480} aside={tables}>
         {doneWhy && myPhotos != null && onOpenPhotos && (deckPhotoPrompt(doneWhy, myPhotos) === "add" ? (

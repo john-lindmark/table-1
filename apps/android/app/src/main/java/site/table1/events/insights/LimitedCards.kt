@@ -211,20 +211,23 @@ class FilterCell(val name: String, val value: String, val options: List<Triple<S
     }
 }
 
-/** Insights' filters: one row of equal cells, 50 dp tall and 1 dp apart, each a dropdown that opens its picker. */
+/** Insights' filters: one row of equal cells, 50 dp tall and 1 dp apart, each a dropdown that opens its picker.
+ *  [event]: what a changed pick is counted as (Find events counts its own, `find_filtered`). */
 @Composable
-fun FilterRow(cells: List<FilterCell>) {
+fun FilterRow(cells: List<FilterCell>, event: String = "insights_filter_changed") {
     // By name, so a multi-pick picker shows the picks as they change.
     var openName by remember { mutableStateOf<String?>(null) }
     val open = cells.firstOrNull { it.name == openName }
+    // Four cells (Find events) on a narrow phone: tighter type, so "Any format" and "Everywhere" stay whole.
+    val tight = cells.size >= 4
     Row(Modifier.fillMaxWidth().background(T1.bg), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
         cells.forEach { c ->
             Row(Modifier.weight(1f).height(50.dp).background(T1.surface).clickable(onClickLabel = c.name) { openName = c.name }
-                .semantics { contentDescription = "${c.name}: ${c.value}" }.padding(horizontal = 6.dp),
+                .semantics { contentDescription = "${c.name}: ${c.value}" }.padding(horizontal = if (tight) 3.dp else 6.dp),
                 horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                Text(c.value.uppercase(), Modifier.weight(1f, fill = false), color = T1.text, fontFamily = T1.mono, fontSize = 11.sp, letterSpacing = 1.5.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                IconGlyph(T1Icon.ArrowDropDown, Modifier.size(16.dp), color = T1.muted)
+                Text(c.value.uppercase(), Modifier.weight(1f, fill = false), color = T1.text, fontFamily = T1.mono, fontSize = if (tight) 10.sp else 11.sp,
+                    letterSpacing = if (tight) 0.5.sp else 1.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                IconGlyph(T1Icon.ArrowDropDown, Modifier.size(if (tight) 14.dp else 16.dp), color = T1.muted)
             }
         }
     }
@@ -235,13 +238,13 @@ fun FilterRow(cells: List<FilterCell>) {
                 SelectorRows(c.options, null, title = c.name, selected = if (many.isEmpty()) setOf(LimitedCards.ANY) else many.toSet(),
                     onDone = { openName = null }) { v ->
                     if (v == LimitedCards.ANY) openName = null
-                    Telemetry.capture("insights_filter_changed", mapOf("filter" to c.name.lowercase(), "value" to v, "on" to (v == LimitedCards.ANY || v !in many)))
+                    Telemetry.capture(event, mapOf("filter" to c.name.lowercase(), "value" to v, "on" to (v == LimitedCards.ANY || v !in many)))
                     c.onPick(v)
                 }
             } else {
                 SelectorRows(c.options, c.current, title = c.name) { v ->
                     openName = null
-                    if (v != c.current && v != FilterCell.EDIT) Telemetry.capture("insights_filter_changed", mapOf("filter" to c.name.lowercase(), "value" to v))
+                    if (v != c.current && v != FilterCell.EDIT) Telemetry.capture(event, mapOf("filter" to c.name.lowercase(), "value" to v))
                     c.onPick(v)
                 }
             }

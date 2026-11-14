@@ -138,6 +138,7 @@ rank.
 - `league_view(p_league text, p_season_id?)`, signed out too; `p_league` is the id or the slug. P0002 when unknown,
   archived or someone else's demo. Returns
   `{league {id, slug, name, description, region, link, archived, organizers [names]}, me {role, following, notify},
+  members [{user_id, name, role}] | null (only for the league's own organizers),
   seasons [{id, name, starts_on, ends_on, state}], season {id, name, starts_on, ends_on, state, points, best_n,
   qualify, closed} | null, events [{event_id, name, format_label, format_key, starts_at, venue_name, status,
   multiplier, final, players, winner}], standings [row] (first 50), standings_count, my_row | null}`. Default season:

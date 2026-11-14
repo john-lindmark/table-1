@@ -20,6 +20,9 @@ import { fetchEventFollow, matchScore, roundTitle, setEventFollow, type EventFol
 import { pageButton, roundName, roundsLine, signUpLine, when } from "../lib/scheduledEvents";
 import { capture } from "../lib/telemetry";
 import { useSession } from "../lib/useSession";
+import { EventAboutRows, PublicResultsNotice, useEventAbout } from "../components/EventListing";
+import { leaguesDemoOn, type EventAbout } from "../lib/leagues";
+import { getLocalParticipant } from "../lib/session";
 
 /**
  * One link for the event's whole life (contract/scheduled-events-2026-10-27.md §4): before round 1 the sign-up page,
@@ -35,8 +38,20 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
   const [pods, setPods] = useState<PodRef[]>([]);
   const [tab, setTab] = useState<"standings" | "matchups">("standings");
   const [error, setError] = useState<string | null>(null);
+  // Description, address and league (contract/public-events-leagues-2026-11-13.md § 1); nothing until the server has them.
+  const about = useEventAbout(eventId, getLocalParticipant(eventId)?.token);
+  // Dev server, `?demo`: a found event's page on stand-in data.
+  const demo = leaguesDemoOn() && eventId.startsWith("demo-");
 
   const load = useCallback(async () => {
+    if (demo) {
+      const e = (await import("../lib/leaguesDemo")).publicEvent(eventId);
+      if (e) {
+        setEvent(e);
+        setRows([]);
+      } else setError("That event isn't available");
+      return;
+    }
     try {
       const [e, s] = await Promise.all([fetchPublicEvent(eventId), fetchPublicStandingsAndBracket(eventId)]);
       setEvent(e);
@@ -47,10 +62,11 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
     } catch (e) {
       setError(errorMessage(e));
     }
-  }, [eventId]);
+  }, [eventId, demo]);
 
   useEffect(() => {
     void load();
+    if (demo) return;
     const unsubscribe = subscribeToEvent(eventId, () => void load());
     const poll = window.setInterval(() => void load(), 20000);
     return () => {
@@ -78,7 +94,7 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
 
   // Before round 1 (and for someone still on the waitlist then): the sign-up page.
   if (event.signUp !== "closed" || (event.me === "waitlisted" && event.currentRound === 0)) {
-    return <SignUpPage event={event} reload={load} onBack={onBack} />;
+    return <SignUpPage event={event} reload={load} onBack={onBack} about={about} />;
   }
 
   const round = event.round;
@@ -96,6 +112,7 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
       />
       {event.me === "waitlisted" && <Notice tone="info">Sign-ups are closed: you didn't get in this time.</Notice>}
       <FollowRow event={event} />
+      <EventAboutRows about={about} eventName={event.name} />
       {round && event.showClock && (
         <div className="bg-t1-bg py-4">
           <ClockFace round={round} size="small" />
@@ -199,7 +216,9 @@ function PairingRow({ match }: { match: PublicPairing }) {
  * The sign-up page: when, where, the format, how many are in, and Sign up / Join the waitlist. Signed out, Sign up
  * signs in first (any option makes an account) and comes back here with ?signup=1, which signs up once.
  */
-export function SignUpPage({ event, reload, onBack }: { event: PublicEvent; reload: () => Promise<void>; onBack: () => void }) {
+export function SignUpPage({ event, reload, onBack, about = null }: {
+  event: PublicEvent; reload: () => Promise<void>; onBack: () => void; about?: EventAbout | null;
+}) {
   const { session, ready } = useSession();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -265,7 +284,9 @@ export function SignUpPage({ event, reload, onBack }: { event: PublicEvent; relo
           {event.decklists !== "off" && <p className="t1-label">{event.decklists === "required" ? "Decklist required" : "Decklists welcome"}</p>}
         </div>
         <div className="bg-t1-surface px-4 py-3 text-[13px]">{signUpLine(event.players, event.capacity, event.waitlist)}</div>
+        <EventAboutRows about={about} eventName={event.name} />
         <FollowRow event={event} />
+        {(state === "sign_up" || state === "waitlist" || state === "sign_in") && <PublicResultsNotice about={about} shown />}
         {message && <Notice tone="info">{message}</Notice>}
         {error && <Notice tone="error">{error}</Notice>}
         {state === "in" && <Notice tone="info">You're in. Your event is on the Events page.</Notice>}

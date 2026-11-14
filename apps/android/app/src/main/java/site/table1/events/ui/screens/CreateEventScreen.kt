@@ -38,6 +38,7 @@ import kotlinx.coroutines.launch
 import site.table1.events.data.DraftableSet
 import site.table1.events.data.DraftPods
 import site.table1.events.data.Repo
+import site.table1.events.data.setEventListing
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BarAction
 import site.table1.events.ui.components.BigAction
@@ -81,6 +82,12 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     var myName by remember { mutableStateOf<String?>(null) }
     var guests by remember { mutableStateOf<List<String>>(emptyList()) }
     var nearby by remember { mutableStateOf(true) }
+    // Who can find it, the description and the address (contract/public-events-leagues-2026-11-13.md § 1). Until the
+    // server lists events (null = still asking), Create keeps its older Nearby + QR | QR only choice.
+    var listing by remember { mutableStateOf<Boolean?>(null) }
+    var find by remember { mutableStateOf("private") }
+    var description by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var schedule by remember { mutableStateOf(ScheduleDraft()) }
     var autoRounds by remember { mutableStateOf(true) }
@@ -101,6 +108,7 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
         runCatching { Repo.draftableSets("", 1) }.onSuccess { setsUnavailable = it.isEmpty() }
         myName = Repo.myDisplayName()
     }
+    LaunchedEffect(Unit) { listing = ListingLive.check() }
 
     val options = if (limited) limitedFormats else constructedFormats
     val formatLabel = options.firstOrNull { it.first == format }?.second ?: "Event"
@@ -163,8 +171,20 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
                 // Pin it where the organizer stands. For nearby events this also alerts opted-in players around.
                 // A scheduled event is usually made away from the venue: no pin then (Details can set it there).
                 val fix = if (schedule.startsAt == null) currentFix(context) else null
-                if (fix != null) {
-                    runCatching { Repo.setEventLocation(created.eventId, fix.lat, fix.lng, schedule.venue.trim().ifEmpty { null }, nearby) }
+                val listed = listing == true && find != "private"
+                if (listed) {
+                    // Public or Friends: listed, with the place for distance when the organizer is at the venue.
+                    runCatching {
+                        Repo.setEventListing(created.eventId, find = find, description = description.trim().ifEmpty { null },
+                            address = address.trim().ifEmpty { null }, place = fix?.let { it.lat to it.lng })
+                    }
+                } else {
+                    if (fix != null) {
+                        runCatching { Repo.setEventLocation(created.eventId, fix.lat, fix.lng, schedule.venue.trim().ifEmpty { null }, listing != true && nearby) }
+                    }
+                    if (listing == true && (description.isNotBlank() || address.isNotBlank())) {
+                        runCatching { Repo.setEventListing(created.eventId, description = description.trim().ifEmpty { null }, address = address.trim().ifEmpty { null }) }
+                    }
                 }
                 onCreated(created.eventId)
             } catch (e: Exception) {
@@ -251,13 +271,20 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
 
             PlayersBlock(includeMe, { includeMe = it }, myName, guests) { guests = it }
 
-            FormBlock("Who can find it") {
-                T1Segmented(listOf("Nearby + QR", "QR only"), if (nearby) 0 else 1) { nearby = it == 0 }
+            if (listing == true) {
+                // Public | Friends | Private: Private is the QR, code, link or invitation only.
+                WhoCanFind(find) { find = it }
+                DescriptionRow(description) { description = it }
+                FormBlock("Address") { T1TextField(address, { address = it.take(site.table1.events.data.Leagues.ADDRESS_MAX) }, placeholder = "Street and city (optional)") }
+            } else if (listing == false) {
+                FormBlock("Who can find it") {
+                    T1Segmented(listOf("Nearby + QR", "QR only"), if (nearby) 0 else 1) { nearby = it == 0 }
+                }
+                Notice(
+                    if (nearby) "Players within 150 m can find and join it, and players nearby who turned on alerts get a Join / Decline notification."
+                    else "Only people who scan your QR code can join.",
+                )
             }
-            Notice(
-                if (nearby) "Players within 150 m can find and join it, and players nearby who turned on alerts get a Join / Decline notification."
-                else "Only people who scan your QR code can join.",
-            )
             error?.let { Notice(it, error = true) }
         }
         BigAction("Create event", accent = true, busy = busy, enabled = valid) {

@@ -27,6 +27,10 @@ object PushRoutes {
         return when {
             // "Add your deck photo" (contract/event-night-2026-10-16.md § 7): the event, then its Deck photos on Take a photo.
             kind == "event.deck_photo" -> id("event_id")?.let { WebLink.Screens("events", listOf("event/$it", "photos/$it?add=true")) }
+            // Leagues (contract/public-events-leagues-2026-11-13.md § 3 Notifications): a new league event opens the event
+            // (by event_id, below); results, qualifying and the season's end open the league, by its id.
+            kind == "league.results" || kind == "league.qualified" || kind == "league.season" ->
+                id("league_id")?.let { WebLink.Screens("events", listOf("league/$it?from=push")) }
             kind == "insights.new" -> insights(data)?.let { WebLink.Screens("insights", if (it.what == "rank") listOf(rankSetRoute(it.key)) else emptyList()) }
             kind == "want.price" -> collection("collection/wants")
             // A deck search finished (contract/deck-finder-2026-10-15.md § Jobs): Find a deck on that job.
@@ -56,6 +60,7 @@ object PushRoutes {
         Friends("friends", "Friends", "Friend requests", false),
         Account("account", "From Table 1", "About your account", false),
         Insights("insights", "New in Insights", "New formats, sets and Arena cubes in Insights", false),
+        Leagues("leagues", "Leagues", "New events, results and standings in leagues you follow", false),
     }
 
     fun channel(kind: String): Channel = when {
@@ -63,6 +68,7 @@ object PushRoutes {
         kind.startsWith("follow.") || kind.startsWith("trade.") || kind.startsWith("want.") || kind.startsWith("ranking.") || kind.startsWith("deck.") -> Channel.Collection
         kind.startsWith("friend.") -> Channel.Friends
         kind.startsWith("insights.") -> Channel.Insights
+        kind.startsWith("league.") -> Channel.Leagues
         else -> Channel.Account
     }
 }

@@ -23,6 +23,7 @@ import { loadMyDeckPhotos, myDeckPhotoSummary } from "../lib/deckPhotos";
 import { Bar, Menu, Notice, Row, Screen, Segmented, TabNav, type MenuItem } from "../components/kit";
 import { useTrackerMode } from "../lib/settings";
 import { FAN_CONTENT } from "../lib/legal";
+import { ProfileAchievements } from "../components/Achievements";
 
 /** "Share usage and crash data": PostHog and Sentry on this browser (contract/telemetry-2026-10-15.md). */
 function SharingToggle() {
@@ -257,6 +258,8 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
             {r?.byes ? ` · ${r.byes} byes` : ""}
           </p>
         </div>
+        {/* League finishes and board ranks (contract/public-events-leagues-2026-11-13.md § 7); no tiles, no section. */}
+        <ProfileAchievements userId={userId ?? (demoAccount ? "demo" : null)} />
 
         {(userId || isLibraryDemo()) && onDeckPhotos && <DeckPhotosAccountRow onOpen={onDeckPhotos} />}
 

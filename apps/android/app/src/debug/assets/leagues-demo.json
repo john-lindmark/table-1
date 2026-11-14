@@ -1,0 +1,1669 @@
+{
+ "profile_achievements": {
+  "visibility": "public",
+  "listed": true,
+  "items": [
+   {
+    "kind": "league",
+    "league_id": "5b0e6f3a-1111-4000-8000-000000000001",
+    "league_slug": "mountain-magic-series",
+    "league_name": "The Mountain Magic Series",
+    "season_id": "5b0e6f3a-2222-4000-8000-000000000000",
+    "season_name": "2025",
+    "state": "over",
+    "rank": 5,
+    "players": 61,
+    "points": 38,
+    "wins": 1,
+    "qualified": "winner",
+    "champion": true
+   },
+   {
+    "kind": "league",
+    "league_id": "5b0e6f3a-1111-4000-8000-000000000001",
+    "league_slug": "mountain-magic-series",
+    "league_name": "The Mountain Magic Series",
+    "season_id": "5b0e6f3a-2222-4000-8000-000000000001",
+    "season_name": "2026",
+    "state": "active",
+    "rank": 3,
+    "players": 24,
+    "points": 47,
+    "wins": 0,
+    "qualified": "points",
+    "champion": false
+   },
+   {
+    "kind": "league",
+    "league_id": "5b0e6f3a-1111-4000-8000-000000000003",
+    "league_slug": "denver-pauper-league",
+    "league_name": "Denver Pauper League",
+    "season_id": "5b0e6f3a-2222-4000-8000-000000000003",
+    "season_name": "Autumn",
+    "state": "over",
+    "rank": 1,
+    "players": 18,
+    "points": 31,
+    "wins": 3,
+    "qualified": null,
+    "champion": false
+   },
+   {
+    "kind": "league",
+    "league_id": "5b0e6f3a-1111-4000-8000-000000000002",
+    "league_slug": "friday-drafts",
+    "league_name": "Friday Drafts",
+    "season_id": "5b0e6f3a-2222-4000-8000-000000000002",
+    "season_name": "Autumn",
+    "state": "active",
+    "rank": 12,
+    "players": 20,
+    "points": 9,
+    "wins": 2,
+    "qualified": null,
+    "champion": false
+   },
+   {
+    "kind": "board",
+    "board": "modern",
+    "label": "Modern",
+    "rank": 14,
+    "rating": 1612,
+    "matches": 41,
+    "to_go": 0,
+    "players": 124
+   },
+   {
+    "kind": "board",
+    "board": "limited",
+    "label": "Limited",
+    "rank": null,
+    "rating": 1540,
+    "matches": 6,
+    "to_go": 4,
+    "players": 203
+   }
+  ]
+ },
+ "find_events": [
+  {
+   "event_id": "8f3c1d2e-0000-4000-8000-000000000001",
+   "name": "Legacy Open",
+   "format_key": "legacy",
+   "format_label": "Legacy",
+   "set_name": null,
+   "cube_name": null,
+   "team_size": null,
+   "status": "in_progress",
+   "current_round": 3,
+   "starts_at": "2026-11-13T17:00:00-07:00",
+   "venue_name": "Mythic Games",
+   "venue_address": null,
+   "capacity": 32,
+   "top_cut": 8,
+   "visibility": "public",
+   "players": 30,
+   "organizer": "Dana Ortiz",
+   "has_description": false,
+   "km": 4,
+   "league": null,
+   "me": null
+  },
+  {
+   "event_id": "8f3c1d2e-0000-4000-8000-000000000002",
+   "name": "Modern Open",
+   "format_key": "modern",
+   "format_label": "Modern",
+   "set_name": null,
+   "cube_name": null,
+   "team_size": null,
+   "status": "setup",
+   "current_round": 0,
+   "starts_at": "2026-11-15T10:00:00-07:00",
+   "venue_name": "MeH Games",
+   "venue_address": "1234 W 38th Ave, Denver, CO",
+   "capacity": null,
+   "top_cut": 8,
+   "visibility": "public",
+   "players": 12,
+   "organizer": "Dana Ortiz",
+   "has_description": true,
+   "km": 19,
+   "league": {
+    "id": "5b0e6f3a-1111-4000-8000-000000000001",
+    "slug": "mountain-magic-series",
+    "name": "The Mountain Magic Series",
+    "season_id": "5b0e6f3a-2222-4000-8000-000000000001",
+    "season": "2026",
+    "multiplier": 1,
+    "final": false
+   },
+   "me": "player"
+  },
+  {
+   "event_id": "8f3c1d2e-0000-4000-8000-000000000003",
+   "name": "Friday draft",
+   "format_key": "limited",
+   "format_label": "Draft",
+   "set_name": "Star Trek",
+   "cube_name": null,
+   "team_size": null,
+   "status": "setup",
+   "current_round": 0,
+   "starts_at": "2026-11-20T18:30:00-07:00",
+   "venue_name": null,
+   "venue_address": null,
+   "capacity": 8,
+   "top_cut": 0,
+   "visibility": "friends",
+   "players": 5,
+   "organizer": "Mara Lind",
+   "has_description": false,
+   "km": null,
+   "league": null,
+   "me": null
+  },
+  {
+   "event_id": "8f3c1d2e-0000-4000-8000-000000000004",
+   "name": "Vintage Cube night",
+   "format_key": "cube",
+   "format_label": "Cube draft",
+   "set_name": null,
+   "cube_name": "Lindmark Cube",
+   "team_size": null,
+   "status": "setup",
+   "current_round": 0,
+   "starts_at": "2026-11-21T18:00:00-07:00",
+   "venue_name": "Level 7 Games",
+   "venue_address": null,
+   "capacity": null,
+   "top_cut": 0,
+   "visibility": "public",
+   "players": 6,
+   "organizer": "Dana Ortiz",
+   "has_description": false,
+   "km": 27,
+   "league": null,
+   "me": null
+  },
+  {
+   "event_id": "8f3c1d2e-0000-4000-8000-000000000005",
+   "name": "Pauper Weekly",
+   "format_key": "pauper",
+   "format_label": "Pauper",
+   "set_name": null,
+   "cube_name": null,
+   "team_size": null,
+   "status": "setup",
+   "current_round": 0,
+   "starts_at": "2026-11-24T19:00:00-07:00",
+   "venue_name": "Enchanted Grounds",
+   "venue_address": null,
+   "capacity": 24,
+   "top_cut": 0,
+   "visibility": "public",
+   "players": 24,
+   "organizer": "Dana Ortiz",
+   "has_description": false,
+   "km": 31,
+   "league": null,
+   "me": null
+  },
+  {
+   "event_id": "8f3c1d2e-0000-4000-8000-000000000006",
+   "name": "Team Sealed Trios",
+   "format_key": "limited",
+   "format_label": "Team sealed",
+   "set_name": "Star Trek",
+   "cube_name": null,
+   "team_size": 3,
+   "status": "setup",
+   "current_round": 0,
+   "starts_at": "2026-11-28T11:00:00-07:00",
+   "venue_name": "Black & Read",
+   "venue_address": null,
+   "capacity": null,
+   "top_cut": 0,
+   "visibility": "public",
+   "players": 9,
+   "organizer": "Dana Ortiz",
+   "has_description": false,
+   "km": 12,
+   "league": null,
+   "me": null
+  },
+  {
+   "event_id": "8f3c1d2e-0000-4000-8000-000000000007",
+   "name": "Pioneer 2K",
+   "format_key": "pioneer",
+   "format_label": "Pioneer",
+   "set_name": null,
+   "cube_name": null,
+   "team_size": null,
+   "status": "setup",
+   "current_round": 0,
+   "starts_at": "2026-12-05T10:00:00-07:00",
+   "venue_name": "Mythic Games",
+   "venue_address": "9156 W 6th Ave, Lakewood, CO",
+   "capacity": 64,
+   "top_cut": 8,
+   "visibility": "public",
+   "players": 22,
+   "organizer": "Dana Ortiz",
+   "has_description": true,
+   "km": 4,
+   "league": {
+    "id": "5b0e6f3a-1111-4000-8000-000000000001",
+    "slug": "mountain-magic-series",
+    "name": "The Mountain Magic Series",
+    "season_id": "5b0e6f3a-2222-4000-8000-000000000001",
+    "season": "2026",
+    "multiplier": 2,
+    "final": false
+   },
+   "me": null
+  },
+  {
+   "event_id": "8f3c1d2e-0000-4000-8000-000000000008",
+   "name": "MMS Final",
+   "format_key": "modern",
+   "format_label": "Modern",
+   "set_name": null,
+   "cube_name": null,
+   "team_size": null,
+   "status": "setup",
+   "current_round": 0,
+   "starts_at": "2026-12-19T10:00:00-07:00",
+   "venue_name": "MeH Games",
+   "venue_address": "1234 W 38th Ave, Denver, CO",
+   "capacity": null,
+   "top_cut": 8,
+   "visibility": "public",
+   "players": 3,
+   "organizer": "Dana Ortiz",
+   "has_description": true,
+   "km": 19,
+   "league": {
+    "id": "5b0e6f3a-1111-4000-8000-000000000001",
+    "slug": "mountain-magic-series",
+    "name": "The Mountain Magic Series",
+    "season_id": "5b0e6f3a-2222-4000-8000-000000000001",
+    "season": "2026",
+    "multiplier": 1,
+    "final": true
+   },
+   "me": null
+  }
+ ],
+ "event_about": {
+  "8f3c1d2e-0000-4000-8000-000000000002": {
+   "event_id": "8f3c1d2e-0000-4000-8000-000000000002",
+   "description": "Modern Open, five rounds of Swiss and a top 8.\n\nDoors at 9:30, round 1 at 10:00. Decklists on Table 1 before round 1.\nPrizes in store credit to the top 8. Details: https://example.com/mms",
+   "venue_address": "1234 W 38th Ave, Denver, CO",
+   "visibility": "public",
+   "format_key": "modern",
+   "league": {
+    "id": "5b0e6f3a-1111-4000-8000-000000000001",
+    "slug": "mountain-magic-series",
+    "name": "The Mountain Magic Series",
+    "season_id": "5b0e6f3a-2222-4000-8000-000000000001",
+    "season": "2026",
+    "multiplier": 1,
+    "final": false
+   },
+   "placed": false
+  },
+  "8f3c1d2e-0000-4000-8000-000000000007": {
+   "event_id": "8f3c1d2e-0000-4000-8000-000000000007",
+   "description": "Double points for the season. Top 8 play out.",
+   "venue_address": "9156 W 6th Ave, Lakewood, CO",
+   "visibility": "public",
+   "format_key": "pioneer",
+   "league": {
+    "id": "5b0e6f3a-1111-4000-8000-000000000001",
+    "slug": "mountain-magic-series",
+    "name": "The Mountain Magic Series",
+    "season_id": "5b0e6f3a-2222-4000-8000-000000000001",
+    "season": "2026",
+    "multiplier": 2,
+    "final": false
+   },
+   "placed": false
+  }
+ },
+ "league_view": {
+  "league": {
+   "id": "5b0e6f3a-1111-4000-8000-000000000001",
+   "slug": "mountain-magic-series",
+   "name": "The Mountain Magic Series",
+   "description": "Colorado's open series: one event a month across the Front Range, every format. Win an event or finish in the top 10 on points to play the final in December.",
+   "region": "Denver, Colorado",
+   "link": "https://example.com/mms",
+   "archived": false,
+   "organizers": [
+    "Dana Ortiz",
+    "Mara Lind"
+   ]
+  },
+  "me": {
+   "role": null,
+   "following": true,
+   "notify": true
+  },
+  "seasons": [
+   {
+    "id": "5b0e6f3a-2222-4000-8000-000000000001",
+    "name": "2026",
+    "starts_on": "2026-01-01",
+    "ends_on": "2026-12-31",
+    "state": "active"
+   },
+   {
+    "id": "5b0e6f3a-2222-4000-8000-000000000000",
+    "name": "2025",
+    "starts_on": "2025-01-01",
+    "ends_on": "2025-12-31",
+    "state": "over"
+   }
+  ],
+  "season": {
+   "id": "5b0e6f3a-2222-4000-8000-000000000001",
+   "name": "2026",
+   "starts_on": "2026-01-01",
+   "ends_on": "2026-12-31",
+   "state": "active",
+   "points": {
+    "places": [
+     {
+      "through": 1,
+      "points": 12
+     },
+     {
+      "through": 2,
+      "points": 10
+     },
+     {
+      "through": 4,
+      "points": 8
+     },
+     {
+      "through": 8,
+      "points": 6
+     },
+     {
+      "through": 16,
+      "points": 3
+     }
+    ],
+    "participation": 1,
+    "match_win": 0
+   },
+   "best_n": null,
+   "qualify": {
+    "winners": true,
+    "pass_down": true,
+    "top": 10
+   },
+   "closed": false
+  },
+  "events": [
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000020",
+    "name": "Standard Open",
+    "format_label": "Standard",
+    "format_key": "standard",
+    "starts_at": "2026-02-21T10:00:00-07:00",
+    "venue_name": "MeH Games",
+    "status": "completed",
+    "multiplier": 1,
+    "final": false,
+    "players": 28,
+    "winner": "Bea Castillo"
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000021",
+    "name": "Legacy Open",
+    "format_label": "Legacy",
+    "format_key": "legacy",
+    "starts_at": "2026-04-18T10:00:00-06:00",
+    "venue_name": "Mythic Games",
+    "status": "completed",
+    "multiplier": 1,
+    "final": false,
+    "players": 34,
+    "winner": "Kai Budde"
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000022",
+    "name": "Team Trios",
+    "format_label": "Team constructed",
+    "format_key": "other",
+    "starts_at": "2026-06-20T10:00:00-06:00",
+    "venue_name": "Black & Read",
+    "status": "completed",
+    "multiplier": 1.5,
+    "final": false,
+    "players": 36,
+    "winner": "Bea Castillo, Noor Haddad, Sam Black"
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000023",
+    "name": "Pauper Open",
+    "format_label": "Pauper",
+    "format_key": "pauper",
+    "starts_at": "2026-08-15T10:00:00-06:00",
+    "venue_name": "Enchanted Grounds",
+    "status": "completed",
+    "multiplier": 1,
+    "final": false,
+    "players": 22,
+    "winner": "Noor Haddad"
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000024",
+    "name": "Vintage Open",
+    "format_label": "Vintage",
+    "format_key": "vintage",
+    "starts_at": "2026-10-17T10:00:00-06:00",
+    "venue_name": "Level 7 Games",
+    "status": "completed",
+    "multiplier": 1,
+    "final": false,
+    "players": 19,
+    "winner": "Sam Black"
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000002",
+    "name": "Modern Open",
+    "format_label": "Modern",
+    "format_key": "modern",
+    "starts_at": "2026-11-15T10:00:00-07:00",
+    "venue_name": "MeH Games",
+    "status": "setup",
+    "multiplier": 1,
+    "final": false,
+    "players": 12,
+    "winner": null
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000007",
+    "name": "Pioneer 2K",
+    "format_label": "Pioneer",
+    "format_key": "pioneer",
+    "starts_at": "2026-12-05T10:00:00-07:00",
+    "venue_name": "Mythic Games",
+    "status": "setup",
+    "multiplier": 2,
+    "final": false,
+    "players": 22,
+    "winner": null
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000008",
+    "name": "MMS Final",
+    "format_label": "Modern",
+    "format_key": "modern",
+    "starts_at": "2026-12-19T10:00:00-07:00",
+    "venue_name": "MeH Games",
+    "status": "setup",
+    "multiplier": 1,
+    "final": true,
+    "players": 3,
+    "winner": null
+   }
+  ],
+  "standings": [
+   {
+    "rank": 1,
+    "key": "a1a1a1a1-0000-4000-8000-000000000001",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000001",
+    "name": "Bea Castillo",
+    "points": 58,
+    "events": 7,
+    "wins": 2,
+    "best": 1,
+    "qualified": "winner"
+   },
+   {
+    "rank": 2,
+    "key": "a1a1a1a1-0000-4000-8000-000000000002",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000002",
+    "name": "Kai Budde",
+    "points": 51,
+    "events": 7,
+    "wins": 1,
+    "best": 1,
+    "qualified": "winner"
+   },
+   {
+    "rank": 3,
+    "key": "a1a1a1a1-0000-4000-8000-000000000003",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000003",
+    "name": "Ann Ito",
+    "points": 47,
+    "events": 6,
+    "wins": 0,
+    "best": 3,
+    "qualified": "points"
+   },
+   {
+    "rank": 4,
+    "key": "a1a1a1a1-0000-4000-8000-000000000004",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000004",
+    "name": "Noor Haddad",
+    "points": 44,
+    "events": 7,
+    "wins": 1,
+    "best": 1,
+    "qualified": "winner"
+   },
+   {
+    "rank": 5,
+    "key": "a1a1a1a1-0000-4000-8000-000000000005",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000005",
+    "name": "Jon Finkel",
+    "points": 40,
+    "events": 6,
+    "wins": 0,
+    "best": 4,
+    "qualified": "points"
+   },
+   {
+    "rank": 6,
+    "key": "a1a1a1a1-0000-4000-8000-000000000006",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000006",
+    "name": "Mara Lind",
+    "points": 37,
+    "events": 6,
+    "wins": 0,
+    "best": 4,
+    "qualified": "points"
+   },
+   {
+    "rank": 7,
+    "key": "g:sam black",
+    "user_id": null,
+    "name": "Sam Black",
+    "points": 33,
+    "events": 6,
+    "wins": 1,
+    "best": 1,
+    "qualified": "winner"
+   },
+   {
+    "rank": 8,
+    "key": "a1a1a1a1-0000-4000-8000-000000000008",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000008",
+    "name": "Ivy Chen",
+    "points": 31,
+    "events": 6,
+    "wins": 0,
+    "best": 5,
+    "qualified": "points"
+   },
+   {
+    "rank": 9,
+    "key": "a1a1a1a1-0000-4000-8000-000000000009",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000009",
+    "name": "Luis Vargas",
+    "points": 29,
+    "events": 5,
+    "wins": 0,
+    "best": 6,
+    "qualified": "points"
+   },
+   {
+    "rank": 10,
+    "key": "a1a1a1a1-0000-4000-8000-000000000010",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000010",
+    "name": "Reid Duke",
+    "points": 27,
+    "events": 5,
+    "wins": 0,
+    "best": 6,
+    "qualified": "points"
+   },
+   {
+    "rank": 11,
+    "key": "a1a1a1a1-0000-4000-8000-000000000011",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000011",
+    "name": "Dana Ortiz",
+    "points": 24,
+    "events": 5,
+    "wins": 0,
+    "best": 7,
+    "qualified": "points"
+   },
+   {
+    "rank": 12,
+    "key": "a1a1a1a1-0000-4000-8000-000000000012",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000012",
+    "name": "Olle Rade",
+    "points": 22,
+    "events": 5,
+    "wins": 0,
+    "best": 7,
+    "qualified": "points"
+   },
+   {
+    "rank": 13,
+    "key": "a1a1a1a1-0000-4000-8000-000000000013",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000013",
+    "name": "Tomo Saito",
+    "points": 21,
+    "events": 4,
+    "wins": 0,
+    "best": 8,
+    "qualified": "points"
+   },
+   {
+    "rank": 14,
+    "key": "g:eli kass",
+    "user_id": null,
+    "name": "Eli Kass",
+    "points": 19,
+    "events": 4,
+    "wins": 0,
+    "best": 8,
+    "qualified": "points"
+   },
+   {
+    "rank": 15,
+    "key": "a1a1a1a1-0000-4000-8000-000000000015",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000015",
+    "name": "Wren Abe",
+    "points": 17,
+    "events": 4,
+    "wins": 0,
+    "best": 9,
+    "qualified": null
+   },
+   {
+    "rank": 16,
+    "key": "a1a1a1a1-0000-4000-8000-000000000016",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000016",
+    "name": "Paulo Vitor",
+    "points": 15,
+    "events": 4,
+    "wins": 0,
+    "best": 9,
+    "qualified": null
+   },
+   {
+    "rank": 17,
+    "key": "a1a1a1a1-0000-4000-8000-000000000017",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000017",
+    "name": "Gab Nassif",
+    "points": 13,
+    "events": 3,
+    "wins": 0,
+    "best": 10,
+    "qualified": null
+   },
+   {
+    "rank": 18,
+    "key": "a1a1a1a1-0000-4000-8000-000000000018",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000018",
+    "name": "Huey J",
+    "points": 12,
+    "events": 3,
+    "wins": 0,
+    "best": 10,
+    "qualified": null
+   },
+   {
+    "rank": 19,
+    "key": "a1a1a1a1-0000-4000-8000-000000000019",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000019",
+    "name": "Shota Y",
+    "points": 10,
+    "events": 3,
+    "wins": 0,
+    "best": 11,
+    "qualified": null
+   },
+   {
+    "rank": 20,
+    "key": "a1a1a1a1-0000-4000-8000-000000000020",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000020",
+    "name": "Lee Shi",
+    "points": 8,
+    "events": 3,
+    "wins": 0,
+    "best": 11,
+    "qualified": null
+   },
+   {
+    "rank": 21,
+    "key": "g:marcio c",
+    "user_id": null,
+    "name": "Marcio C",
+    "points": 6,
+    "events": 2,
+    "wins": 0,
+    "best": 12,
+    "qualified": null
+   },
+   {
+    "rank": 22,
+    "key": "a1a1a1a1-0000-4000-8000-000000000022",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000022",
+    "name": "Javier D",
+    "points": 4,
+    "events": 2,
+    "wins": 0,
+    "best": 12,
+    "qualified": null
+   },
+   {
+    "rank": 23,
+    "key": "a1a1a1a1-0000-4000-8000-000000000023",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000023",
+    "name": "Autumn B",
+    "points": 2,
+    "events": 2,
+    "wins": 0,
+    "best": 13,
+    "qualified": null
+   },
+   {
+    "rank": 24,
+    "key": "a1a1a1a1-0000-4000-8000-000000000024",
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000024",
+    "name": "Seth M",
+    "points": 1,
+    "events": 2,
+    "wins": 0,
+    "best": 13,
+    "qualified": null
+   }
+  ],
+  "standings_count": 24,
+  "my_row": {
+   "rank": 3,
+   "key": "a1a1a1a1-0000-4000-8000-000000000003",
+   "name": "Ann Ito",
+   "points": 47,
+   "events": 6,
+   "wins": 0,
+   "best": 3,
+   "qualified": "points"
+  },
+  "members": [
+   {
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000011",
+    "name": "Dana Ortiz",
+    "role": "owner"
+   },
+   {
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000006",
+    "name": "Mara Lind",
+    "role": "organizer"
+   }
+  ]
+ },
+ "league_standings": [
+  {
+   "rank": 1,
+   "key": "a1a1a1a1-0000-4000-8000-000000000001",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000001",
+   "name": "Bea Castillo",
+   "points": 58,
+   "events": 7,
+   "wins": 2,
+   "best": 1,
+   "qualified": "winner"
+  },
+  {
+   "rank": 2,
+   "key": "a1a1a1a1-0000-4000-8000-000000000002",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000002",
+   "name": "Kai Budde",
+   "points": 51,
+   "events": 7,
+   "wins": 1,
+   "best": 1,
+   "qualified": "winner"
+  },
+  {
+   "rank": 3,
+   "key": "a1a1a1a1-0000-4000-8000-000000000003",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000003",
+   "name": "Ann Ito",
+   "points": 47,
+   "events": 6,
+   "wins": 0,
+   "best": 3,
+   "qualified": "points"
+  },
+  {
+   "rank": 4,
+   "key": "a1a1a1a1-0000-4000-8000-000000000004",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000004",
+   "name": "Noor Haddad",
+   "points": 44,
+   "events": 7,
+   "wins": 1,
+   "best": 1,
+   "qualified": "winner"
+  },
+  {
+   "rank": 5,
+   "key": "a1a1a1a1-0000-4000-8000-000000000005",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000005",
+   "name": "Jon Finkel",
+   "points": 40,
+   "events": 6,
+   "wins": 0,
+   "best": 4,
+   "qualified": "points"
+  },
+  {
+   "rank": 6,
+   "key": "a1a1a1a1-0000-4000-8000-000000000006",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000006",
+   "name": "Mara Lind",
+   "points": 37,
+   "events": 6,
+   "wins": 0,
+   "best": 4,
+   "qualified": "points"
+  },
+  {
+   "rank": 7,
+   "key": "g:sam black",
+   "user_id": null,
+   "name": "Sam Black",
+   "points": 33,
+   "events": 6,
+   "wins": 1,
+   "best": 1,
+   "qualified": "winner"
+  },
+  {
+   "rank": 8,
+   "key": "a1a1a1a1-0000-4000-8000-000000000008",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000008",
+   "name": "Ivy Chen",
+   "points": 31,
+   "events": 6,
+   "wins": 0,
+   "best": 5,
+   "qualified": "points"
+  },
+  {
+   "rank": 9,
+   "key": "a1a1a1a1-0000-4000-8000-000000000009",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000009",
+   "name": "Luis Vargas",
+   "points": 29,
+   "events": 5,
+   "wins": 0,
+   "best": 6,
+   "qualified": "points"
+  },
+  {
+   "rank": 10,
+   "key": "a1a1a1a1-0000-4000-8000-000000000010",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000010",
+   "name": "Reid Duke",
+   "points": 27,
+   "events": 5,
+   "wins": 0,
+   "best": 6,
+   "qualified": "points"
+  },
+  {
+   "rank": 11,
+   "key": "a1a1a1a1-0000-4000-8000-000000000011",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000011",
+   "name": "Dana Ortiz",
+   "points": 24,
+   "events": 5,
+   "wins": 0,
+   "best": 7,
+   "qualified": "points"
+  },
+  {
+   "rank": 12,
+   "key": "a1a1a1a1-0000-4000-8000-000000000012",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000012",
+   "name": "Olle Rade",
+   "points": 22,
+   "events": 5,
+   "wins": 0,
+   "best": 7,
+   "qualified": "points"
+  },
+  {
+   "rank": 13,
+   "key": "a1a1a1a1-0000-4000-8000-000000000013",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000013",
+   "name": "Tomo Saito",
+   "points": 21,
+   "events": 4,
+   "wins": 0,
+   "best": 8,
+   "qualified": "points"
+  },
+  {
+   "rank": 14,
+   "key": "g:eli kass",
+   "user_id": null,
+   "name": "Eli Kass",
+   "points": 19,
+   "events": 4,
+   "wins": 0,
+   "best": 8,
+   "qualified": "points"
+  },
+  {
+   "rank": 15,
+   "key": "a1a1a1a1-0000-4000-8000-000000000015",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000015",
+   "name": "Wren Abe",
+   "points": 17,
+   "events": 4,
+   "wins": 0,
+   "best": 9,
+   "qualified": null
+  },
+  {
+   "rank": 16,
+   "key": "a1a1a1a1-0000-4000-8000-000000000016",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000016",
+   "name": "Paulo Vitor",
+   "points": 15,
+   "events": 4,
+   "wins": 0,
+   "best": 9,
+   "qualified": null
+  },
+  {
+   "rank": 17,
+   "key": "a1a1a1a1-0000-4000-8000-000000000017",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000017",
+   "name": "Gab Nassif",
+   "points": 13,
+   "events": 3,
+   "wins": 0,
+   "best": 10,
+   "qualified": null
+  },
+  {
+   "rank": 18,
+   "key": "a1a1a1a1-0000-4000-8000-000000000018",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000018",
+   "name": "Huey J",
+   "points": 12,
+   "events": 3,
+   "wins": 0,
+   "best": 10,
+   "qualified": null
+  },
+  {
+   "rank": 19,
+   "key": "a1a1a1a1-0000-4000-8000-000000000019",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000019",
+   "name": "Shota Y",
+   "points": 10,
+   "events": 3,
+   "wins": 0,
+   "best": 11,
+   "qualified": null
+  },
+  {
+   "rank": 20,
+   "key": "a1a1a1a1-0000-4000-8000-000000000020",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000020",
+   "name": "Lee Shi",
+   "points": 8,
+   "events": 3,
+   "wins": 0,
+   "best": 11,
+   "qualified": null
+  },
+  {
+   "rank": 21,
+   "key": "g:marcio c",
+   "user_id": null,
+   "name": "Marcio C",
+   "points": 6,
+   "events": 2,
+   "wins": 0,
+   "best": 12,
+   "qualified": null
+  },
+  {
+   "rank": 22,
+   "key": "a1a1a1a1-0000-4000-8000-000000000022",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000022",
+   "name": "Javier D",
+   "points": 4,
+   "events": 2,
+   "wins": 0,
+   "best": 12,
+   "qualified": null
+  },
+  {
+   "rank": 23,
+   "key": "a1a1a1a1-0000-4000-8000-000000000023",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000023",
+   "name": "Autumn B",
+   "points": 2,
+   "events": 2,
+   "wins": 0,
+   "best": 13,
+   "qualified": null
+  },
+  {
+   "rank": 24,
+   "key": "a1a1a1a1-0000-4000-8000-000000000024",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000024",
+   "name": "Seth M",
+   "points": 1,
+   "events": 2,
+   "wins": 0,
+   "best": 13,
+   "qualified": null
+  }
+ ],
+ "league_player": {
+  "player": {
+   "rank": 3,
+   "key": "a1a1a1a1-0000-4000-8000-000000000003",
+   "user_id": "a1a1a1a1-0000-4000-8000-000000000003",
+   "name": "Ann Ito",
+   "points": 47,
+   "events": 6,
+   "wins": 0,
+   "best": 3,
+   "qualified": "points"
+  },
+  "events": [
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000024",
+    "name": "Vintage Open",
+    "format_label": "Vintage",
+    "starts_at": "2026-10-17T10:00:00-06:00",
+    "place": 3,
+    "players": 19,
+    "match_wins": 4,
+    "points": 8,
+    "counted": true
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000023",
+    "name": "Pauper Open",
+    "format_label": "Pauper",
+    "starts_at": "2026-08-15T10:00:00-06:00",
+    "place": 2,
+    "players": 22,
+    "match_wins": 5,
+    "points": 10,
+    "counted": true
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000022",
+    "name": "Team Trios",
+    "format_label": "Team constructed",
+    "starts_at": "2026-06-20T10:00:00-06:00",
+    "place": 2,
+    "players": 36,
+    "match_wins": 4,
+    "points": 15,
+    "counted": true
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000021",
+    "name": "Legacy Open",
+    "format_label": "Legacy",
+    "starts_at": "2026-04-18T10:00:00-06:00",
+    "place": 5,
+    "players": 34,
+    "match_wins": 4,
+    "points": 6,
+    "counted": true
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000020",
+    "name": "Standard Open",
+    "format_label": "Standard",
+    "starts_at": "2026-02-21T10:00:00-07:00",
+    "place": 4,
+    "players": 28,
+    "match_wins": 3,
+    "points": 8,
+    "counted": true
+   },
+   {
+    "event_id": "8f3c1d2e-0000-4000-8000-000000000019",
+    "name": "Winter Draft",
+    "format_label": "Draft",
+    "starts_at": "2026-01-17T10:00:00-07:00",
+    "place": 17,
+    "players": 24,
+    "match_wins": 1,
+    "points": 0,
+    "counted": false
+   }
+  ]
+ },
+ "leagues_home": {
+  "mine": [
+   {
+    "id": "5b0e6f3a-1111-4000-8000-000000000002",
+    "slug": "friday-drafts",
+    "name": "Friday Drafts",
+    "region": null,
+    "season": "Autumn",
+    "next_event": {
+     "event_id": "8f3c1d2e-0000-4000-8000-000000000003",
+     "name": "Friday draft",
+     "starts_at": "2026-11-20T18:30:00-07:00",
+     "format_label": "Draft"
+    },
+    "role": "owner"
+   }
+  ],
+  "following": [
+   {
+    "id": "5b0e6f3a-1111-4000-8000-000000000001",
+    "slug": "mountain-magic-series",
+    "name": "The Mountain Magic Series",
+    "region": "Denver, Colorado",
+    "season": "2026",
+    "next_event": {
+     "event_id": "8f3c1d2e-0000-4000-8000-000000000002",
+     "name": "Modern Open",
+     "starts_at": "2026-11-15T10:00:00-07:00",
+     "format_label": "Modern"
+    },
+    "notify": true
+   }
+  ],
+  "found": [
+   {
+    "id": "5b0e6f3a-1111-4000-8000-000000000001",
+    "slug": "mountain-magic-series",
+    "name": "The Mountain Magic Series",
+    "region": "Denver, Colorado",
+    "season": "2026",
+    "next_event": {
+     "event_id": "8f3c1d2e-0000-4000-8000-000000000002",
+     "name": "Modern Open",
+     "starts_at": "2026-11-15T10:00:00-07:00",
+     "format_label": "Modern"
+    }
+   },
+   {
+    "id": "5b0e6f3a-1111-4000-8000-000000000003",
+    "slug": "denver-pauper-league",
+    "name": "Denver Pauper League",
+    "region": "Denver, Colorado",
+    "season": "Winter",
+    "next_event": null
+   }
+  ]
+ },
+ "format_boards": {
+  "listed": true,
+  "boards": [
+   {
+    "board": "standard",
+    "label": "Standard",
+    "players": 61,
+    "me": null
+   },
+   {
+    "board": "pioneer",
+    "label": "Pioneer",
+    "players": 48,
+    "me": null
+   },
+   {
+    "board": "modern",
+    "label": "Modern",
+    "players": 124,
+    "me": {
+     "rating": 1612,
+     "matches": 41,
+     "wins": 26,
+     "losses": 14,
+     "draws": 1,
+     "events": 9,
+     "rank": 14,
+     "to_go": 0
+    }
+   },
+   {
+    "board": "legacy",
+    "label": "Legacy",
+    "players": 37,
+    "me": null
+   },
+   {
+    "board": "vintage",
+    "label": "Vintage",
+    "players": 9,
+    "me": null
+   },
+   {
+    "board": "pauper",
+    "label": "Pauper",
+    "players": 52,
+    "me": null
+   },
+   {
+    "board": "premodern",
+    "label": "Premodern",
+    "players": 0,
+    "me": null
+   },
+   {
+    "board": "canadian_highlander",
+    "label": "Canadian Highlander",
+    "players": 14,
+    "me": null
+   },
+   {
+    "board": "limited",
+    "label": "Limited",
+    "players": 203,
+    "me": {
+     "rating": 1540,
+     "matches": 6,
+     "wins": 4,
+     "losses": 2,
+     "draws": 0,
+     "events": 2,
+     "rank": null,
+     "to_go": 4
+    }
+   },
+   {
+    "board": "cube",
+    "label": "Cube",
+    "players": 88,
+    "me": null
+   }
+  ]
+ },
+ "format_leaderboard": {
+  "board": "modern",
+  "label": "Modern",
+  "count": 124,
+  "me": {
+   "rating": 1612,
+   "matches": 41,
+   "wins": 26,
+   "losses": 14,
+   "draws": 1,
+   "events": 9,
+   "rank": 14,
+   "to_go": 0
+  },
+  "rows": [
+   {
+    "rank": 1,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000001",
+    "name": "Bea Castillo",
+    "avatar_url": null,
+    "rating": 1764,
+    "matches": 42,
+    "wins": 34,
+    "losses": 8,
+    "draws": 0,
+    "events": 11
+   },
+   {
+    "rank": 2,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000002",
+    "name": "Kai Budde",
+    "avatar_url": null,
+    "rating": 1757,
+    "matches": 42,
+    "wins": 33,
+    "losses": 8,
+    "draws": 1,
+    "events": 11
+   },
+   {
+    "rank": 3,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000040",
+    "name": "Ari Lax",
+    "avatar_url": null,
+    "rating": 1745,
+    "matches": 43,
+    "wins": 32,
+    "losses": 9,
+    "draws": 2,
+    "events": 11
+   },
+   {
+    "rank": 4,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000004",
+    "name": "Noor Haddad",
+    "avatar_url": null,
+    "rating": 1728,
+    "matches": 40,
+    "wins": 31,
+    "losses": 9,
+    "draws": 0,
+    "events": 10
+   },
+   {
+    "rank": 5,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000005",
+    "name": "Jon Finkel",
+    "avatar_url": null,
+    "rating": 1717,
+    "matches": 41,
+    "wins": 30,
+    "losses": 10,
+    "draws": 1,
+    "events": 10
+   },
+   {
+    "rank": 6,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000006",
+    "name": "Mara Lind",
+    "avatar_url": null,
+    "rating": 1701,
+    "matches": 41,
+    "wins": 29,
+    "losses": 10,
+    "draws": 2,
+    "events": 10
+   },
+   {
+    "rank": 7,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000007",
+    "name": "Sam Black",
+    "avatar_url": null,
+    "rating": 1691,
+    "matches": 39,
+    "wins": 28,
+    "losses": 11,
+    "draws": 0,
+    "events": 10
+   },
+   {
+    "rank": 8,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000008",
+    "name": "Ivy Chen",
+    "avatar_url": null,
+    "rating": 1676,
+    "matches": 39,
+    "wins": 27,
+    "losses": 11,
+    "draws": 1,
+    "events": 9
+   },
+   {
+    "rank": 9,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000009",
+    "name": "Luis Vargas",
+    "avatar_url": null,
+    "rating": 1667,
+    "matches": 40,
+    "wins": 26,
+    "losses": 12,
+    "draws": 2,
+    "events": 9
+   },
+   {
+    "rank": 10,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000010",
+    "name": "Reid Duke",
+    "avatar_url": null,
+    "rating": 1653,
+    "matches": 37,
+    "wins": 25,
+    "losses": 12,
+    "draws": 0,
+    "events": 9
+   },
+   {
+    "rank": 11,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000011",
+    "name": "Dana Ortiz",
+    "avatar_url": null,
+    "rating": 1645,
+    "matches": 38,
+    "wins": 24,
+    "losses": 13,
+    "draws": 1,
+    "events": 9
+   },
+   {
+    "rank": 12,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000012",
+    "name": "Olle Rade",
+    "avatar_url": null,
+    "rating": 1632,
+    "matches": 38,
+    "wins": 23,
+    "losses": 13,
+    "draws": 2,
+    "events": 8
+   },
+   {
+    "rank": 13,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000013",
+    "name": "Tomo Saito",
+    "avatar_url": null,
+    "rating": 1625,
+    "matches": 36,
+    "wins": 22,
+    "losses": 14,
+    "draws": 0,
+    "events": 8
+   },
+   {
+    "rank": 14,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000003",
+    "name": "Ann Ito",
+    "avatar_url": null,
+    "rating": 1612,
+    "matches": 36,
+    "wins": 21,
+    "losses": 14,
+    "draws": 1,
+    "events": 8
+   },
+   {
+    "rank": 15,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000015",
+    "name": "Wren Abe",
+    "avatar_url": null,
+    "rating": 1596,
+    "matches": 37,
+    "wins": 20,
+    "losses": 15,
+    "draws": 2,
+    "events": 8
+   },
+   {
+    "rank": 16,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000016",
+    "name": "Paulo Vitor",
+    "avatar_url": null,
+    "rating": 1585,
+    "matches": 34,
+    "wins": 19,
+    "losses": 15,
+    "draws": 0,
+    "events": 7
+   },
+   {
+    "rank": 17,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000017",
+    "name": "Gab Nassif",
+    "avatar_url": null,
+    "rating": 1569,
+    "matches": 35,
+    "wins": 18,
+    "losses": 16,
+    "draws": 1,
+    "events": 7
+   },
+   {
+    "rank": 18,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000018",
+    "name": "Huey J",
+    "avatar_url": null,
+    "rating": 1559,
+    "matches": 35,
+    "wins": 17,
+    "losses": 16,
+    "draws": 2,
+    "events": 7
+   },
+   {
+    "rank": 19,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000019",
+    "name": "Shota Y",
+    "avatar_url": null,
+    "rating": 1544,
+    "matches": 33,
+    "wins": 16,
+    "losses": 17,
+    "draws": 0,
+    "events": 7
+   },
+   {
+    "rank": 20,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000020",
+    "name": "Lee Shi",
+    "avatar_url": null,
+    "rating": 1535,
+    "matches": 33,
+    "wins": 15,
+    "losses": 17,
+    "draws": 1,
+    "events": 6
+   },
+   {
+    "rank": 21,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000021",
+    "name": "Marcio C",
+    "avatar_url": null,
+    "rating": 1521,
+    "matches": 34,
+    "wins": 14,
+    "losses": 18,
+    "draws": 2,
+    "events": 6
+   },
+   {
+    "rank": 22,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000022",
+    "name": "Javier D",
+    "avatar_url": null,
+    "rating": 1513,
+    "matches": 31,
+    "wins": 13,
+    "losses": 18,
+    "draws": 0,
+    "events": 6
+   },
+   {
+    "rank": 23,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000023",
+    "name": "Autumn B",
+    "avatar_url": null,
+    "rating": 1500,
+    "matches": 32,
+    "wins": 12,
+    "losses": 19,
+    "draws": 1,
+    "events": 6
+   },
+   {
+    "rank": 24,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000024",
+    "name": "Seth M",
+    "avatar_url": null,
+    "rating": 1493,
+    "matches": 32,
+    "wins": 11,
+    "losses": 19,
+    "draws": 2,
+    "events": 5
+   },
+   {
+    "rank": 25,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000025",
+    "name": "Player 25",
+    "avatar_url": null,
+    "rating": 1481,
+    "matches": 30,
+    "wins": 10,
+    "losses": 20,
+    "draws": 0,
+    "events": 5
+   },
+   {
+    "rank": 26,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000026",
+    "name": "Player 26",
+    "avatar_url": null,
+    "rating": 1464,
+    "matches": 30,
+    "wins": 9,
+    "losses": 20,
+    "draws": 1,
+    "events": 5
+   },
+   {
+    "rank": 27,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000027",
+    "name": "Player 27",
+    "avatar_url": null,
+    "rating": 1453,
+    "matches": 31,
+    "wins": 8,
+    "losses": 21,
+    "draws": 2,
+    "events": 5
+   },
+   {
+    "rank": 28,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000028",
+    "name": "Player 28",
+    "avatar_url": null,
+    "rating": 1437,
+    "matches": 28,
+    "wins": 7,
+    "losses": 21,
+    "draws": 0,
+    "events": 4
+   },
+   {
+    "rank": 29,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000029",
+    "name": "Player 29",
+    "avatar_url": null,
+    "rating": 1427,
+    "matches": 29,
+    "wins": 6,
+    "losses": 22,
+    "draws": 1,
+    "events": 4
+   },
+   {
+    "rank": 30,
+    "user_id": "a1a1a1a1-0000-4000-8000-000000000030",
+    "name": "Player 30",
+    "avatar_url": null,
+    "rating": 1412,
+    "matches": 29,
+    "wins": 5,
+    "losses": 22,
+    "draws": 2,
+    "events": 4
+   }
+  ]
+ }
+}

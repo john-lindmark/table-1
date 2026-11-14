@@ -141,6 +141,11 @@
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_limited" />
         </receiver>
+        <!-- Upcoming events you can find (contract/public-events-leagues-2026-11-13.md § 6). -->
+        <receiver android:name=".widgets.UpcomingWidgetReceiver" android:exported="true" android:label="@string/widget_upcoming_name">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_upcoming" />
+        </receiver>
         <receiver android:name=".widgets.IconWidgetReceiver" android:exported="true" android:label="@string/widget_icon_name">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_icon" />
@@ -152,6 +157,11 @@
         </activity>
         <!-- The Limited cards widget's settings (set, sort, rarities, colors). -->
         <activity android:name=".widgets.LimitedWidgetConfigActivity" android:exported="true" android:theme="@style/Theme.Table1"
+            android:taskAffinity="" android:excludeFromRecents="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter>
+        </activity>
+        <!-- The Upcoming events widget's settings (formats, near me or everywhere). -->
+        <activity android:name=".widgets.UpcomingWidgetConfigActivity" android:exported="true" android:theme="@style/Theme.Table1"
             android:taskAffinity="" android:excludeFromRecents="true">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter>
         </activity>

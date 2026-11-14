@@ -128,6 +128,21 @@ class WidgetGalleryTest {
         draw("limited-none", "Limited cards · no set yet", null as LimitedWidgetPack?) { size, p -> LimitedContent(p, LimitedPicks(), size, tap) }
     }
 
+    /** The stand-in events the Debug screens draw (src/debug/assets/leagues-demo.json). */
+    private val found = site.table1.events.data.LeaguesDemo.decode(File(generateSequence(File("").absoluteFile) { it.parentFile }
+        .map { File(it, "app/src/debug/assets") }.first { it.isDirectory }, "leagues-demo.json").readText()).find_events
+
+    @Test fun upcomingEvents() {
+        val zone = java.time.ZoneId.of("America/Denver")
+        draw("upcoming", "Upcoming events · all formats, near me", found) { size, e -> UpcomingContent(e, UpcomingPicks(), size, tap, { tap }, zone, java.util.Locale.UK) }
+        draw("upcoming-modern", "Upcoming events · Modern and Legacy, you're in the first", found.filter { it.formatKey in setOf("modern", "legacy") }.drop(1)) { size, e ->
+            UpcomingContent(e, UpcomingPicks(listOf("modern", "legacy")), size, tap, { tap }, zone, java.util.Locale.US)
+        }
+        draw("upcoming-none", "Upcoming events · none", emptyList<site.table1.events.data.FoundEvent>()) { size, e ->
+            UpcomingContent(e, UpcomingPicks(listOf("vintage", "premodern", "pauper")), size, tap, { tap }, zone)
+        }
+    }
+
     /** Stand-in art (no card images in the repo): a red-to-blue wash with streaks, about an art crop's shape. */
     private val art: Bitmap = Bitmap.createBitmap(626, 457, Bitmap.Config.ARGB_8888).also { b ->
         val c = Canvas(b)

@@ -17,6 +17,12 @@ describe("redactPath", () => {
     expect(redactPath(`/d/${UUID}`)).toBe("/d/:id");
   });
 
+  it("strips a league's slug; a board's key is a format and stays", () => {
+    expect(redactPath("/league/the-mountain-magic-series")).toBe("/league/:id");
+    expect(redactPath("/boards/modern")).toBe("/boards/modern");
+    expect(redactPath("/find")).toBe("/find");
+  });
+
   it("strips match, card, list and trade ids", () => {
     expect(redactPath(`/life/${UUID}`)).toBe("/life/:id");
     expect(redactPath(`/library/card/${UUID}`)).toBe("/library/card/:id");
@@ -51,6 +57,12 @@ describe("QR join links", () => {
     expect(redactSearch("?s=abc123")).toBe("");
     expect(redactSearch("?code=xyz&utm_source=flyer")).toBe("?utm_source=flyer");
     expect(redactSearch("")).toBe("");
+  });
+  it("drops a league page's season and player from the query (a player's key is an account id or a guest's name)", () => {
+    expect(redactSearch(`?season=${UUID}&player=${UUID}`)).toBe("");
+    expect(redactSearch("?player=g%3Abea+lindqvist&view=standings")).toBe("?view=standings");
+    expect(redactSearch(`?view=season&sid=${UUID}`)).toBe("?view=season");
+    expect(redactSearch("?tab=leagues")).toBe("?tab=leagues");
   });
 });
 
@@ -118,6 +130,9 @@ describe("screenName", () => {
     expect(screenName(`/p/${UUID}`)).toBe("event");
     expect(screenName("/j/ABCD")).toBe("event");
     expect(screenName(`/d/${UUID}`)).toBe("display");
+    expect(screenName("/find")).toBe("find");
+    expect(screenName("/league/the-mountain-magic-series")).toBe("league");
+    expect(screenName("/boards/modern")).toBe("board");
     expect(screenName(`/e/${UUID}/add`)).toBe("add_players");
     expect(screenName(`/e/${UUID}/photos`)).toBe("deck_photos");
     expect(screenName(`/p/${UUID}/photos`)).toBe("deck_photos");

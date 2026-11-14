@@ -146,6 +146,8 @@ import kotlinx.serialization.json.jsonPrimitive
 fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: WebLink?, onLinkConsumed: () -> Unit) {
     // Debug: `adb shell am start -n site.table1.events/.MainActivity --ez insightsDemo true` opens Insights on the demo packs.
     if (InsightsStore.demo) { InsightsDemoRoot(); return }
+    // Debug: `--es t1Leagues find|leagues|boards|league|…` opens finding events, leagues and boards on stand-in data.
+    if (site.table1.events.data.LeaguesDemo.shown) { LeaguesDemoRoot(); return }
     val status by T1App.supabase.auth.sessionStatus.collectAsState()
     // A failed refresh (offline, 5xx) keeps the app on the session it last had (SessionView).
     var kept by remember { mutableStateOf<UserSession?>(null) }
@@ -372,6 +374,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                             onOpenEvent = { nav.navigate("event/$it") },
                             onCreate = { nav.navigate("create") },
                             onOpenPage = { nav.navigate("eventpage/$it?signup=false") },
+                            go = { nav.navigate(it) },
                             onNearby = { nav.navigate("nearby") },
                             onJoinLink = { scanned = it },
                             onLife = { nav.navigate("tracker") },
@@ -379,6 +382,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         )
                     }
                 }
+                // Finding events, leagues and format boards (contract/public-events-leagues-2026-11-13.md).
+                leaguesGraph(nav) { foregrounds }
                 // Insights (contract/insights-2026-10-24.md): the metagame and Arena draft.
                 insightsGraph(nav, moderator)
                 composable("account") {
@@ -413,7 +418,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         onSection = { kind, item -> nav.navigate("profile/$id/$kind/${item ?: "-"}") },
                         onMatch = { nav.navigate("collection/match/$id") }, onSharing = { nav.navigate("sharing") },
                         onFriends = { nav.navigate("profile/$id/friends") }, onRanking = { nav.navigate("collection/ranking/$it") },
-                        onPopular = { nav.navigate("collection/list/$it/rankings") })
+                        onPopular = { nav.navigate("collection/list/$it/rankings") }, go = { nav.navigate(it) })
                 }
                 composable("profile/{id}/friends") { e ->
                     ProfileFriendsScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile/$it") })
@@ -655,6 +660,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         onOpenRedraft = { nav.navigate("redraft/$id") },
                         onOpenList = { nav.navigate("collection/list/$it") },
                         onAddPhoto = { nav.navigate("photos/$id?add=true") },
+                        go = { nav.navigate(it) },
                     )
                 }
                 composable("redraft/{id}") { e ->
@@ -663,7 +669,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 composable("eventpage/{id}?signup={signup}") { e ->
                     val id = e.arguments?.getString("id") ?: ""
                     EventPageScreen(id, signUpNow = e.arguments?.getString("signup") == "true", onBack = { nav.popBackStack() },
-                        onOpenEvent = { nav.navigate("event/$it") })
+                        onOpenEvent = { nav.navigate("event/$it") }, go = { nav.navigate(it) })
                 }
                 composable("photos/{id}?add={add}", arguments = listOf(navArgument("add") { nullable = true })) { e ->
                     DeckPhotosScreen(eventId = e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() },
@@ -728,6 +734,97 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
             }
         }
     }
+}
+
+/**
+ * Find (Events | Leagues | Boards), a league's page and tools, and a board. `league/{league}` takes the league's slug or
+ * id (a push carries the id).
+ */
+private fun androidx.navigation.NavGraphBuilder.leaguesGraph(nav: androidx.navigation.NavHostController, foregrounds: () -> Int) {
+    val optional = { name: String -> navArgument(name) { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null } }
+    val back: () -> Unit = { nav.popBackStack() }
+    val go: (String) -> Unit = { nav.navigate(it) }
+    composable("find?tab={tab}", arguments = listOf(optional("tab"))) { e ->
+        site.table1.events.ui.screens.FindScreen(e.arguments?.getString("tab"), foregrounds(), back, go)
+    }
+    composable("board/{key}") { e -> site.table1.events.ui.screens.BoardScreen(e.arguments?.getString("key") ?: "", foregrounds(), back) }
+    composable("leagues/new") {
+        site.table1.events.ui.screens.LeagueNewScreen(back) { id ->
+            nav.navigate(site.table1.events.ui.screens.leagueRoute(id, "created")) { popUpTo("leagues/new") { inclusive = true } }
+        }
+    }
+    composable("league/{league}?from={from}&season={season}", arguments = listOf(optional("from"), optional("season"))) { e ->
+        site.table1.events.ui.screens.LeagueScreen(e.arguments?.getString("league") ?: "", e.arguments?.getString("from") ?: "link", foregrounds(), back, go,
+            season = e.arguments?.getString("season"))
+    }
+    composable("league/{league}/details") { e -> site.table1.events.ui.screens.LeagueDetailsScreen(e.arguments?.getString("league") ?: "", back) }
+    composable("league/standings/{season}?title={title}", arguments = listOf(optional("title"))) { e ->
+        site.table1.events.ui.screens.LeagueStandingsScreen(e.arguments?.getString("season") ?: "", e.arguments?.getString("title"), back, go)
+    }
+    composable("league/player/{season}/{key}") { e ->
+        site.table1.events.ui.screens.LeaguePlayerScreen(e.arguments?.getString("season") ?: "", e.arguments?.getString("key") ?: "", back, go)
+    }
+    composable("league/{league}/tools") { e -> site.table1.events.ui.screens.LeagueToolsScreen(e.arguments?.getString("league") ?: "", foregrounds(), back, go) }
+    composable("league/{league}/edit") { e ->
+        site.table1.events.ui.screens.LeagueEditScreen(e.arguments?.getString("league") ?: "", back) { nav.popBackStack("find?tab={tab}", inclusive = false) || nav.popBackStack("events", inclusive = false) }
+    }
+    composable("league/{league}/season/{season}") { e ->
+        site.table1.events.ui.screens.LeagueSeasonScreen(e.arguments?.getString("league") ?: "", e.arguments?.getString("season")?.takeIf { it != "new" }, back)
+    }
+    composable("league/{league}/organizers") { e -> site.table1.events.ui.screens.LeagueOrganizersScreen(e.arguments?.getString("league") ?: "", back) }
+}
+
+/** Debug only: the new screens on stand-in data, signed out (`--es t1Leagues <screen>`; MainActivity lists them). */
+@Composable
+private fun LeaguesDemoRoot() {
+    val nav = rememberNavController()
+    site.table1.events.ui.components.KeyboardAwayOnNavigate(nav)
+    val demo = site.table1.events.data.LeaguesDemo
+    val d = demo.data ?: site.table1.events.data.LeaguesDemo.Data()
+    val league = d.league_view
+    val season = league.season?.id ?: ""
+    val start = when (demo.screen.takeIf { demo.on } ?: "home") {
+        "leagues" -> "find?tab=leagues"
+        "boards" -> "find?tab=boards"
+        "league" -> "league/${league.league.slug}?from=demo"
+        "details" -> "league/${league.league.slug}/details"
+        "standings" -> "league/standings/$season?title=${Uri.encode("${league.league.name} · ${league.season?.name}")}"
+        "player" -> "league/player/$season/${Uri.encode(d.league_player.player.key)}"
+        "board" -> "board/modern"
+        // A public league event you aren't in: About, the league's row, the once-only notice and Sign up.
+        "event" -> "eventpage/${d.find_events.firstOrNull { it.league != null && it.me == null }?.eventId}?signup=false"
+        "create" -> "create"
+        "home" -> "events"
+        "season" -> "league/${league.league.slug}/season/new"
+        "profile" -> "profile-demo"
+        "tools" -> "league/${league.league.slug}/tools"
+        "organizers" -> "league/${league.league.slug}/organizers"
+        else -> "find?tab=events"
+    }
+    CompositionLocalProvider(site.table1.events.ui.components.LocalOpenProfile provides { _: String -> }) {
+        NavHost(navController = nav, startDestination = "events") {
+            composable("events") {
+                EventsHomeScreen(foregrounds = 0, autoOpenArmed = false, onAutoOpened = {}, onOpenEvent = {}, onCreate = { nav.navigate("create") },
+                    go = { nav.navigate(it) }, onNearby = {}, onJoinLink = {}, onLife = {}, onOpenTracker = {})
+            }
+            leaguesGraph(nav) { 0 }
+            composable("eventpage/{id}?signup={signup}") { e ->
+                EventPageScreen(e.arguments?.getString("id") ?: "", signUpNow = false, onBack = { nav.popBackStack() }, onOpenEvent = {}, go = { nav.navigate(it) })
+            }
+            composable("create") { CreateEventScreen(onCreated = {}, onCancel = { nav.popBackStack() }) }
+            // A stand-in profile's head with its Achievements row (the profile itself needs an account).
+            composable("profile-demo") {
+                T1Screen {
+                    Bar("Ann Ito", onBack = { nav.popBackStack() })
+                    Column(Modifier.fillMaxSize()) {
+                        site.table1.events.ui.components.BigNumber("26-14-1", "41 matches · 9 events")
+                        site.table1.events.ui.screens.ProfileAchievementsRow("demo", 2, null) { nav.navigate(it) }
+                    }
+                }
+            }
+        }
+    }
+    LaunchedEffect(Unit) { if (start != "events") nav.navigate(start) }
 }
 
 /** A sign-up link opened signed out: its event, shown over sign-in; signing in signs you up. */

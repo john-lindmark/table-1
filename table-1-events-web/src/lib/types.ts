@@ -49,8 +49,10 @@ export interface Table1Event {
   /** contract/scheduled-events-2026-10-27.md */
   topCut: 0 | 8;
   autoRounds: boolean;
-  /** Who can find it: nearby (150 m and alerts) / link_only / private (contract/privacy-lockdown-2026-10-18.md). */
-  visibility: "nearby" | "link_only" | "private";
+  /** Who can find it: public / friends (listed in the Events tab, contract/public-events-leagues-2026-11-13.md § 1),
+   *  link_only (Private: QR, code, link or invitation), and the two older choices nearby (150 m and alerts) and
+   *  private (invitation only; contract/privacy-lockdown-2026-10-18.md). */
+  visibility: "public" | "friends" | "nearby" | "link_only" | "private";
   /** Draft seating: players at both ends of the table too (contract/event-night-2026-10-16.md § 3). Drawing only. */
   seatEnds: boolean;
   capacity: number | null;

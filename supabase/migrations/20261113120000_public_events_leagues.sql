@@ -917,6 +917,12 @@ begin
     'league', t1_private.league_json(l),
     'me', jsonb_build_object('role', v_role, 'following', coalesce(f.following, false),
                              'notify', coalesce(f.following and f.notify, false)),
+    -- Who runs it, with accounts: for the league's own organizers only (the owner removes or promotes from here).
+    'members', case when v_role is not null then (
+      select jsonb_agg(jsonb_build_object('user_id', m.user_id, 'name', p.display_name, 'role', m.role)
+                       order by (m.role = 'owner') desc, m.created_at, m.user_id)
+        from public.league_members m join public.profiles p on p.id = m.user_id
+       where m.league_id = l.id and p.deleted_at is null) end,
     'seasons', coalesce((select jsonb_agg(jsonb_build_object('id', x.id, 'name', x.name, 'starts_on', x.starts_on,
                                                               'ends_on', x.ends_on, 'state', t1_private.season_state(x))
                                            order by x.starts_on desc, x.name)

@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { capture } from "../lib/telemetry";
 import { manaSymbols, MANA_SYMBOLS } from "../lib/limitedCards";
 
-export interface FilterOption { value: string; label: string; detail?: string }
+export interface FilterOption {
+  value: string; label: string; detail?: string;
+  /** Several picks only: whether this option is picked, when the caller decides it (a picker that mixes a one-of
+   *  group with switches, like Find's More). Left out, an option is on when it's in `picked`. */
+  on?: boolean;
+}
 /** A filter as an attribute cell: its value, and the picker it opens (design guidance § Attribute row, § Picker). */
 export interface FilterCell {
   name: string; value: string; options: FilterOption[]; current: string | null; onPick: (v: string) => void;
@@ -10,6 +15,10 @@ export interface FilterCell {
    *  each tap puts an option in or out, and "all" clears the picks and closes it. */
   picked?: readonly string[];
 }
+/** What a pick records. Left out: Insights' `insights_filter_changed`. */
+export type FilterTelemetry = (filter: string, value: string, on?: boolean) => void;
+const insightsTelemetry: FilterTelemetry = (filter, value, on) =>
+  capture("insights_filter_changed", on == null ? { filter, value } : { filter, value, on });
 
 /** The option at the end of the format and set pickers that opens Edit. */
 export const EDIT_VALUE = "__edit";
@@ -17,7 +26,12 @@ export const EDIT_VALUE = "__edit";
 const DROP = "M9 11.25L5.25 7.5H12.75L9 11.25Z";   // Material Symbols Sharp arrow_drop_down
 
 /** Insights' filters: one row of equal cells, 50 px tall and 1 px apart, each a dropdown that opens its picker. */
-export function FilterRow({ cells }: { cells: FilterCell[] }) {
+export function FilterRow({ cells, telemetry = insightsTelemetry, dense }: {
+  cells: FilterCell[]; telemetry?: FilterTelemetry;
+  /** Four cells on a phone (Find events): the values a little smaller and no arrows below the desktop width, so
+   *  "Everywhere" and "This weekend" read whole. */
+  dense?: boolean;
+}) {
   const [openName, setOpenName] = useState<string | null>(null);
   // looked up each render so a multi-pick picker shows the picks as they change
   const open = cells.find((c) => c.name === openName) ?? null;
@@ -33,9 +47,9 @@ export function FilterRow({ cells }: { cells: FilterCell[] }) {
       <div className="flex gap-px bg-t1-bg">
         {cells.map((c) => (
           <button key={c.name} type="button" aria-label={`${c.name}: ${c.value}`} aria-haspopup="dialog" onClick={() => setOpen(c)}
-                  className="flex-1 min-w-0 h-[50px] px-1.5 flex items-center justify-center gap-0.5 bg-t1-surface hover:bg-t1-surface-hover">
-            <span className="truncate text-[11px] uppercase tracking-[1.5px]">{c.value}</span>
-            <svg viewBox="0 0 18 18" width="16" height="16" className="shrink-0 fill-t1-muted" aria-hidden><path d={DROP} /></svg>
+                  className={`flex-1 min-w-0 h-[50px] flex items-center justify-center gap-0.5 bg-t1-surface hover:bg-t1-surface-hover ${dense ? "px-1 lg:px-1.5" : "px-1.5"}`}>
+            <span className={`truncate uppercase ${dense ? "text-[10px] tracking-[1px] lg:text-[11px] lg:tracking-[1.5px]" : "text-[11px] tracking-[1.5px]"}`}>{c.value}</span>
+            <svg viewBox="0 0 18 18" width="16" height="16" className={`shrink-0 fill-t1-muted ${dense ? "hidden lg:block" : ""}`} aria-hidden><path d={DROP} /></svg>
           </button>
         ))}
       </div>
@@ -51,19 +65,19 @@ export function FilterRow({ cells }: { cells: FilterCell[] }) {
               <div className="max-h-[400px] overflow-y-auto flex flex-col">
                 {open.options.map((o) => {
                   const many = open.picked;
-                  const on = many ? (many.length ? many.includes(o.value) : o.value === "all") : o.value === open.current;
+                  const on = many ? o.on ?? (many.length ? many.includes(o.value) : o.value === "all") : o.value === open.current;
                   return (
                     <button key={o.value} type="button" aria-pressed={on}
                             onClick={() => {
                               const c = open;
                               if (many) {
                                 if (o.value === "all") setOpen(null);
-                                capture("insights_filter_changed", { filter: c.name.toLowerCase(), value: o.value, on: o.value === "all" ? true : !on });
+                                telemetry(c.name.toLowerCase(), o.value, o.value === "all" ? true : !on);
                                 c.onPick(o.value);
                                 return;
                               }
                               setOpen(null);
-                              if (o.value !== c.current && o.value !== EDIT_VALUE) capture("insights_filter_changed", { filter: c.name.toLowerCase(), value: o.value });
+                              if (o.value !== c.current && o.value !== EDIT_VALUE) telemetry(c.name.toLowerCase(), o.value);
                               c.onPick(o.value);
                             }}
                             className={`shrink-0 flex flex-col items-center justify-center gap-0.5 active:bg-t1-surface hover:bg-t1-surface ${o.detail ? "h-[62px]" : "h-[50px]"} ${on ? "outline outline-1 -outline-offset-1 outline-t1-accent" : ""}`}>

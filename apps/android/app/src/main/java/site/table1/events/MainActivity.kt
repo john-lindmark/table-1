@@ -56,6 +56,11 @@ class MainActivity : ComponentActivity() {
             // `--es t1Overlays menu|panel|sheet|dice|dialog`: every kind of bottom surface, signed out
             // (contract/android-bottom-bars-2026-11-11.md).
             site.table1.events.ui.components.OverlayDebug.open = intent?.getStringExtra("t1Overlays")
+            // `--es t1Leagues find|leagues|boards|league|player|standings|details|board|event|create|season|tools|organizers|home|profile`:
+            // finding events, leagues, boards and achievements on stand-in data, signed out
+            // (contract/public-events-leagues-2026-11-13.md). `live` opens the Events home signed out against the real
+            // server instead, to see what one without these functions draws.
+            intent?.getStringExtra("t1Leagues")?.let { site.table1.events.data.LeaguesDemo.load(this, it) }
             // `--es t1RankEngine /data/local/tmp/rank-engine.js [--es t1RankArgs <open args json>]`: loads that engine file in
             // QuickJS whatever its rules, logs its self test and timings to Logcat (tag RankEngine), then unloads it.
             intent?.getStringExtra("t1RankEngine")?.let { path ->

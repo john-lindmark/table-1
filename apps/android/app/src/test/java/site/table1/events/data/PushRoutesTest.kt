@@ -35,6 +35,19 @@ class PushRoutesTest {
         assertNull(link("kind" to "ranking.started", "ranking_id" to ""))
     }
 
+    /** Leagues (contract/public-events-leagues-2026-11-13.md § 3): a new league event opens the event; results,
+     *  qualifying and the season's end open the league by its id. */
+    @Test fun leagueKinds() {
+        assertEquals(screens("events", "event/e1"), link("kind" to "league.event", "event_id" to "e1", "league_id" to "l1", "league_slug" to "mms"))
+        for (kind in listOf("league.results", "league.qualified", "league.season")) {
+            assertEquals(kind, screens("events", "league/l1?from=push"), link("kind" to kind, "league_id" to "l1", "league_slug" to "mms", "event_id" to "e1"))
+            assertNull(kind, link("kind" to kind, "league_id" to "", "event_id" to "e1"))
+            assertEquals(PushRoutes.Channel.Leagues, PushRoutes.channel(kind))
+        }
+        assertEquals(PushRoutes.Channel.Leagues, PushRoutes.channel("league.event"))
+        assertNull(link("kind" to "league.event"))
+    }
+
     @Test fun accountKinds() {
         assertEquals(screens("account", "friends"), link("kind" to "friend.request"))
         assertEquals(screens("account", "notices"), link("kind" to "moderation.notice"))

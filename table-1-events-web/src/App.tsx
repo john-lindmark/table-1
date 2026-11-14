@@ -118,6 +118,11 @@ const InsightsPair = lazyNamed(insights, "InsightsPair");
 const InsightsLimitedCard = lazyNamed(insights, "InsightsLimitedCard");
 const InsightsReview = lazyNamed(insights, "InsightsReview");
 const CollectionImportScreen = lazyNamed(() => import("./screens/CollectionImport"), "CollectionImportScreen");
+// Finding events, leagues and boards (contract/public-events-leagues-2026-11-13.md): their own chunks.
+const find = () => import("./screens/Find");
+const FindScreen = lazyNamed(find, "FindScreen");
+const BoardScreen = lazyNamed(find, "BoardScreen");
+const LeagueScreen = lazyNamed(() => import("./screens/League"), "LeagueScreen");
 // The TV display (/d/<event>) is its own chunk: only the screen that shows it downloads it.
 const DisplayScreen = lazyNamed(() => import("./screens/Display"), "DisplayScreen");
 const EventsDemo = lazyNamed(() => import("./screens/EventsDemo"), "EventsDemo");
@@ -630,6 +635,24 @@ function StandingsRoute() {
   return <PublicStandings eventId={eventId} onBack={back} />;
 }
 
+/* Find (/find: Events | Leagues | Boards), a league (/league/<slug>) and a format board (/boards/<key>), signed in or
+   out (contract/public-events-leagues-2026-11-13.md §§ 1, 3, 4). */
+function FindRoute() {
+  return <FindScreen onBack={useBack("/")} />;
+}
+function LeagueRoute() {
+  const { slug } = useParams();
+  const back = useBack("/find?tab=leagues");
+  if (!slug) return <Navigate to="/find?tab=leagues" replace />;
+  return <LeagueScreen key={slug} league={slug} onBack={back} />;
+}
+function BoardRoute() {
+  const { key } = useParams();
+  const back = useBack("/find?tab=boards");
+  if (!key) return <Navigate to="/find?tab=boards" replace />;
+  return <BoardScreen key={key} board={key} onBack={back} />;
+}
+
 /** The TV display (contract/public-events-leagues-2026-11-13.md § 5): full screen, no chrome, never claimed by the apps. */
 function DisplayRoute() {
   const { eventId } = useParams();
@@ -689,6 +712,9 @@ export default function App() {
         <Route path="/p/:eventId/photos" element={<DeckPhotosRoute organizer={false} />} />
         <Route path="/s/:eventId" element={<StandingsRoute />} />
         <Route path="/d/:eventId" element={<DisplayRoute />} />
+        <Route path="/find" element={<FindRoute />} />
+        <Route path="/league/:slug" element={<LeagueRoute />} />
+        <Route path="/boards/:key" element={<BoardRoute />} />
         <Route path="/l/:token" element={<SharedLinkRoute />} />
         {import.meta.env.DEV && <Route path="/dev/events" element={<EventsDemo />} />}
         {import.meta.env.DEV && <Route path="/dev/roto" element={<RotoDemo />} />}

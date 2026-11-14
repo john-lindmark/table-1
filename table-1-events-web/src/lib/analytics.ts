@@ -14,10 +14,11 @@
  *   /library/list/8f3c…   →  /library/list/:id   (also card/…, trade/…, match/…; /library/trade/new stays)
  *   /u/8f3c…/deck/2b1d…   →  /u/:id/deck/:id     (profiles and their binders, decks and cubes)
  *   /library/following/deck/2b1d…  →  /library/following/deck/:id
+ *   /league/the-mountain-magic-series  →  /league/:id   (a board's key, /boards/modern, is a format and stays)
  */
 export function redactPath(pathname: string): string {
   return pathname
-    .replace(/^\/(join|j|e|p|s|d|l|life|u)\/[^/]+/, "/$1/:id")
+    .replace(/^\/(join|j|e|p|s|d|l|life|u|league)\/[^/]+/, "/$1/:id")
     .replace(/^(\/u\/:id\/(?:binder|deck|cube))\/[^/]+/, "$1/:id")
     .replace(/^\/library\/(card|list|trade|match)\/(?!new(?:\/|$))[^/]+/, "/library/$1/:id")
     .replace(/^(\/library\/following\/(?:binder|deck|cube))\/[^/]+/, "$1/:id");
@@ -25,11 +26,13 @@ export function redactPath(pathname: string): string {
 
 /** Query parameters that are credentials: the QR join secret and OAuth return values. */
 const SECRET_PARAMS = ["s", "code", "token", "access_token", "refresh_token", "state"];
+/** Query parameters that name someone's rows: a league page's season and player (an account id, or a guest's name). */
+const ID_PARAMS = ["season", "player", "sid"];
 
 export function redactSearch(search: string): string {
   if (!search) return "";
   const params = new URLSearchParams(search);
-  for (const key of SECRET_PARAMS) params.delete(key);
+  for (const key of [...SECRET_PARAMS, ...ID_PARAMS]) params.delete(key);
   const rest = params.toString();
   return rest ? `?${rest}` : "";
 }
@@ -92,6 +95,9 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
   if (support) return `support_${support[1]}`;
   if (/^\/(e|p|s|join|j)\/[^/]+$/.test(p)) return "event";
   if (/^\/d\/[^/]+$/.test(p)) return "display";
+  if (p === "/find") return "find";
+  if (/^\/league\/[^/]+$/.test(p)) return "league";
+  if (/^\/boards\/[^/]+$/.test(p)) return "board";
   if (/^\/e\/[^/]+\/add$/.test(p)) return "add_players";
   if (/^\/(e|p)\/[^/]+\/photos$/.test(p)) return "deck_photos";
   if (/^\/life(\/[^/]+)?$/.test(p)) return "life_tracker";
