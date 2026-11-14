@@ -1,0 +1,153 @@
+{
+ "photo_id": "5309b645-0682-47ea-9ab9-f57dc399f361",
+ "event_id": "586d9049-9e76-462e-a9e6-37d9fd51e566",
+ "format_label": "Draft",
+ "event_type": "limited",
+ "pool": null,
+ "cards": [
+  {
+   "name": "Blessed Ghoul",
+   "qty": 2,
+   "board": "main",
+   "sure": false,
+   "read": "title read on top card; one more Zombie Cleric fanned diagonally under it, possibly a third"
+  },
+  {
+   "name": "Enlightened Confidant",
+   "qty": 3,
+   "board": "main",
+   "sure": false,
+   "read": "title read on top card; Kor Cleric type line / Lifelink text of what looks like two more copies fanned under it"
+  },
+  {
+   "name": "Unflinching Hortimancer",
+   "qty": 3,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tomik, Orzhov Lawmage",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Edgar, Ancient Bloodlord",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Danitha, Sword of Hope",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Koth of the Homestead",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Germinate Recruits",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Thalia, the Survivor",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fateshaper Aspirant",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Archive Arbiter",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Medic's Kitesail",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Prophesied End",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Surgical Precision",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Academic Ascent",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Refute Destiny",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Generous Revival",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Memory Trap",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Your Fate Ends Here",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Warrior's Blades",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mountain",
+   "qty": 2,
+   "board": "main",
+   "sure": false,
+   "read": "Japanese full-art Mountain pile under a die, about 2 edges visible"
+  },
+  {
+   "name": "Plains",
+   "qty": 8,
+   "board": "main",
+   "sure": false,
+   "read": "Japanese full-art Plains squared pile under a die, count estimated"
+  },
+  {
+   "name": "Swamp",
+   "qty": 6,
+   "board": "main",
+   "sure": false,
+   "read": "Japanese full-art Swamp squared pile under a die, count estimated"
+  }
+ ],
+ "notes": "Basic lands are squared piles under dice so counts are estimates; fanned duplicates at top left overlap diagonally; a Jace token at the right edge was left out."
+}

@@ -1,0 +1,148 @@
+{
+ "photo_id": "5cbaac10-42dd-47f6-97a4-257715564aa4",
+ "event_id": "6d1c27e4-42a3-4782-9371-8a33e8b176f2",
+ "format_label": "Team draft · Reality Fracture",
+ "event_type": "limited",
+ "pool": "fra",
+ "cards": [
+  {
+   "name": "Island",
+   "qty": 10,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mountain",
+   "qty": 5,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Plains",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Perfected Theory",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Unsummon",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Twinned Vision",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Blazing Crescendo",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Countersculpt",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Awaken the Inferno",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Murmuring Volume",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sphinx's Approach",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Protege's Awakening",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Way of the Mind Sculptor",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Surveillance Phantasm",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fatehold Chronologist // Peer Review",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Paradox Shaper // Omit Variables",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Geist of Saint Thalia",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Prudent Fateseer // Peer Review",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Vraska, Soul of Stone",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mindseeker Oculus",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Koth, the Geomancer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Saheeli, Jewel of Avishkar",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Traxos, Academy Guardian",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  }
+ ],
+ "notes": ""
+}

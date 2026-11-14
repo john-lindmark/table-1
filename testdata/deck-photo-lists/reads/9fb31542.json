@@ -1,0 +1,161 @@
+{
+ "photo_id": "9fb31542-b6f4-4f62-b77f-4842e1b0d864",
+ "event_id": "6d1c27e4-42a3-4782-9371-8a33e8b176f2",
+ "format_label": "Team draft · Reality Fracture",
+ "event_type": "limited",
+ "pool": "fra",
+ "cards": [
+  {
+   "name": "Forest",
+   "qty": 8,
+   "board": "main",
+   "sure": false,
+   "read": "fanned land column under glare; 6 Forest titles readable, the top two title bars washed out, assumed Forest"
+  },
+  {
+   "name": "Mountain",
+   "qty": 6,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Plains",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Konstrari Annex",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Vigorbloom Annex",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Heartwood Crafter // Soul Tether",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Konstrari Improviser // Soul Tether",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sureshot Sower",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Budding Insurgent",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Greenhouse Propagator",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Woodwork Prodigy // Soul Tether",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Pia, Determined Rebuilder",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Hallway Heckler // Vicious Verse",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tenured Tethermage",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Hexhaven Invigorator",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Craftwork Crusher",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Craterclaw Colossus",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Guiding Hydra",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Compel Brutality",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tam's Resistance",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ferocity of the Hunt",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Twinned Vision",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Murmuring Volume",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Violent Echoes",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Awaken the Inferno",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  }
+ ],
+ "notes": "Land column at the left is in glossy sleeves with glare; the top title bars are barely legible."
+}

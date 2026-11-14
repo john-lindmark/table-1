@@ -1,0 +1,169 @@
+{
+ "photo_id": "e9a4da30-1fd7-4528-bc18-42938ac069bc",
+ "event_id": "586d9049-9e76-462e-a9e6-37d9fd51e566",
+ "format_label": "Draft",
+ "event_type": "limited",
+ "pool": null,
+ "cards": [
+  {
+   "name": "Heartwood Crafter",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Arcane Amphisbaena",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Konstrari Improviser",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tenured Tethermage",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Jiang Yanggu, Never Alone",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Apex Witchstalker",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tamiyo, Upriser Crowned",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Karn, Gilded Guardian",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "small gold title read as 'Karn, Gilded Guardian', five-color cost, mostly covered"
+  },
+  {
+   "name": "Memnarch, the Warden",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Emrakul, the Exigent Doom",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Way of the Pyromancer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "No Admittance",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Something Worth Saving",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Twinned Vision",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Wrath of the Bloodmane",
+   "qty": 3,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fulminous Forte",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Identity Echo",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Bestial Incursion",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Violent Echoes",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Awaken the Inferno",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Konstrari Annex",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Dedicated Commons",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Rockfall Vale",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Plains",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mountain",
+   "qty": 5,
+   "board": "main",
+   "sure": false,
+   "read": "4 title bars read plus one red card edge with its title covered"
+  },
+  {
+   "name": "Forest",
+   "qty": 8,
+   "board": "main",
+   "sure": false,
+   "read": "7 title bars read plus one green card edge with its title covered"
+  }
+ ],
+ "notes": "Land column is tightly overlapped; two rows show only a colored edge with no title."
+}

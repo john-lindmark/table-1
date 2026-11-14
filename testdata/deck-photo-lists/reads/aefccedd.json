@@ -1,0 +1,177 @@
+{
+ "photo_id": "aefccedd-50d1-4dcd-baf9-852b260bd52c",
+ "event_id": "586d9049-9e76-462e-a9e6-37d9fd51e566",
+ "format_label": "Draft",
+ "event_type": "limited",
+ "pool": null,
+ "cards": [
+  {
+   "name": "Blessed Ghoul",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Liliana the Repentant",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Campus Crier",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Arcane Amphisbaena",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Edgar, Ancient Bloodlord",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Gideon the Oathless",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Screeching Soulbreaker",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Lyra, Archangel of Dawn",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Primal Witchstalker",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Bloombrute",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Hapatra, the Desert Fang",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Rise of the Deathbringer",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Kwia Vigorbloom",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "small showcase title read as 'Kwia Vigorbloom', black-green, cost about 3 + three colored; name unknown to me; sits half off the top of the playmat"
+  },
+  {
+   "name": "Niv-Mizzet, Ghost Counsel",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "dark showcase title read as 'Niv-Mizzet, Ghost Counsel', gold legendary flyer; faint print"
+  },
+  {
+   "name": "Hexhaven Battalion",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Last Gasp",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Memory Trap",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Way of the Paradox",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Generous Revival",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Murmuring Volume",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Extended Absence",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Twisted Fates",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Formidable Commons",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Meticulous Commons",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Swamp",
+   "qty": 4,
+   "board": "main",
+   "sure": false,
+   "read": "fan of 4 title bars, possibly a 5th edge behind"
+  },
+  {
+   "name": "Plains",
+   "qty": 6,
+   "board": "main",
+   "sure": false,
+   "read": "fan of about 6, partly under the two Commons lands"
+  },
+  {
+   "name": "Forest",
+   "qty": 5,
+   "board": "main",
+   "sure": false,
+   "read": "tight fan of about 5 title bars"
+  }
+ ],
+ "notes": "Basic land fans overlap tightly so their counts are estimates; two showcase-frame titles are small and dark."
+}

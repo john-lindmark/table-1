@@ -114,7 +114,7 @@ struct MyDeckPhotosView: View {
                     let detail = group.photos.first.map(MyDeckPhotoRules.detail) ?? ""
                     Section1(detail.isEmpty ? group.title : "\(group.title) · \(detail)")
                     ForEach(group.photos) { photo in
-                        DeckPhotoCard(photo: photo, url: urls[photo.path], turns: turning[photo.id] ?? photo.turns ?? 0) { edit(photo) }
+                        DeckPhotoCard(photo: photo, url: urls[photo.path], turns: turning[photo.id] ?? photo.turns ?? 0, from: "account") { edit(photo) }
                     }
                 }
                 if mine.total > mine.photos.count {

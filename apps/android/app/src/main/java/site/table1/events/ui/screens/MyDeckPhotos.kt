@@ -1,5 +1,7 @@
 package site.table1.events.ui.screens
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -11,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BarAction
@@ -66,7 +69,8 @@ fun LazyListScope.deckPhotosAccountRow(summary: String?, onOpen: () -> Unit) {
 }
 
 @Composable
-fun MyDeckPhotosScreen(onBack: () -> Unit, onOpenEvent: (String) -> Unit, onOpenEventPhotos: (String) -> Unit) {
+fun MyDeckPhotosScreen(onBack: () -> Unit, onOpenEvent: (String) -> Unit, onOpenEventPhotos: (String) -> Unit,
+                       onOpenList: (String) -> Unit = {}) {
     val scope = rememberCoroutineScope()
     var mine by remember { mutableStateOf(MyDeckPhotos()) }
     val urls = remember { mutableStateMapOf<String, String>() }
@@ -121,7 +125,10 @@ fun MyDeckPhotosScreen(onBack: () -> Unit, onOpenEvent: (String) -> Unit, onOpen
                 val detail = MyDeckPhotoRules.detail(group.photos.first())
                 item(key = "h-${group.eventId}") { Section(if (detail.isEmpty()) group.title else "${group.title} · $detail") }
                 items(group.photos, key = { it.id }) { photo ->
-                    DeckPhotoCard(photo, urls[photo.path], turning[photo.id] ?: photo.turns, onClick = { menuFor = photo })
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        DeckPhotoCard(photo, urls[photo.path], turning[photo.id] ?: photo.turns, onClick = { menuFor = photo })
+                        DeckListRow(photo, "account", onOpenList)
+                    }
                 }
             }
             if (loaded && mine.total > mine.photos.size) item { Notice("Showing the newest ${mine.photos.size} of ${mine.total}.") }

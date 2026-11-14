@@ -43,6 +43,8 @@ struct DeckPhoto: Decodable, Identifiable, Hashable {
     var eventStatus: String? = nil
     var formatLabel: String? = nil
     var eventAt: String? = nil
+    /// Where the photo's decklist stands (contract/deck-photo-lists-2026-11-13.md); nil = never read.
+    var list: DeckListBrief? = nil
 }
 
 struct DeckPhotos: Decodable {
@@ -459,6 +461,9 @@ struct DeckPhotoCard: View {
     let photo: DeckPhoto
     let url: URL?
     let turns: Int
+    /// The Decklist row under the photo (off in the add panel's demo).
+    var showsList = true
+    var from = "event"
     let onTap: () -> Void
     @State private var loaded: UIImage?
     /// The photo upright as its player turned it: what Copy, Save to Photos and Share hand over.
@@ -468,6 +473,7 @@ struct DeckPhotoCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+          VStack(alignment: .leading, spacing: 0) {
             Rectangle().fill(T1.bg)
                 .aspectRatio(4 / 3, contentMode: .fit)
                 .overlay {
@@ -496,10 +502,15 @@ struct DeckPhotoCard: View {
                 if !photo.note.isEmpty { Text(photo.note).font(T1.mono(13)).foregroundStyle(T1.text) }
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
+          }
+          .contentShape(Rectangle())
+          .onTapGesture(perform: onTap)
+            if showsList {
+                Rectangle().fill(T1.bg).frame(height: 1)
+                DeckListRow(photo: photo, from: from)
+            }
         }
         .background(T1.surface)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onTap)
         .accessibilityActions {
             if turned != nil {
                 Button("Copy") { said = actions.copy() }
@@ -721,7 +732,7 @@ struct ImagePicker: UIViewControllerRepresentable {
     }
 }
 
-private extension UIImage {
+extension UIImage {
     /// Longest side 2048 px, JPEG 0.8: a deck spread stays legible at a few hundred KB.
     func deckJPEG(turns: Int = 0) -> Data? {
         deckRendered(turns: turns, longest: 2048).jpegData(compressionQuality: 0.8)
@@ -755,7 +766,7 @@ struct DeckPhotoDemo: View {
                     DeckPhotoCard(photo: DeckPhoto(id: "demo\(turns)", participantId: "p1", player: "Ann Ito", path: "",
                                                    note: "Saved with \(turns) turn\(turns == 1 ? "" : "s")", createdAt: "",
                                                    mine: true, editable: true, turns: turns),
-                                  url: Self.sampleFile, turns: turns) {}
+                                  url: Self.sampleFile, turns: turns, showsList: false) {}
                 }
             }
         }

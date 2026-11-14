@@ -1,3 +1,4 @@
+import { toDeckListBrief, type DeckListBrief } from "./deckPhotoList";
 import { supabase } from "./supabaseClient";
 
 /* Deck photos (contract/event-night-2026-10-16.md § 7): players add their own, the organizer adds for anyone (guests
@@ -15,6 +16,8 @@ export interface DeckPhoto {
   editable: boolean;
   /** Quarter turns clockwise to draw it upright, set after upload (0 from servers before 2026-10-30). */
   turns: number;
+  /** Where its decklist stands (contract/deck-photo-lists-2026-11-13.md); null when never queued. */
+  list: DeckListBrief | null;
 }
 
 export interface DeckPhotos {
@@ -30,6 +33,7 @@ function toPhotos(raw: any): DeckPhotos {
     photos: (raw?.photos ?? []).map((p: any) => ({
       id: p.id, participantId: p.participant_id, player: p.player ?? "", path: p.path, note: p.note ?? "",
       createdAt: p.created_at, mine: !!p.mine, editable: !!p.editable, turns: Number(p.turns ?? 0) || 0,
+      list: toDeckListBrief(p.list),
     })),
   };
 }

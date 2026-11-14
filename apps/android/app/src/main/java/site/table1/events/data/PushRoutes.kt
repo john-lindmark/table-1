@@ -27,6 +27,8 @@ object PushRoutes {
         return when {
             // "Add your deck photo" (contract/event-night-2026-10-16.md § 7): the event, then its Deck photos on Take a photo.
             kind == "event.deck_photo" -> id("event_id")?.let { WebLink.Screens("events", listOf("event/$it", "photos/$it?add=true")) }
+            // "Your decklist is ready" (contract/deck-photo-lists-2026-11-13.md): Account's deck photos, then that photo's decklist.
+            kind == "deck.read" -> id("photo_id")?.let { WebLink.Screens("account", listOf("mydeckphotos", "photolist/$it")) }
             kind == "insights.new" -> insights(data)?.let { WebLink.Screens("insights", if (it.what == "rank") listOf(rankSetRoute(it.key)) else emptyList()) }
             kind == "want.price" -> collection("collection/wants")
             // A deck search finished (contract/deck-finder-2026-10-15.md § Jobs): Find a deck on that job.
@@ -59,7 +61,8 @@ object PushRoutes {
     }
 
     fun channel(kind: String): Channel = when {
-        kind.startsWith("event.") || kind.startsWith("round.") || kind.startsWith("result.") -> Channel.Events
+        // deck.read is about an event's deck photo, not a Collection deck.
+        kind.startsWith("event.") || kind.startsWith("round.") || kind.startsWith("result.") || kind == "deck.read" -> Channel.Events
         kind.startsWith("follow.") || kind.startsWith("trade.") || kind.startsWith("want.") || kind.startsWith("ranking.") || kind.startsWith("deck.") -> Channel.Collection
         kind.startsWith("friend.") -> Channel.Friends
         kind.startsWith("insights.") -> Channel.Insights

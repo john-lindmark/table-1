@@ -1,0 +1,154 @@
+{
+ "photo_id": "d048fb96-e5b7-41f9-b061-faf33f594899",
+ "event_id": "586d9049-9e76-462e-a9e6-37d9fd51e566",
+ "format_label": "Draft",
+ "event_type": "limited",
+ "pool": null,
+ "cards": [
+  {
+   "name": "Theorix Charm",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Awaken the Inferno",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Stingerquill Charm",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Charge the Sanctum",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Cast Away Doubt",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Clash of Elements",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mabel, Bitter Recluse",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Stingerquill Voxmancer",
+   "qty": 3,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Master of Barbs",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Grim Repriser",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Stingcaster Mage",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Skilled Battlecarver",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tomik, Izzet Sparkmage",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ingris Stingerquill",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Gideon the Oathless",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Heartstring Puller",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Null Summoner",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Uldaros Theorix",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Innovative Commons",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Shipwreck Marsh",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Haunted Ridge",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Island",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mountain",
+   "qty": 6,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Swamp",
+   "qty": 5,
+   "board": "main",
+   "sure": true
+  }
+ ],
+ "notes": "Land column titles are small and dim under sleeve glare but each title bar could be read."
+}

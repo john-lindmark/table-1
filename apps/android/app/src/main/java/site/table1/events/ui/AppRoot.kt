@@ -391,7 +391,13 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 // Account → Deck photos (contract/event-night-2026-10-16.md § 7 On your account).
                 composable("mydeckphotos") {
                     site.table1.events.ui.screens.MyDeckPhotosScreen(onBack = { nav.popBackStack() },
-                        onOpenEvent = { nav.navigate("event/$it") }, onOpenEventPhotos = { nav.navigate("photos/$it") })
+                        onOpenEvent = { nav.navigate("event/$it") }, onOpenEventPhotos = { nav.navigate("photos/$it") },
+                        onOpenList = { nav.navigate("photolist/$it") })
+                }
+                // A photo's decklist (contract/deck-photo-lists-2026-11-13.md): from a photo's row or the deck.read push.
+                composable("photolist/{id}") { e ->
+                    site.table1.events.ui.screens.DeckPhotoListScreen(photoId = e.arguments?.getString("id") ?: "",
+                        onBack = { nav.popBackStack() }, onOpenDeck = { nav.navigate("collection/list/$it") })
                 }
                 // Moderation (contract/moderation-2026-10-18.md): notices and appeals; Review for moderators.
                 composable("notices") { site.table1.events.library.NoticesScreen(onBack = { nav.popBackStack() }) }
@@ -667,7 +673,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 }
                 composable("photos/{id}?add={add}", arguments = listOf(navArgument("add") { nullable = true })) { e ->
                     DeckPhotosScreen(eventId = e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() },
-                        startAdding = e.arguments?.getString("add") == "true")
+                        startAdding = e.arguments?.getString("add") == "true", onOpenList = { nav.navigate("photolist/$it") })
                 }
                 composable("add/{id}") { e ->
                     AddPlayersScreen(eventId = e.arguments?.getString("id") ?: "", onDone = { nav.popBackStack() })

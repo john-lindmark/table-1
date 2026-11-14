@@ -23,6 +23,7 @@ import {
   type MyDeckPhotos,
   type MyDeckPhoto,
 } from "../lib/deckPhotos";
+import { deckListRow, type DeckListBrief } from "../lib/deckPhotoList";
 import type { Participant } from "../lib/types";
 import { isLibraryDemo } from "../lib/libraryDemo";
 import { Bar, Dialog, Menu, type MenuItem, Notice, Screen } from "../components/kit";
@@ -32,8 +33,10 @@ import { Bar, Dialog, Menu, type MenuItem, Notice, Screen } from "../components/
  * anyone, guests too. Until the event is over each player sees only their own (the organizer sees all); after,
  * everyone in it does. The server decides who sees and edits what; `organizer` only picks whose deck to ask about.
  */
-export function DeckPhotosScreen({ eventId, organizer, onBack, startAdding = false }: {
+export function DeckPhotosScreen({ eventId, organizer, onBack, onOpenList, startAdding = false }: {
   eventId: string; organizer: boolean; onBack: () => void;
+  /** The decklist read from a photo (contract/deck-photo-lists-2026-11-13.md). */
+  onOpenList: (photoId: string) => void;
   /** From the player screen's Add a deck photo: the camera / library choice for your own deck opens at once. */
   startAdding?: boolean;
 }) {
@@ -256,6 +259,8 @@ export function DeckPhotosScreen({ eventId, organizer, onBack, startAdding = fal
           note={photo.note}
           turns={turning[photo.id] ?? photo.turns}
           onEdit={photo.editable ? () => edit(photo) : undefined}
+          list={photo.list}
+          onList={() => onOpenList(photo.id)}
         />
       ))}
 
@@ -315,8 +320,9 @@ export function DeckPhotosScreen({ eventId, organizer, onBack, startAdding = fal
  * newest first. A photo's menu opens its event or (once it's over) everyone's photos from it, then Rotate, note and
  * Remove as on the event's own screen.
  */
-export function MyDeckPhotosScreen({ onBack, onOpenEvent, onOpenEventPhotos }: {
+export function MyDeckPhotosScreen({ onBack, onOpenEvent, onOpenEventPhotos, onOpenList }: {
   onBack: () => void; onOpenEvent: (eventId: string) => void; onOpenEventPhotos: (eventId: string) => void;
+  onOpenList: (photoId: string) => void;
 }) {
   const [mine, setMine] = useState<MyDeckPhotos>({ total: 0, events: 0, photos: [] });
   const [urls, setUrls] = useState<Record<string, string>>({});
@@ -426,6 +432,8 @@ export function MyDeckPhotosScreen({ onBack, onOpenEvent, onOpenEventPhotos }: {
                 note={photo.note}
                 turns={turning[photo.id] ?? photo.turns}
                 onEdit={() => edit(photo)}
+                list={photo.list}
+                onList={() => onOpenList(photo.id)}
               />
             ))}
           </div>
@@ -462,18 +470,19 @@ export function MyDeckPhotosScreen({ onBack, onOpenEvent, onOpenEventPhotos }: {
 }
 
 /** `/me/deck-photos?demo`: three photos over two events, one saved with a quarter turn. */
-const DEMO_PHOTO = "data:image/svg+xml," + encodeURIComponent(
+export const DEMO_PHOTO = "data:image/svg+xml," + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200"><rect width="1600" height="1200" fill="#282839"/>' +
   '<rect width="1600" height="120" fill="#00ffd9"/><text x="560" y="700" font-family="monospace" font-size="220" fill="#fff">TOP</text></svg>');
 const demoRow = (id: string, eventId: string, eventName: string, eventStatus: string, formatLabel: string, eventAt: string,
-                 note: string, turns: number): MyDeckPhoto => ({
+                 note: string, turns: number, list: DeckListBrief | null = null): MyDeckPhoto => ({
   id, participantId: `p-${eventId}`, player: "Ann Ito", path: `demo/${id}.jpg`, note, createdAt: eventAt, mine: true,
-  editable: true, turns, eventId, eventName, eventStatus, formatLabel, eventAt,
+  editable: true, turns, list, eventId, eventName, eventStatus, formatLabel, eventAt,
 });
 const DEMO_MINE: MyDeckPhotos = {
   total: 3, events: 2, photos: [
     demoRow("dp1", "ev-sealed", "Thursday Sealed", "in_progress", "Sealed", "2026-11-05T18:30:00Z", "Pool before building", 0),
-    demoRow("dp2", "ev-draft", "Team Draft", "completed", "Team draft", "2026-10-29T18:00:00Z", "Mono red, 17 lands", 1),
+    demoRow("dp2", "ev-draft", "Team Draft", "completed", "Team draft", "2026-10-29T18:00:00Z", "Mono red, 17 lands", 1,
+            { status: "done", cards: 23, check: 2, checked: false }),
     demoRow("dp3", "ev-draft", "Team Draft", "completed", "Team draft", "2026-10-29T18:00:00Z", "", 0),
   ],
 };
@@ -481,8 +490,10 @@ const DEMO_MINE: MyDeckPhotos = {
 /** A deck photo with its player and note. The picture is a plain image, not inside a button, so a long press on a
     phone or a right-click gets the browser's own image menu (copy, save, share; contract/event-night-2026-10-16.md § 7
     "Long press"); a tap on it or on Edit opens the photo's menu when you may edit it. */
-function PhotoCard({ src, player, alt, note, turns, onEdit }: {
+function PhotoCard({ src, player, alt, note, turns, onEdit, list, onList }: {
   src?: string; player: string; alt: string; note: string; turns: number; onEdit?: () => void;
+  /** The row under the photo: where its decklist stands; a click opens the decklist. */
+  list?: DeckListBrief | null; onList?: () => void;
 }) {
   const upright = useUprightPhoto(src, turns);
   return (
@@ -503,13 +514,19 @@ function PhotoCard({ src, player, alt, note, turns, onEdit }: {
         </div>
         {note && <p className="text-[13px] whitespace-pre-wrap">{note}</p>}
       </button>
+      {onList && (
+        <button type="button" onClick={onList}
+                className="border-t border-t1-bg hover:bg-t1-surface-hover px-4 py-3 w-full text-left t1-label !text-t1-text truncate">
+          {deckListRow(list)}
+        </button>
+      )}
     </div>
   );
 }
 
 /** The photo drawn upright as its player turned it (a blob URL), so the browser's Copy and Save hand over what's on
     screen; the stored file is never turned. Undefined while drawing, with no turns, or if the file can't be read. */
-function useUprightPhoto(src: string | undefined, turns: number): string | undefined {
+export function useUprightPhoto(src: string | undefined, turns: number): string | undefined {
   const [url, setUrl] = useState<string>();
   useEffect(() => {
     setUrl(undefined);
@@ -536,7 +553,7 @@ function useUprightPhoto(src: string | undefined, turns: number): string | undef
 
 /** An uploaded photo, whole and turned as its player set it: for a quarter turn it's fitted into the 4:3 box's swapped
     sides (75% of the width, 133% of the height), then rotated into place. */
-function TurnedPhoto({ src, alt, turns, onClick }: { src: string; alt: string; turns: number; onClick?: () => void }) {
+export function TurnedPhoto({ src, alt, turns, onClick }: { src: string; alt: string; turns: number; onClick?: () => void }) {
   const odd = turns % 2 === 1;
   return (
     <img

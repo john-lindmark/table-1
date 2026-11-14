@@ -15,6 +15,7 @@ import { signUpCopy, type SignUpCount } from "./sign-up.ts";
 import { deckFoundCopy } from "./deck-found.ts";
 import { eventFollowCopy } from "./event-follow.ts";
 import { deckPhotoCopy } from "./deck-photo.ts";
+import { deckReadCopy } from "./deck-read.ts";
 
 const url = Deno.env.get("SUPABASE_URL")!;
 const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
@@ -67,6 +68,9 @@ function copy(m: Message, eventName: string, mine?: { table: number | null; oppo
     // contract/event-night-2026-10-16.md § 7: your last match is in and no deck photo yet; the app opens Take a photo.
     case "event.deck_photo":
       return { ...deckPhotoCopy({ ...d, event_name: name }), priority: 5 };
+    // contract/deck-photo-lists-2026-11-13.md: the decklist read from your deck photo; the app opens it to correct.
+    case "deck.read":
+      return { ...deckReadCopy({ ...d, event_name: name }), priority: 5 };
     case "round.paired": {
       const stage = ({ quarterfinal: "Quarterfinals", semifinal: "Semifinals", final: "The final" } as Record<string, string>)[String(d.stage)];
       const round = stage ?? (d.round ? `Round ${d.round}` : "Next round");
@@ -228,6 +232,7 @@ async function run() {
       ...(m.kind === "trade.wants" ? { user_id: m.data?.user_id ?? null } : {}),
       ...(m.kind === "insights.new"
         ? { insights_section: m.data?.insights_section ?? null, insights_key: m.data?.insights_key ?? null, what: m.data?.what ?? null } : {}),
+      ...(m.kind === "deck.read" ? { photo_id: m.data?.photo_id ?? null } : {}),
       ...(m.kind === "deck.found" ? { job_id: m.data?.job_id ?? null, status: m.data?.status ?? null } : {}),
     };
     const alerts: Alert[] = [];

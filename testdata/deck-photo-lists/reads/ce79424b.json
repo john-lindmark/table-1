@@ -1,0 +1,219 @@
+{
+ "photo_id": "ce79424b-c79b-4b35-8355-24904af23857",
+ "event_id": "9410ec21-ef5e-47ca-8fac-4e7c7995eef2",
+ "format_label": "Team draft · Lindmark Cube",
+ "event_type": "limited",
+ "pool": "lindmark",
+ "cards": [
+  {
+   "name": "Oliphaunt",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Gaea's Cradle",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Scalding Tarn",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Taiga",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title glared out, old-frame land in the land row with orange-red art, between Scalding Tarn and Yavimaya Coast"
+  },
+  {
+   "name": "Yavimaya Coast",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ketria Triome",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Copperline Gorge",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mawloc",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Pest Infestation",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Traumatic Critique",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mana Crypt",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sol Ring",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Birds of Paradise",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Hexdrinker",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Blade of the Bloodchief",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fanatic of Rhonas",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Basking Broodscale",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Badgermole Cub",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Cankerbloom",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Carnivorous Cultivator // Enroot",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Legion Extruder",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Miscalculation",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title glared, ends in '...lation', blue card with blue mana in the cost, next to Memory Lapse"
+  },
+  {
+   "name": "Memory Lapse",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Sentinel of the Nameless City",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Gut, True Soul Zealot",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Laelia, the Blade Reforged",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tezzeret, Cruel Captain",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "The One Ring",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Esika's Chariot",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fiery Confluence",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Aerid Konstrari",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mountain",
+   "qty": 3,
+   "board": "main",
+   "sure": false,
+   "read": "squared pile, about 3 edges"
+  },
+  {
+   "name": "Forest",
+   "qty": 4,
+   "board": "main",
+   "sure": false,
+   "read": "squared pile, about 4 edges"
+  },
+  {
+   "name": "Island",
+   "qty": 2,
+   "board": "main",
+   "sure": false,
+   "read": "squared pile cut off by the photo's edge, Japanese Island on top, about 2 edges"
+  }
+ ],
+ "notes": "Photo is turned sideways, basics are in squared piles (one cut off at the edge), and sleeve glare hides two titles."
+}

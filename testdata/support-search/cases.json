@@ -365,16 +365,16 @@
     "decklist"
    ],
    "partial": false,
-   "count": 11,
+   "count": 12,
    "top": [
     "faq:play-decklist:9",
+    "faq:play-deck-photo-list:9",
     "faq:decks-import:7",
     "guide:create-12:6",
     "guide:run-10:6",
     "guide:play-5:6",
     "faq:decks-image:3",
-    "guide:run-6:2",
-    "guide:insights-31:2"
+    "guide:run-6:2"
    ]
   },
   {
@@ -570,12 +570,12 @@
    "top": [
     "faq:play-decklist:9",
     "faq:play-deck-photo:9",
+    "faq:play-deck-photo-list:9",
     "faq:collection-scan-pile:9",
     "faq:collection-search:9",
     "faq:decks-new:9",
     "faq:decks-import:9",
-    "faq:decks-export:9",
-    "faq:decks-missing:9"
+    "faq:decks-export:9"
    ]
   },
   {
@@ -711,12 +711,12 @@
    "top": [
     "faq:play-decklist:9",
     "faq:play-deck-photo:9",
+    "faq:play-deck-photo-list:9",
     "faq:collection-scan-pile:9",
     "faq:collection-search:9",
     "faq:decks-new:9",
     "faq:decks-import:9",
-    "faq:decks-export:9",
-    "faq:decks-missing:9"
+    "faq:decks-export:9"
    ]
   }
  ]

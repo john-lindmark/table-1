@@ -1,0 +1,1595 @@
+{
+ "row": [
+  {
+   "brief": null,
+   "text": "Read decklist"
+  },
+  {
+   "brief": {
+    "status": "queued",
+    "cards": 0,
+    "check": 0,
+    "checked": false
+   },
+   "text": "Reading the decklist…"
+  },
+  {
+   "brief": {
+    "status": "reading",
+    "cards": 12,
+    "check": 0,
+    "checked": true
+   },
+   "text": "Reading the decklist…"
+  },
+  {
+   "brief": {
+    "status": "failed",
+    "cards": 0,
+    "check": 0,
+    "checked": false
+   },
+   "text": "Decklist · couldn't read · try again"
+  },
+  {
+   "brief": {
+    "status": "done",
+    "cards": 0,
+    "check": 0,
+    "checked": false
+   },
+   "text": "Decklist · no cards read"
+  },
+  {
+   "brief": {
+    "status": "done",
+    "cards": 40,
+    "check": 0,
+    "checked": false
+   },
+   "text": "Decklist · 40 cards"
+  },
+  {
+   "brief": {
+    "status": "done",
+    "cards": 38,
+    "check": 3,
+    "checked": false
+   },
+   "text": "Decklist · 38 cards · 3 to check"
+  },
+  {
+   "brief": {
+    "status": "done",
+    "cards": 40,
+    "check": 2,
+    "checked": true
+   },
+   "text": "Decklist · 40 cards · checked"
+  },
+  {
+   "brief": {
+    "status": "done",
+    "cards": 1,
+    "check": 1,
+    "checked": false
+   },
+   "text": "Decklist · 1 card · 1 to check"
+  }
+ ],
+ "target": [
+  {
+   "event_type": "limited",
+   "format": "draft",
+   "target": 40
+  },
+  {
+   "event_type": "limited",
+   "format": "team_sealed",
+   "target": 40
+  },
+  {
+   "event_type": "constructed",
+   "format": "modern",
+   "target": 60
+  },
+  {
+   "event_type": "constructed",
+   "format": "commander",
+   "target": 100
+  },
+  {
+   "event_type": "constructed",
+   "format": "canadian_highlander",
+   "target": 100
+  },
+  {
+   "event_type": "constructed",
+   "format": "other_constructed",
+   "target": 60
+  },
+  {
+   "event_type": null,
+   "format": null,
+   "target": null
+  },
+  {
+   "event_type": "",
+   "format": "modern",
+   "target": null
+  }
+ ],
+ "counts": [
+  {
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "counts": {
+    "main": 19,
+    "side": 1,
+    "out": 1,
+    "check": 2
+   }
+  },
+  {
+   "entries": [],
+   "counts": {
+    "main": 0,
+    "side": 0,
+    "out": 0,
+    "check": 0
+   }
+  }
+ ],
+ "sizeLine": [
+  {
+   "main": 40,
+   "target": 40,
+   "text": "40 cards"
+  },
+  {
+   "main": 38,
+   "target": 40,
+   "text": "38 cards · 2 short of 40"
+  },
+  {
+   "main": 41,
+   "target": 40,
+   "text": "41 cards"
+  },
+  {
+   "main": 1,
+   "target": null,
+   "text": "1 card"
+  },
+  {
+   "main": 0,
+   "target": 40,
+   "text": "0 cards · 40 short of 40"
+  },
+  {
+   "main": 60,
+   "target": 60,
+   "text": "60 cards"
+  },
+  {
+   "main": 59,
+   "target": 60,
+   "text": "59 cards · 1 short of 60"
+  },
+  {
+   "main": 75,
+   "target": 60,
+   "text": "75 cards"
+  },
+  {
+   "main": 100,
+   "target": 100,
+   "text": "100 cards"
+  },
+  {
+   "main": 101,
+   "target": 100,
+   "text": "101 cards · 1 over 100"
+  },
+  {
+   "main": 99,
+   "target": 100,
+   "text": "99 cards · 1 short of 100"
+  }
+ ],
+ "edits": [
+  {
+   "op": "setQty",
+   "i": 1,
+   "qty": 17,
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 17,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "setQty",
+   "i": 2,
+   "qty": 0,
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "setQty",
+   "i": 0,
+   "qty": 500,
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 99,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "move",
+   "i": 4,
+   "board": "main",
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 3,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "move",
+   "i": 0,
+   "board": "side",
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "move",
+   "i": 3,
+   "board": "out",
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "replace",
+   "i": 2,
+   "card": {
+    "card_id": "m",
+    "name": "Mana Drain"
+   },
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "replace",
+   "i": 2,
+   "card": {
+    "card_id": "i",
+    "name": "Island"
+   },
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 17,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "replace",
+   "i": 1,
+   "card": {
+    "card_id": "g",
+    "name": "Goblin Guide"
+   },
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 18,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "confirm",
+   "i": 1,
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "confirm",
+   "i": 2,
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "add",
+   "card": {
+    "card_id": "m",
+    "name": "Mana Drain"
+   },
+   "board": "main",
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "add",
+   "card": {
+    "card_id": "i",
+    "name": "Island"
+   },
+   "board": "main",
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 17,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "add",
+   "card": {
+    "card_id": "i",
+    "name": "Island"
+   },
+   "board": "side",
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ]
+  },
+  {
+   "op": "add",
+   "card": {
+    "card_id": "g",
+    "name": "Goblin Guide"
+   },
+   "board": "main",
+   "entries": [],
+   "out": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "main",
+     "sure": true
+    }
+   ]
+  }
+ ],
+ "deckEntries": [
+  {
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    }
+   ],
+   "out": {
+    "entries": [
+     [
+      "g",
+      "main",
+      2
+     ],
+     [
+      "i",
+      "main",
+      16
+     ],
+     [
+      "m",
+      "side",
+      1
+     ]
+    ],
+    "skipped": 1
+   }
+  },
+  {
+   "entries": [
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    },
+    {
+     "card_id": "i",
+     "name": "Island",
+     "qty": 16,
+     "board": "main",
+     "sure": false,
+     "read": "pile of about 16"
+    },
+    {
+     "card_id": null,
+     "name": "Room of",
+     "qty": 1,
+     "board": "main",
+     "sure": false
+    },
+    {
+     "card_id": "m",
+     "name": "Mana Drain",
+     "qty": 1,
+     "board": "side",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 1,
+     "board": "out",
+     "sure": true
+    },
+    {
+     "card_id": "g",
+     "name": "Goblin Guide",
+     "qty": 2,
+     "board": "main",
+     "sure": true
+    }
+   ],
+   "out": {
+    "entries": [
+     [
+      "g",
+      "main",
+      4
+     ],
+     [
+      "i",
+      "main",
+      16
+     ],
+     [
+      "m",
+      "side",
+      1
+     ]
+    ],
+    "skipped": 1
+   }
+  },
+  {
+   "entries": [],
+   "out": {
+    "entries": [],
+    "skipped": 0
+   }
+  }
+ ],
+ "deckName": [
+  {
+   "event": "Friday draft",
+   "player": "Bea",
+   "mine": true,
+   "name": "Friday draft"
+  },
+  {
+   "event": "Friday draft",
+   "player": "Bea",
+   "mine": false,
+   "name": "Bea · Friday draft"
+  },
+  {
+   "event": "",
+   "player": "Bea",
+   "mine": true,
+   "name": "Deck photo"
+  },
+  {
+   "event": null,
+   "player": "",
+   "mine": false,
+   "name": "Deck photo"
+  },
+  {
+   "event": "Team draft · Lindmark Cube · Thu 12 Nov with a very long name that keeps going",
+   "player": "Alexandria",
+   "mine": false,
+   "name": "Alexandria · Team draft · Lindmark Cube · Thu 12 Nov with a"
+  }
+ ],
+ "deckFormat": [
+  {
+   "event_type": "limited",
+   "format": "draft",
+   "deck": "other"
+  },
+  {
+   "event_type": "constructed",
+   "format": "modern",
+   "deck": "modern"
+  },
+  {
+   "event_type": "constructed",
+   "format": "canadian_highlander",
+   "deck": "canlander"
+  },
+  {
+   "event_type": "constructed",
+   "format": "other_constructed",
+   "deck": "other"
+  },
+  {
+   "event_type": "constructed",
+   "format": "premodern",
+   "deck": "other"
+  },
+  {
+   "event_type": "constructed",
+   "format": "commander",
+   "deck": "commander"
+  },
+  {
+   "event_type": null,
+   "format": null,
+   "deck": "other"
+  }
+ ]
+}

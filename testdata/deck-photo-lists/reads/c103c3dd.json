@@ -1,0 +1,212 @@
+{
+ "photo_id": "c103c3dd-c4ae-449f-97fc-c18f864e9e72",
+ "event_id": "9410ec21-ef5e-47ca-8fac-4e7c7995eef2",
+ "format_label": "Team draft · Lindmark Cube",
+ "event_type": "limited",
+ "pool": "lindmark",
+ "cards": [
+  {
+   "name": "Phyrexian Dreadnought",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mox Poison",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Kitesail Freebooter",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Deep-Cavern Bat",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Faerie Mastermind",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Glen Elendra Guardian",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Brazen Borrower // Petty Theft",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Troll of Khazad-dûm",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Atraxa, Grand Unifier",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Ulamog, the Infinite Gyre",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Bone Shards",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Entomb",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "Japanese title (two characters, looks like 納墓), black one-mana card, only the title bar shows"
+  },
+  {
+   "name": "Duress",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Stifle",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title glared, reads 'S..fle', blue one-mana card"
+  },
+  {
+   "name": "Consign to Memory",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Shallow Grave",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "No More Lies",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Theorix Charm",
+   "qty": 1,
+   "board": "main",
+   "sure": false,
+   "read": "title reads 'Theorix Charm', not in the pool; gold blue-black two-mana card, only the title bar shows"
+  },
+  {
+   "name": "Reprieve",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Goryo's Vengeance",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Exhume",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mana Leak",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "We Say Thee Nay!",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Corpse Dance",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Teferi, Time Raveler",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Force of Negation",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Island",
+   "qty": 6,
+   "board": "main",
+   "sure": false,
+   "read": "fan of 6 old-frame lands, front ones titled Island, back ones glared"
+  },
+  {
+   "name": "Swamp",
+   "qty": 3,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Plains",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Shadowy Backstreet",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Raffine's Tower",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Concealed Courtyard",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Deceptive Landscape",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  }
+ ],
+ "notes": "Sleeve glare hides the back Islands' titles; one card is in French, two lands and one spell in Japanese, and Mox Poison is partly cut off at the left edge."
+}

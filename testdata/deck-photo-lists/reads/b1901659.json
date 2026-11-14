@@ -1,0 +1,168 @@
+{
+ "photo_id": "b1901659-7a9a-4480-903d-8f4191c636a9",
+ "event_id": "586d9049-9e76-462e-a9e6-37d9fd51e566",
+ "format_label": "Draft",
+ "event_type": "limited",
+ "pool": null,
+ "cards": [
+  {
+   "name": "Teyo, Lightshield Expert",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Campus Crier",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Repurposed Enforcer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Fatehold Chronologist",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Variable Chaser",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Rescue Girl, First Responder",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mindseeker Oculus",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Undulating Witness",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mind Meanderer",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Guiding Hydra",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Tam's Resistance",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Icy Reception",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Your Fate Ends Here",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Warrior's Blades",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Plan for All Outcomes",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Way of the Healer",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Way of the Mind Sculptor",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Awaken the Inferno",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Hexhaven Battalion",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Kindred Judgment",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Room of Refuge",
+   "qty": 2,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Dedicated Commons",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Forest",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Mountain",
+   "qty": 1,
+   "board": "main",
+   "sure": true
+  },
+  {
+   "name": "Plains",
+   "qty": 4,
+   "board": "main",
+   "sure": false,
+   "read": "left column cut by photo edge; 4 pale title bars ending '...ins'/'Plains'"
+  },
+  {
+   "name": "Island",
+   "qty": 7,
+   "board": "main",
+   "sure": false,
+   "read": "left column cut by photo edge; 6 blue title bars ending '...land' plus a darker top row ending '...nd' assumed Island"
+  }
+ ],
+ "notes": "The land column runs off the left edge of the photo, so basic land titles are cut to their last letters and the top row is a guess."
+}

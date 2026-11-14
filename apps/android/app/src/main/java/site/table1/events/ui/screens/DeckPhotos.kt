@@ -108,6 +108,8 @@ data class DeckPhoto(
     @SerialName("event_status") val eventStatus: String = "",
     @SerialName("format_label") val formatLabel: String = "",
     @SerialName("event_at") val eventAt: String = "",
+    /** Where the photo's decklist stands (contract/deck-photo-lists-2026-11-13.md); absent when never queued. */
+    val list: DeckListBrief? = null,
 )
 
 @Serializable
@@ -249,7 +251,7 @@ fun deckPhotoBitmap(bytes: ByteArray, turns: Int, longest: Int = 2048): Bitmap? 
 
 /** Deck photos for one event, with notes. The server decides who sees and edits what. */
 @Composable
-fun DeckPhotosScreen(eventId: String, onBack: () -> Unit, startAdding: Boolean = false) {
+fun DeckPhotosScreen(eventId: String, onBack: () -> Unit, startAdding: Boolean = false, onOpenList: (String) -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var bundle by remember { mutableStateOf<EventBundle?>(null) }
@@ -357,8 +359,11 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit, startAdding: Boolean =
                 photos.photos.isEmpty() -> item { Notice("No deck photos yet.") }
             }
             items(photos.photos, key = { it.id }) { photo ->
-                DeckPhotoCard(photo, urls[photo.path], turning[photo.id] ?: photo.turns,
-                    onClick = if (photo.editable) ({ editMenu = photo }) else null)
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    DeckPhotoCard(photo, urls[photo.path], turning[photo.id] ?: photo.turns,
+                        onClick = if (photo.editable) ({ editMenu = photo }) else null)
+                    DeckListRow(photo, "event", onOpenList)
+                }
             }
         }
     }
