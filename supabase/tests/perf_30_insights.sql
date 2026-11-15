@@ -86,6 +86,24 @@ select pg_temp.ms('card page, 90 days', $$select public.meta_card('modern', md5(
 select pg_temp.ms('card search (each keystroke)', $$select public.meta_card_search('modern', 'card 4')$$, 50);
 reset role;
 
+-- 20261115120000: a card in 16 lists (Genesis Device on live) passed the 8 s timeout on a cold cache, since the page
+-- read every list of the year. It now reads the lists holding the card and the totals from a covering index: count
+-- the table pages one call touches, which a warm timing can't see.
+update t1_private.meta_decks set main = main || md5('c401')::uuid, main_qty = main_qty || 4::smallint where id % 2250 = 0;
+vacuum (analyze) t1_private.meta_decks;
+do $$
+declare b0 bigint; b1 bigint; pages bigint; r jsonb;
+begin
+  pages := pg_relation_size('t1_private.meta_decks') / current_setting('block_size')::int;
+  b0 := pg_stat_get_xact_blocks_fetched('t1_private.meta_decks'::regclass);
+  r := public.meta_card('modern', md5('c401')::uuid, 'all', 90);
+  b1 := pg_stat_get_xact_blocks_fetched('t1_private.meta_decks'::regclass);
+  if (r->'window'->>'of')::int < 1000 then raise exception 'FAIL the window counted % lists', r->'window'->>'of'; end if;
+  if b1 - b0 > 100 then raise exception 'FAIL perf rare card page read % of % table pages (budget 100)', b1 - b0, pages; end if;
+  raise notice 'perf rare card page: % of % table pages (budget 100)', b1 - b0, pages;
+  raise notice 'ok  perf rare card page reads only its lists';
+end $$;
+
 -- Spice (contract/spice-2026-10-28.md): a 60-card deck against that year of Modern. The archetype path is what most
 -- decks take; Other tries every archetype first (the closest), the slowest path. list_spice caches per seq and day.
 select pg_temp.ms('spice: daily counts for a year of Modern', $$select t1_private.spice_refresh()$$, 3000, 1);
