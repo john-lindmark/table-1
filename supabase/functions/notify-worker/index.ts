@@ -211,6 +211,12 @@ async function run() {
   const done: number[] = [];
   let sent = 0, failed = 0, skipped = 0, stale = 0;
   const dead: string[] = [];
+  // Why sends were refused, by platform, status and reason ("ios 429 TooManyProviderTokenUpdates": 8).
+  const reasons: Record<string, number> = {};
+  const refused = (platform: string, r: { status: number; reason?: string }) => {
+    const key = `${platform} ${r.status} ${r.reason ?? ""}`.trim().slice(0, 120);
+    reasons[key] = (reasons[key] ?? 0) + 1;
+  };
   for (const row of rows) {
     done.push(row.msg_id);
     const m = row.message;
@@ -273,6 +279,7 @@ async function run() {
       if (r.status === 200) sent++;
       else {
         failed++;
+        refused("ios", r);
         if (r.status === 410 || r.reason === "BadDeviceToken" || r.reason === "Unregistered") dead.push(r.token);
       }
     }
@@ -280,6 +287,7 @@ async function run() {
       if (r.status === 200) sent++;
       else {
         failed++;
+        refused("android", r);
         if (fcm.deadToken(r)) dead.push(r.token);
         else console.error("fcm", r.status, r.reason);
       }
@@ -287,7 +295,7 @@ async function run() {
   }
   await admin.rpc("notify_done", { p_ids: done });
   if (dead.length) await admin.from("devices").delete().in("push_token", dead);
-  console.log(JSON.stringify({ messages: rows.length, sent, failed, dead: dead.length, stale, skipped }));
+  console.log(JSON.stringify({ messages: rows.length, sent, failed, dead: dead.length, stale, skipped, ...(failed ? { reasons } : {}) }));
   // More waiting: go again (the next kick or the minute sweep would also pick it up).
   if (rows.length === 100) queueMicrotask(() => run().catch(console.error));
   return json({ ok: true, messages: rows.length, sent, failed, stale, skipped });

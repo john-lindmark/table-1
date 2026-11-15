@@ -1,23 +1,18 @@
 // Minimal APNs client for alert pushes (token auth, HTTP/2 via fetch). Same key as live-activity/apns.ts.
 import { importPKCS8, SignJWT } from "npm:jose@5";
+import { reused } from "./reuse.ts";
 
 const BUNDLE_ID = Deno.env.get("APNS_BUNDLE_ID") ?? "site.table1.events";
 
-let cached: { jwt: string; at: number } | null = null;
-
 /** Provider token; Apple wants it reused for 20–60 minutes, not minted per request. */
-async function providerToken(): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  if (cached && now - cached.at < 45 * 60) return cached.jwt;
+export const providerToken = reused(async (now) => {
   const teamId = Deno.env.get("APNS_TEAM_ID") ?? Deno.env.get("APPLE_TEAM_ID");
   const keyId = Deno.env.get("APNS_KEY_ID");
   const pem = Deno.env.get("APNS_PRIVATE_KEY")?.replace(/\\n/g, "\n");
   if (!teamId || !keyId || !pem) throw new Error("APNS_TEAM_ID, APNS_KEY_ID and APNS_PRIVATE_KEY must be set");
   const key = await importPKCS8(pem, "ES256");
-  const jwt = await new SignJWT({}).setProtectedHeader({ alg: "ES256", kid: keyId }).setIssuer(teamId).setIssuedAt(now).sign(key);
-  cached = { jwt, at: now };
-  return jwt;
-}
+  return await new SignJWT({}).setProtectedHeader({ alg: "ES256", kid: keyId }).setIssuer(teamId).setIssuedAt(now).sign(key);
+}, 45 * 60);
 
 export function apnsConfigured(): boolean {
   return !!(Deno.env.get("APNS_KEY_ID") && Deno.env.get("APNS_PRIVATE_KEY"));

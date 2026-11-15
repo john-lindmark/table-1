@@ -1,6 +1,7 @@
 // Minimal FCM client for Android alert pushes (HTTP v1 API). Credentials: the Firebase project's service account
 // JSON in the FCM_SERVICE_ACCOUNT secret (client_email, private_key, project_id), traded for an OAuth token.
 import { importPKCS8, SignJWT } from "npm:jose@5";
+import { reused } from "./reuse.ts";
 
 interface ServiceAccount { client_email: string; private_key: string; project_id: string }
 
@@ -20,12 +21,8 @@ export function fcmConfigured(): boolean {
   return serviceAccount() !== null;
 }
 
-let cached: { token: string; until: number } | null = null;
-
 /** OAuth access token for the messaging scope; Google's last an hour, reused for 50 minutes. */
-async function accessToken(): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  if (cached && now < cached.until) return cached.token;
+const accessToken = reused(async (now): Promise<string> => {
   const a = serviceAccount();
   if (!a) throw new Error("FCM_SERVICE_ACCOUNT must be set");
   const key = await importPKCS8(a.private_key.replace(/\\n/g, "\n"), "RS256");
@@ -40,9 +37,8 @@ async function accessToken(): Promise<string> {
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok || !body.access_token) throw new Error(`FCM token ${res.status}: ${body.error_description ?? body.error ?? ""}`);
-  cached = { token: body.access_token, until: now + 50 * 60 };
-  return body.access_token;
-}
+  return body.access_token as string;
+}, 50 * 60);
 
 export interface AndroidAlert {
   token: string;
