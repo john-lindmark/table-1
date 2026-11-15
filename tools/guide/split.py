@@ -14,6 +14,7 @@ marketing/guide/sections/<id>.html per section. Fails if building them back does
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -39,6 +40,13 @@ def unwrap(src: str) -> str:
 
 def main(path: str) -> None:
     src = unwrap(Path(path).read_text())
+
+    # The live page is the one last published: nothing changed outside the repository. Splitting it would only take the
+    # sources back to that older text and drop edits made since (2026-11-15: it reverted a day's unpublished edits).
+    manifest = json.loads(build.MANIFEST.read_text()) if build.MANIFEST.exists() else {}
+    if hashlib.sha256(src.encode()).hexdigest() == manifest.get("published", {}).get("sha256"):
+        print("The live page is the one last published: nothing changed outside the repository; sources left as they are.")
+        return
 
     m = re.search(r"updated (\d{1,2} \w+ \d{4})</span>", src)
     if not m:

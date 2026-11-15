@@ -26,9 +26,10 @@ never on the published page.
 Publish in batches, when a build ships or once a day, not after every commit: the Artifact tool has the publishing
 session read the live page first (about 600 KB). The build says whether the page differs from the one published.
 
-1. Artifact `read` the guide's address, save the page, and run `python3 tools/guide/split.py <saved page>`. No
-   `git diff marketing/guide` means nobody changed the page outside the repository; otherwise commit what it brings
-   in first.
+1. Artifact `read` the guide's address, save the page, and run `python3 tools/guide/split.py <saved page>`. When the
+   live page is the one last published (its hash is `published` in `manifest.json`), split leaves the sources alone;
+   otherwise `git diff marketing/guide` shows what changed outside the repository: commit it first, and merge it with
+   any edits since the last publish rather than letting it replace them.
 2. `python3 tools/guide/build.py`, then Artifact publish `marketing/guide/build/feature-guide.html` with the guide's
    `url`.
 3. `python3 tools/guide/build.py --published` and commit `manifest.json`.
