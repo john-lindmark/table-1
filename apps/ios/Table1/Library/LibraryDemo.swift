@@ -469,7 +469,7 @@ struct LibraryDemoRoot: View {
             // `card`: a card with copies in the trade binder. `tradewants`: a draft giving a trade-binder copy and
             // getting a wanted card (the want is marked). Both need the card data, so they open once it's in.
             guard let db = CatalogStore.shared.db, path.isEmpty, let arg = Self.arg,
-                  ["card", "tradewants", "deckcard", "deckprinting", "bindercard", "binderprinting", "multicard", "searchcard", "onecard",
+                  ["card", "tradewants", "tradedone", "deckcard", "deckprinting", "bindercard", "binderprinting", "multicard", "searchcard", "onecard",
                    "guide", "matchup", "guidepick"].contains(arg) else { return }
             let store = BindersStore.shared
             // Card detail (contract/card-detail-2026-10-23.md): `multicard` the card owned in the most versions (the
@@ -547,11 +547,14 @@ struct LibraryDemoRoot: View {
             else { return }
             let give = TradeLine(cardId: a.cardId, finish: a.finish, condition: a.condition, lang: a.lang, qty: 1, binderId: a.binderId)
             let get = TradeLine(cardId: wp.cardId, finish: "nonfoil", condition: "NM", lang: "en", qty: 1)
-            if let t = try? await TradesStore.shared.save(nil, partner: "Demo", gives: [give], gets: [get]) { path = [.trades, .trade(t.id)] }
+            guard let t = try? await TradesStore.shared.save(nil, partner: "Demo", gives: [give], gets: [get]) else { return }
+            // `tradedone`: the same trade confirmed, opened as a past trade.
+            if arg == "tradedone" { _ = try? await TradesStore.shared.confirm(t) }
+            path = [.trades, .trade(t.id)]
         }
     }
 
-    /// Design QA: `-T1LibraryDemo allcards|add|deckadd|cubeadd|binderadd|search|zone|zonepick|oldcommander|newdeck|import|trades|trade|tradewants|binders|binder|wants|card|deckcard|deckprinting|bindercard|binderprinting|onecard|deck|cube|
+    /// Design QA: `-T1LibraryDemo allcards|add|deckadd|cubeadd|binderadd|search|zone|zonepick|oldcommander|newdeck|import|trades|trade|tradewants|tradedone|binders|binder|wants|card|deckcard|deckprinting|bindercard|binderprinting|onecard|deck|cube|
     /// deckstats|cubestats|hand|odds|pack|friends|profile|sharing|matches|match|me` opens that screen (deck and cube: the fixture's first of each; stats, sample
     /// hand, draw odds and sample pack on it; `-T1ListExport arena|moxfield|mtgo|text|cubecobra` then exports it).
     /// `import` with `-T1ImportFile <path>` reads that file as if it had been picked.

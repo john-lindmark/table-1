@@ -266,8 +266,9 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
         meta = found.first
         names = found.second
         oracleIds = found.third
-        PriceBook.load(ids)
     }
+    // Prices don't wait for the card data (a confirmed trade showed none while it was loading).
+    LaunchedEffect(gives.map { it.cardId } + gets.map { it.cardId }) { PriceBook.load((gives + gets).map { it.cardId }) }
     // Drafts save half a second after the last change.
     LaunchedEffect(gives, gets, partner, started) {
         if (!started || confirmed || (trade == null && gives.isEmpty() && gets.isEmpty())) return@LaunchedEffect

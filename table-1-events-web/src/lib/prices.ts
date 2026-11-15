@@ -8,7 +8,8 @@ import { conditionPercent, conditionPrice } from "./conditionPrice";
 
 /** [usd, usd_foil, usd_etched, eur, eur_foil, converted] */
 const rows = new Map<string, (number | null)[]>();
-const asked = new Set<string>();
+/** Fetches under way, by card: a load waits for these instead of skipping their cards. */
+const fetching = new Map<string, Promise<void>>();
 let version = 0;
 const subs = new Set<() => void>();
 const bump = () => {
@@ -16,10 +17,40 @@ const bump = () => {
   for (const s of subs) s();
 };
 
+type PriceRow = [string, ...(number | null)[]];
+let fetcher = async (ids: string[]): Promise<PriceRow[]> => {
+  const { data, error } = await supabase.rpc("card_prices_get", { p_card_ids: ids });
+  if (error) throw error;
+  return data as PriceRow[];
+};
+/** Tests: a stand-in for card_prices_get, and a fresh book. */
+export function setPriceFetcherForTests(f: typeof fetcher) {
+  fetcher = f;
+  rows.clear();
+  fetching.clear();
+}
+
+/** Fetches prices this page has no answer for yet; resolves once they're in (or the fetch failed). Another
+ *  screen's fetch under way is waited for, then whatever still has no answer is asked again (a skipped screen
+ *  was never told when that fetch failed, and showed no prices). */
 export async function loadPrices(ids: Iterable<string>) {
-  const missing = [...new Set(ids)].filter((id) => !asked.has(id));
-  if (!missing.length) return;
-  for (const id of missing) asked.add(id);
+  const wanted = [...new Set(ids)];
+  // Two rounds: the second asks again for cards whose fetch (this screen's or another's) failed.
+  for (let round = 0; round < 2; round++) {
+    const open = wanted.filter((id) => !rows.has(id));
+    if (!open.length) return;
+    const unclaimed = open.filter((id) => !fetching.has(id));
+    if (unclaimed.length) {
+      const task: Promise<void> = fetchPrices(unclaimed).finally(() => {
+        for (const id of unclaimed) if (fetching.get(id) === task) fetching.delete(id);
+      });
+      for (const id of unclaimed) fetching.set(id, task);
+    }
+    await Promise.all(new Set(open.map((id) => fetching.get(id)).filter((p): p is Promise<void> => !!p)));
+  }
+}
+
+async function fetchPrices(missing: string[]) {
   const demo = demoBackend();
   if (demo) {
     for (const id of missing) rows.set(id, demoConverted(demo.prices[id] ?? []));
@@ -28,12 +59,13 @@ export async function loadPrices(ids: Iterable<string>) {
   }
   for (let i = 0; i < missing.length; i += 5000) {
     const chunk = missing.slice(i, i + 5000);
-    const { data, error } = await supabase.rpc("card_prices_get", { p_card_ids: chunk });
-    if (error) {
-      for (const id of chunk) asked.delete(id);
-      continue;
+    let data: PriceRow[];
+    try {
+      data = await fetcher(chunk);
+    } catch {
+      continue; // no answer: the next load asks again
     }
-    for (const [id, ...v] of data as [string, ...(number | null)[]][]) rows.set(id, v.map((x) => (x == null ? null : Number(x))));
+    for (const [id, ...v] of data) rows.set(id, v.map((x) => (x == null ? null : Number(x))));
     for (const id of chunk) if (!rows.has(id)) rows.set(id, []);
     bump();
   }

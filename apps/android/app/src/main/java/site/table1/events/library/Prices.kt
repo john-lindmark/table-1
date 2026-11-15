@@ -1,6 +1,11 @@
 package site.table1.events.library
 
 import io.github.jan.supabase.postgrest.postgrest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,26 +30,57 @@ import java.util.Currency
 object PriceBook {
     /** card id → [usd, usd_foil, usd_etched, eur, eur_foil, converted] */
     private val rows = HashMap<String, List<Double?>>()
-    private val asked = HashSet<String>()
     private val _version = MutableStateFlow(0)
     /** Bumps whenever prices arrive. */
     val version: StateFlow<Int> = _version.asStateFlow()
 
+    /** Fetches under way, by card. A load waits for these instead of skipping their cards, and fetches whatever still
+     *  has no answer once they're done (a fetch that failed). Fetches run in their own scope, so a screen that leaves
+     *  (or whose effect restarts) doesn't cancel one for the others waiting on it. */
+    private val fetching = HashMap<String, Deferred<Unit>>()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    /** One card_prices_get call: rows of [card_id, usd, usd_foil, usd_etched, eur, eur_foil, converted]. Tests put a
+     *  stand-in here. */
+    internal var fetcher: suspend (List<String>) -> List<JsonArray> = { ids ->
+        T1App.supabase.postgrest.rpc("card_prices_get", buildJsonObject {
+            put("p_card_ids", buildJsonArray { ids.forEach { add(it) } })
+        }).decodeAs<List<JsonArray>>()
+    }
+
+    /** Tests: forget every price and fetch. */
+    internal fun resetForTests() = synchronized(this) { rows.clear(); fetching.clear() }
+
+    /** Fetches prices this session has no answer for yet; returns once they're in (or the fetch failed). */
     suspend fun load(ids: Collection<String>) {
-        val missing = synchronized(this) { ids.toSet().filter { asked.add(it) } }
-        if (missing.isEmpty()) return
-        for (chunk in missing.chunked(5000)) {
-            runCatching {
-                T1App.supabase.postgrest.rpc("card_prices_get", buildJsonObject {
-                    put("p_card_ids", buildJsonArray { chunk.forEach { add(it) } })
-                }).decodeAs<List<JsonArray>>()
-            }.onSuccess { got ->
+        val wanted = ids.toSet()
+        // Two rounds: the second asks again for cards whose fetch (this screen's or another's) failed.
+        repeat(2) {
+            val waits = synchronized(this) {
+                val open = wanted.filter { it !in rows }
+                if (open.isEmpty()) return
+                val unclaimed = open.filter { it !in fetching }
+                if (unclaimed.isNotEmpty()) {
+                    val task = scope.async { fetch(unclaimed) }
+                    for (id in unclaimed) fetching[id] = task
+                }
+                open.mapNotNull { fetching[it] }.toSet()
+            }
+            for (t in waits) t.await()
+        }
+    }
+
+    private suspend fun fetch(ids: List<String>) {
+        try {
+            for (chunk in ids.chunked(5000)) {
+                val got = runCatching { fetcher(chunk) }.getOrNull() ?: continue // no answer: the next load asks again
                 synchronized(this) {
                     for (r in got) rows[r[0].jsonPrimitive.content] = r.drop(1).map { if (it is JsonNull) null else it.jsonPrimitive.doubleOrNull }
                     for (id in chunk) if (id !in rows) rows[id] = emptyList()
                 }
                 _version.update { it + 1 }
-            }.onFailure { synchronized(this) { asked.removeAll(chunk.toSet()) } } // try again next time
+            }
+        } finally {
+            synchronized(this) { for (id in ids) fetching.remove(id) }
         }
     }
 

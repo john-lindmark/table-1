@@ -12,11 +12,19 @@ final class PriceBook {
     private(set) var rows: [String: [Double?]] = [:]
     /// Bumps whenever prices arrive, for views that sort by them.
     private(set) var version = 0
-    @ObservationIgnored private var asked: Set<String> = []
+    /// Fetches under way, by card. A load waits for these instead of skipping their cards, and fetches whatever
+    /// still has no answer once they're done (a fetch that failed). Each fetch is its own task, so a screen that
+    /// leaves (or whose task restarts) doesn't cancel it for the others waiting on it.
+    @ObservationIgnored private var fetching: [String: Task<Void, Never>] = [:]
+    /// One card_prices_get call; tests put a stand-in here.
+    @ObservationIgnored var fetcher: ([String]) async throws -> [Row] = { ids in
+        try await supabase.rpc("card_prices_get", params: ["p_card_ids": AnyJSON.array(ids.map { .string($0) })]).execute().value
+    }
 
-    private struct Row: Decodable {
+    struct Row: Decodable {
         let id: String
         let values: [Double?]
+        init(id: String, values: [Double?]) { self.id = id; self.values = values }
         init(from decoder: Decoder) throws {
             var c = try decoder.unkeyedContainer()
             id = try c.decode(String.self)
@@ -26,29 +34,37 @@ final class PriceBook {
         }
     }
 
-    /// Fetches prices not asked for yet this session.
+    /// Fetches prices this session has no answer for yet; returns once they're in (or the fetch failed).
     func load(_ ids: some Sequence<String>) async {
-        let missing = Set(ids).subtracting(asked)
-        guard !missing.isEmpty else { return }
-        asked.formUnion(missing)
+        let wanted = Set(ids)
+        // Two rounds: the second asks again for cards whose fetch (this screen's or another's) failed.
+        for _ in 0..<2 {
+            let open = wanted.filter { rows[$0] == nil }
+            if open.isEmpty { return }
+            let unclaimed = Array(open.filter { fetching[$0] == nil })
+            if !unclaimed.isEmpty {
+                let task = Task { await self.fetch(unclaimed) }
+                for id in unclaimed { fetching[id] = task }
+            }
+            for t in Set(open.compactMap { fetching[$0] }) { await t.value }
+        }
+    }
+
+    private func fetch(_ ids: [String]) async {
+        defer { for id in ids { fetching[id] = nil } }
         #if DEBUG
         if let demo = CollectionStore.shared.demo {
-            for id in missing { rows[id] = Self.demoConverted(demo.prices[id] ?? []) }
+            for id in ids { rows[id] = Self.demoConverted(demo.prices[id] ?? []) }
             version += 1
             return
         }
         #endif
-        let all = Array(missing)
-        for start in stride(from: 0, to: all.count, by: 5000) {
-            let chunk = Array(all[start..<min(start + 5000, all.count)])
-            do {
-                let got: [Row] = try await supabase.rpc("card_prices_get", params: ["p_card_ids": AnyJSON.array(chunk.map { .string($0) })]).execute().value
-                for r in got { rows[r.id] = r.values }
-                for id in chunk where rows[id] == nil { rows[id] = [] } // no price on record
-                version += 1
-            } catch {
-                asked.subtract(chunk) // try again next time
-            }
+        for start in stride(from: 0, to: ids.count, by: 5000) {
+            let chunk = Array(ids[start..<min(start + 5000, ids.count)])
+            guard let got = try? await fetcher(chunk) else { continue } // no answer: the next load asks again
+            for r in got { rows[r.id] = r.values }
+            for id in chunk where rows[id] == nil { rows[id] = [] } // no price on record
+            version += 1
         }
     }
 

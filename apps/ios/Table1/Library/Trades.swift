@@ -288,6 +288,8 @@ struct TradeView: View {
             started = true
         }
         .task(id: "\(gives.map(\.cardId))-\(gets.map(\.cardId))-\(catalog.generation)") { await refreshMeta() }
+        // Prices don't wait for the card data (a confirmed trade showed none while it was loading).
+        .task(id: "\(gives.map(\.cardId))-\(gets.map(\.cardId))") { await prices.load((gives + gets).map(\.cardId)) }
         .onChange(of: gives) { scheduleSave() }
         .onChange(of: gets) { scheduleSave() }
         .onChange(of: partner) { scheduleSave() }
@@ -482,7 +484,6 @@ struct TradeView: View {
         oracleIds = found.2
         let lists = ListsStore.shared.lists
         missingLines = Dictionary(MissingView.lines(lists, Holdings.current(listing: lists.flatMap { $0.entries.map(\.cardId) }), basics: CatalogStore.shared.basics).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        await prices.load(ids)
     }
 
     private func value(_ lines: [TradeLine]) -> String? { PriceBook.text(sum(lines)) }
