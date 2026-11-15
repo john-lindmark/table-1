@@ -329,19 +329,14 @@ fun LibraryHomeScreen(foregrounds: Int, go: (String) -> Unit) {
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-            listOf("Trade" to "collection/trades", "Wants" to "collection/wants", "Import" to "collection/csv").forEach { (title, route) ->
-                Box(Modifier.weight(1f).height(50.dp).background(T1.bg).clickable { tap(title.lowercase()); go(route) }, contentAlignment = Alignment.Center) {
-                    Text(title.uppercase(), color = T1.text, style = shelfText(11))
-                }
-            }
-        }
+        // Trade and Wants are sub-tabs now (contract/main-nav-2026-11-14.md § 3); Import is in the + menu.
     }
     if (menu) T1Menu(null, listOf(
         T1MenuItem("Add cards") { go("collection/add") },
         T1MenuItem("New deck") { creating = "deck" },
         T1MenuItem("New binder") { creating = "binder" },
         T1MenuItem("New cube") { creating = "cube" },
+        T1MenuItem("Import") { tap("import"); go("collection/csv") },
     ), onDismiss = { menu = false })
     when (creating) {
         "deck", "cube" -> {

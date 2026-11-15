@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Avatar } from "../components/Avatar";
 import { PersonMenu, PersonRow, SharingOfferDialog, useWideningConfirm, type PersonRef } from "../components/PersonActions";
-import { BigAction, Bar, Field, Menu, Notice, Row, Screen, Section, Segmented } from "../components/kit";
+import { BigAction, Bar, Field, Menu, Notice, Row, Screen, Section, Segmented, TabNav } from "../components/kit";
 import { errorMessage } from "../lib/api";
 import { coverPrinting, oracleIndexById, type Catalog } from "../lib/catalog";
 import { useCollection } from "../lib/collection";
@@ -55,49 +55,51 @@ export function useFriendsReady(): { ready: boolean; session: boolean } {
   return { ready: ready && (!demo || demoReady), session: !!session };
 }
 
-function Gate({ title, onBack, children }: { title: string; onBack: () => void; children: () => JSX.Element }) {
+/** `onBack` none: a tab's root (Account → Profile), with the tab bar. */
+function Gate({ title, onBack, children }: { title: string; onBack?: () => void; children: () => JSX.Element }) {
   const { ready, session } = useFriendsReady();
-  if (!ready) return <Screen><Bar title={title} onBack={onBack} /><div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div></Screen>;
-  if (!session) return <Screen><Bar title={title} onBack={onBack} /><Notice tone="info">Sign in to see friends and sharing.</Notice></Screen>;
+  if (!ready) return <Screen>{!onBack && <TabNav />}<Bar title={title} onBack={onBack} /><div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div></Screen>;
+  if (!session) return <Screen>{!onBack && <TabNav />}<Bar title={title} onBack={onBack} /><Notice tone="info">Sign in to see friends and sharing.</Notice></Screen>;
   return children();
 }
 
 /* ── rows for other screens ──────────────────────────────────────────── */
 
-/** Account: Friends, Sharing, your profile. */
-export function FriendsAccountRows({ onFriends, onSharing, onProfile, eventsPlayed = 0 }: {
-  onFriends: () => void; onSharing: () => void; onProfile: () => void; eventsPlayed?: number;
-}) {
+/** Account → Settings: Sharing, with who sees what (contract/main-nav-2026-11-14.md § 3). */
+export function SharingAccountRow({ onSharing }: { onSharing: () => void }) {
+  const s = useFriends();
+  useEffect(() => void loadSharing(), []);
+  return <Row title="Sharing" detail={s.sharing ? sharingSummary(s.sharing) : "Who sees your profile and Library"} onClick={onSharing} />;
+}
+
+/** Account → Records: after your first event, with Record private, the one-time offer to show it to friends (§ UX rules 8). */
+export function RecordOffer({ eventsPlayed }: { eventsPlayed: number }) {
   const s = useFriends();
   const me = useLibrarySession().userId;
-  const [recordOffered, setRecordOffered] = useState(() => offerAnswered("record", me));
-  const answerRecord = (yes: boolean) => {
+  const [answered, setAnswered] = useState(() => offerAnswered("record", me));
+  useEffect(() => void loadSharing(), []);
+  const answer = (yes: boolean) => {
     answerOffer("record", me, yes);
-    setRecordOffered(true);
+    setAnswered(true);
     if (yes) void setAll(["record"], "friends");
   };
-  useEffect(() => {
-    void loadFriends();
-    void loadSharing();
-  }, []);
-  const friends = s.list?.friends.length ?? 0, waiting = s.list?.incoming.length ?? 0;
+  if (answered || eventsPlayed < 1 || s.sharing?.record !== "private") return null;
   return (
-    <>
-      <div className="bg-t1-surface px-4 py-2 t1-label">Friends and sharing</div>
-      <Row title="Friends" detail={[plural(friends, "friend"), waiting ? `${waiting} waiting` : null].filter(Boolean).join(" · ")}
-           value={waiting ? `${waiting} new` : undefined} accentValue onClick={onFriends} />
-      <Row title="Sharing" detail={s.sharing ? sharingSummary(s.sharing) : "Who sees your profile and Library"} onClick={onSharing} />
-      <Row title="Your profile" detail="Name, photo and what you share" onClick={onProfile} />
-      {/* After your first event, with Record private: offer once to show it to friends (§ UX rules 8). */}
-      {!recordOffered && eventsPlayed >= 1 && s.sharing?.record === "private" && (
-        <div className="flex gap-px">
-          <div className="flex-1 min-w-0"><Row title="Show your record on your profile?" detail="Friends would see your wins, losses and draws" /></div>
-          <button type="button" className="bg-t1-accent px-4 t1-label text-t1-ink!" onClick={() => answerRecord(true)}>Friends</button>
-          <button type="button" className="bg-t1-surface hover:bg-t1-surface-hover px-4 t1-label" onClick={() => answerRecord(false)}>Not now</button>
-        </div>
-      )}
-    </>
+    <div className="flex gap-px">
+      <div className="flex-1 min-w-0"><Row title="Show your record on your profile?" detail="Friends would see your wins, losses and draws" /></div>
+      <button type="button" className="bg-t1-accent px-4 t1-label text-t1-ink!" onClick={() => answer(true)}>Friends</button>
+      <button type="button" className="bg-t1-surface hover:bg-t1-surface-hover px-4 t1-label" onClick={() => answer(false)}>Not now</button>
+    </div>
   );
+}
+
+/** Your own profile as Account → Profile: Friends, with requests waiting, at its top. */
+function FriendsTopRow({ onOpen }: { onOpen: () => void }) {
+  const s = useFriends();
+  useEffect(() => void loadFriends(), []);
+  const friends = s.list?.friends.length ?? 0, waiting = s.list?.incoming.length ?? 0;
+  return <Row title="Friends" detail={s.list ? [plural(friends, "friend"), waiting ? `${waiting} waiting` : null].filter(Boolean).join(" · ") : undefined}
+              value={waiting ? `${waiting} new` : undefined} accentValue onClick={onOpen} />;
 }
 
 /** Library home: who has what you want, who wants what you have. */
@@ -285,7 +287,12 @@ function FriendAddBody({ onBack }: { onBack: () => void }) {
 /* ── profile ─────────────────────────────────────────────────────────── */
 
 export function ProfileScreen(props: {
-  userId: string; onBack: () => void; onSection: (kind: SectionKind, id: string | null) => void; onMatch: () => void; onSharing: () => void;
+  userId: string;
+  /** None: your own profile as Account → Profile's root (contract/main-nav-2026-11-14.md § 3), with the tab bar. */
+  onBack?: () => void;
+  /** Account → Profile: the Friends row at the top (your friends and requests). */
+  onFriendsList?: () => void;
+  onSection: (kind: SectionKind, id: string | null) => void; onMatch: () => void; onSharing: () => void;
   onFriends: () => void; onRanking: (id: string) => void;
   /** Your own profile: a popular cube's Rankings ("set:PLSV"). */
   onPopular: (id: string) => void;
@@ -293,8 +300,8 @@ export function ProfileScreen(props: {
   return <Gate title="Profile" onBack={props.onBack}>{() => <ProfileBody key={props.userId} {...props} />}</Gate>;
 }
 
-function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends, onRanking, onPopular }: {
-  userId: string; onBack: () => void; onSection: (kind: SectionKind, id: string | null) => void; onMatch: () => void; onSharing: () => void;
+function ProfileBody({ userId, onBack, onFriendsList, onSection, onMatch, onSharing, onFriends, onRanking, onPopular }: {
+  userId: string; onBack?: () => void; onFriendsList?: () => void; onSection: (kind: SectionKind, id: string | null) => void; onMatch: () => void; onSharing: () => void;
   onFriends: () => void; onRanking: (id: string) => void; onPopular: (id: string) => void;
 }) {
   const [own, setD] = useState<ProfileData | null>(null);
@@ -342,6 +349,7 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends,
   );
   return (
     <Screen>
+      {!onBack && <TabNav />}
       <Bar title={d?.display_name ?? "Profile"} subtitle={sub} onBack={onBack}
            right={d && d.relation !== "self" ? <button type="button" onClick={() => setMenu(true)} className="t1-label hover:text-t1-text px-2 py-1 -my-1">More</button> : undefined} />
       {own?.relation === "self" && (
@@ -354,6 +362,7 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends,
       )}
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+        {onFriendsList && own?.relation === "self" && as === 2 && <FriendsTopRow onOpen={onFriendsList} />}
         {!d && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
         {d && (
           <div className="bg-t1-surface px-4 py-6 flex flex-col items-center gap-2">
@@ -397,7 +406,7 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends,
         )}
         {d && !d.visible && <Notice tone="info">{d.relation === "blocked" ? `You blocked ${d.display_name}.` : `Only ${d.display_name}'s friends can see their profile.`}</Notice>}
         {d && d.visible && d.relation !== "self" && sectionCount(d) === 0 && <Notice tone="info">Nothing shared yet.</Notice>}
-        {s?.friends && (() => {
+        {s?.friends && !(onFriendsList && own?.relation === "self" && as === 2) && (() => {
           // View as can't know which of them each viewer would see, so the row doesn't open there.
           const asOther = own?.relation === "self" && as < 2;
           const detail = d?.relation === "self" ? (asOther || !sharing ? undefined : friendsOwnDetail(reachOf(sharing, "friends")))

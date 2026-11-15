@@ -200,6 +200,10 @@ object RankingsStore {
     /** Sets and Arena cube versions to rank (Insights → Limited). */
     suspend fun rankableSets(): List<RankableSet> = T1App.supabase.postgrest.rpc("limited_rankable").decodeAs<List<RankableSet>>()
 
+    /** Your friends' rankings you may open, every subject, newest first (rankings_friends; contract/main-nav-2026-11-14.md § 4). */
+    suspend fun friends(limit: Int = 200): List<RankingRow> =
+        T1App.supabase.postgrest.rpc("rankings_friends", buildJsonObject { put("p_limit", limit) }).decodeAs<List<RankingRow>>()
+
     /** The popular cubes with your and your friends' rankings of each. */
     suspend fun popularCubes(): List<PopularCube> = T1App.supabase.postgrest.rpc("popular_cubes").decodeAs<List<PopularCube>>()
 

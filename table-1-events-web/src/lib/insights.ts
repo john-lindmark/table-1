@@ -4,6 +4,7 @@ import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
 import { delta, pct, pct1, shortDay } from "./insightCharts";
 import { ageOf, offlineNotice } from "./offline";
+import { storeSub, storedSub } from "./mainNav";
 
 /**
  * Insights (contract/insights-2026-10-24.md): the published pack index, the packs (fetched once per version) and
@@ -340,6 +341,8 @@ export function matchup(m: Matchups, a: number, b: number): { wins: number; loss
 
 export interface Picks {
   format: string; tier: Tier | null; days: number; set: string | null; event: string; group: "all" | "top";
+  /** Constructed or Limited: Insights' last section, which follows the account (contract/main-nav-2026-11-14.md § 2). */
+  section?: "constructed" | "limited";
   /** Formats and sets kept out of the pickers on this device (Edit). */
   hiddenFormats: string[]; hiddenSets: string[];
 }
@@ -351,7 +354,7 @@ function readPicks(): Picks {
 
 /**
  * The picks as user_settings.insights holds them (contract/insights-2026-10-24.md § What the viewer picked): snake
- * case, every key optional. `section` is the apps' (the web keeps it in the address), kept as the account has it.
+ * case, every key optional. `section` is Constructed or Limited: the sub-tab the web shows it on.
  */
 export type WirePicks = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === "string" ? v : undefined);
@@ -372,12 +375,13 @@ export function writeWirePicks(picks: WirePicks, held: WirePicks | null): WirePi
   return { ...(held ?? {}), ...mine };
 }
 
-const toWire = (p: Picks): WirePicks => ({ format: p.format, tier: p.tier, days: p.days, set: p.set, event: p.event, group: p.group,
+const toWire = (p: Picks): WirePicks => ({ ...(p.section ? { section: p.section } : {}), format: p.format, tier: p.tier, days: p.days, set: p.set, event: p.event, group: p.group,
   hidden_formats: p.hiddenFormats, hidden_sets: p.hiddenSets });
 
 function fromWire(o: WirePicks): Partial<Picks> {
   const w = readWirePicks(o);
   const out: Partial<Picks> = {};
+  if (w.section === "constructed" || w.section === "limited") out.section = w.section;
   if (w.format) out.format = w.format as string;
   if (w.tier === "big" || w.tier === "all") out.tier = w.tier;
   if (typeof w.days === "number" && [7, 14, 30, 90].includes(w.days)) out.days = w.days;
@@ -418,6 +422,8 @@ async function pullPicks() {
   if (!Object.keys(heldPicks).length) { pushPicks(); return; }
   const picks = { ...state.picks, ...fromWire(heldPicks) };
   try { localStorage.setItem(PICKS_KEY, JSON.stringify(picks)); } catch { /* private window */ }
+  // Insights opens on the account's section unless Rankings was the last sub-tab (contract/main-nav-2026-11-14.md § 2).
+  if (picks.section && storedSub("insights") !== "rankings") storeSub("insights", picks.section);
   set({ picks });
 }
 

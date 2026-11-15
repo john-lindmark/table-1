@@ -23,10 +23,13 @@ import { isLibraryDemo } from "../lib/libraryDemo";
 const PaymentsAccountRow = lazy(() => import("./Pay").then((m) => ({ default: m.PaymentsAccountRow })));
 import { DEMO_OVERVIEW } from "../lib/profileDemo";
 import { loadMyDeckPhotos, myDeckPhotoSummary } from "../lib/deckPhotos";
-import { Bar, Menu, Notice, Row, Screen, Segmented, TabNav, type MenuItem } from "../components/kit";
+import { Bar, Menu, Notice, Row, Screen, Section, Segmented, TabNav, type MenuItem } from "../components/kit";
 import { useTrackerMode } from "../lib/settings";
 import { FAN_CONTENT } from "../lib/legal";
-import { ProfileAchievements } from "../components/Achievements";
+
+/* The Account tab (contract/main-nav-2026-11-14.md § 3): Profile is your own profile screen (Friends.tsx, as
+   /u/<your id> shows it); Records holds the lifetime record, deck photos and every head-to-head; Settings every setting
+   and account action. */
 
 /** "Share usage and crash data": PostHog and Sentry on this browser (contract/telemetry-2026-10-15.md). */
 function SharingToggle() {
@@ -53,32 +56,118 @@ function SharingToggle() {
 
 const record = (w: number, l: number, d: number) => (d > 0 ? `${w}-${l}-${d}` : `${w}-${l}`);
 
-/** The Account tab: lifetime record, head-to-head, settings, and the account itself. */
 /** Friends and Sharing rows; their store loads with the Friends chunk, not the entry bundle. */
-const FriendsAccountRows = lazy(() => import("./Friends").then((m) => ({ default: m.FriendsAccountRows })));
+const SharingAccountRow = lazy(() => import("./Friends").then((m) => ({ default: m.SharingAccountRow })));
+const RecordOffer = lazy(() => import("./Friends").then((m) => ({ default: m.RecordOffer })));
 const ModerationAccountRows = lazy(() => import("./Moderation").then((m) => ({ default: m.ModerationAccountRows })));
 const CommunityJoin = lazy(() => import("./Discord").then((m) => ({ default: m.CommunityJoin })));
 
-export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscord, onNotices, onReview, onDeckPhotos, onSupport }: {
-  onSignedOut: () => void; onFriends: () => void; onSharing: () => void; onProfile: (userId: string) => void;
-  onDiscord?: () => void;
-  onNotices?: () => void;
-  /** Account → Deck photos (/me/deck-photos). */
-  onDeckPhotos?: () => void;
-  onReview?: () => void;
-  /** Account → Support (/support): questions and the guide (contract/support-2026-11-10.md). */
-  onSupport?: () => void;
-}) {
+/** The signed-in account and its overview (record, head-to-head, name); `?demo` on the dev server uses sample results. */
+function useAccount() {
   const real = useSession();
   // Dev server, `?demo`: the account on sample results (the feature-spot shot of the record), no sign-in.
   const demoAccount = import.meta.env.DEV && isLibraryDemo();
   const { session, ready, userId } = demoAccount ? { session: true as const, ready: true, userId: null } : real;
   const [overview, setOverview] = useState<AccountOverview | null>(demoAccount ? DEMO_OVERVIEW : null);
-  const [alertsOn, setAlertsOn] = useState(false);
-  const [showAll, setShowAll] = useState(false);
-  const openProfile = useOpenProfile("head_to_head");
-  const [nameDraft, setNameDraft] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    if (!userId || demoAccount) return;
+    try {
+      setOverview(await fetchAccountOverview());
+      setError(null);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }, [userId]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  return { session, ready, userId, demoAccount, overview, error, setError, load };
+}
+
+/** Signed out, every Account sub-tab: what the old Account screen showed. */
+export function AccountSignedOut() {
+  return (
+    <Screen>
+      <Bar title="Account" />
+      <Notice tone="info">Sign in to see your record.</Notice>
+      <div className="flex flex-col gap-px">
+        <div className="bg-t1-surface px-4 py-2 t1-label">Settings</div>
+        <SharingToggle />
+      </div>
+    </Screen>
+  );
+}
+
+/** Account → Records: the lifetime record, Deck photos, the record offer, then head-to-head with every opponent. */
+export function AccountRecords({ onDeckPhotos }: {
+  /** Account → Records → Deck photos (/me/deck-photos). */
+  onDeckPhotos?: () => void;
+}) {
+  const a = useAccount();
+  const openProfile = useOpenProfile("head_to_head");
+  if (!a.ready) return <Screen><div className="flex-1" /></Screen>;
+  if (!a.session) return <AccountSignedOut />;
+  const r = a.overview?.record;
+  const rivals = a.overview?.head_to_head ?? [];
+  const played = r ? r.match_wins + r.match_losses + r.match_draws : 0;
+  return (
+    <Screen>
+      <TabNav />
+      <Bar title="Records" />
+      {a.error && <Notice tone="error">{a.error}</Notice>}
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+        <div className="bg-t1-surface px-4 py-6 flex flex-col items-center gap-1">
+          <p className="t1-label">Lifetime record</p>
+          <p className="text-[48px] tabular-nums tracking-[4px] text-t1-accent">
+            {r ? record(r.match_wins, r.match_losses, r.match_draws) : "0-0"}
+          </p>
+          <p className="t1-label">
+            {played} matches · {r?.events_played ?? 0} events · games{" "}
+            {r ? record(r.game_wins, r.game_losses, r.game_draws) : "0-0"}
+            {r?.byes ? ` · ${r.byes} byes` : ""}
+          </p>
+        </div>
+        {(a.userId || isLibraryDemo()) && onDeckPhotos && <DeckPhotosAccountRow onOpen={onDeckPhotos} />}
+        {a.userId && <Suspense fallback={null}><RecordOffer eventsPlayed={r?.events_played ?? 0} /></Suspense>}
+
+        <Section title="Head-to-head" count={rivals.length || undefined} />
+        {a.overview === null && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
+        {a.overview && rivals.length === 0 && (
+          <div className="bg-t1-surface px-4 py-6 t1-label">Play a match to start your head-to-head.</div>
+        )}
+        {rivals.map((h) => (
+          <div key={h.opponent_id} role="link" tabIndex={0} onClick={openProfile(h.opponent_id)}
+               onKeyDown={(e) => { if (e.key === "Enter") openProfile(h.opponent_id)?.(); }}
+               className="bg-t1-surface hover:bg-t1-surface-hover cursor-pointer px-4 py-3 flex items-center gap-3">
+            <Avatar name={h.name} userId={h.opponent_id} />
+            <span className="flex-1 min-w-0 flex flex-col">
+              <span className="text-[14px] truncate">{h.name}</span>
+              <span className="t1-label">
+                {h.played} match{h.played === 1 ? "" : "es"} · games {h.game_wins}-{h.game_losses}
+              </span>
+            </span>
+            <span className="tabular-nums text-[16px]">{record(h.match_wins, h.match_losses, h.match_draws)}</span>
+          </div>
+        ))}
+      </div>
+    </Screen>
+  );
+}
+
+/** Account → Settings: every setting and account action, in the contract's order (§ 3). */
+export function AccountSettings({ onSignedOut, onSharing, onDiscord, onNotices, onReview, onSupport }: {
+  onSignedOut: () => void; onSharing: () => void;
+  onDiscord?: () => void;
+  onNotices?: () => void;
+  onReview?: () => void;
+  /** Support (/support): questions and the guide (contract/support-2026-11-10.md). */
+  onSupport?: () => void;
+}) {
+  const a = useAccount();
+  const { userId, overview, setError } = a;
+  const [alertsOn, setAlertsOn] = useState(false);
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const tracker = useTrackerMode();
@@ -89,6 +178,12 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
   const libraryInput = useRef<HTMLInputElement>(null);
   // "Take a photo" only where the browser can open a camera (phones); elsewhere capture just picks a file.
   const hasCamera = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+
+  useEffect(() => {
+    if (!userId || a.demoAccount) return;
+    fetchNearbyAlerts(userId).then(setAlertsOn).catch((e) => setError(errorMessage(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   /** Accounts on the server's tester list: load or remove the sample events (same as the apps). */
   const [demoTester, setDemoTester] = useState(false);
@@ -102,27 +197,13 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
       await (seed ? seedDemo() : removeDemo());
       setError(null);
       setDemoNotice(seed ? "Demo data loaded. The live round's clock restarts each time you reset." : "Demo data removed.");
-      await load();
+      await a.load();
     } catch (e) {
       setError(errorMessage(e));
     } finally {
       setDemoBusy(false);
     }
   };
-
-  const load = useCallback(async () => {
-    if (!userId || demoAccount) return;
-    try {
-      setOverview(await fetchAccountOverview());
-      setAlertsOn(await fetchNearbyAlerts(userId));
-      setError(null);
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  }, [userId]);
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const onDelete = async () => {
     setDeleting(true);
@@ -153,7 +234,7 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
     try {
       await setDisplayName(userId, nameDraft);
       setNameDraft(null);
-      await load();
+      await a.load();
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -193,126 +274,41 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
     ...(avatarPath ? [{ title: "Remove photo", onClick: () => void removeAvatar() }] : []),
   ];
 
-  if (!ready) return <Screen><div className="flex-1" /></Screen>;
-  if (!session) {
-    return (
-      <Screen>
-        <Bar title="Account" />
-        <Notice tone="info">Sign in to see your record.</Notice>
-        <div className="flex flex-col gap-px">
-          <div className="bg-t1-surface px-4 py-2 t1-label">Settings</div>
-          <SharingToggle />
-        </div>
-      </Screen>
-    );
-  }
+  if (!a.ready) return <Screen><div className="flex-1" /></Screen>;
+  if (!a.session) return <AccountSignedOut />;
 
-  const r = overview?.record;
-  const rivals = overview?.head_to_head ?? [];
-  const label = overview?.profile ? overview.profile.handle || overview.profile.display_name : "Account";
-  const played = r ? r.match_wins + r.match_losses + r.match_draws : 0;
   const row = "bg-t1-surface hover:bg-t1-surface-hover px-4 py-3.5 flex items-center gap-3 text-left w-full";
 
   return (
     <Screen>
       <TabNav />
-      <Bar title={label} subtitle="Account" />
-      {error && <Notice tone="error">{error}</Notice>}
+      <Bar title="Settings" />
+      {a.error && <Notice tone="error">{a.error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
-        <div className="bg-t1-surface px-4 py-6 flex flex-col items-center gap-1">
-          <button
-            type="button"
-            aria-label="Profile photo"
-            disabled={avatarBusy || !overview?.profile}
-            onClick={() => setAvatarMenu(true)}
-            className="mb-[18px] flex flex-col items-center gap-2"
-          >
-            <Avatar name={overview?.profile?.display_name ?? ""} userId={userId} size={64} />
-            {avatarBusy && <span className="t1-label">Saving…</span>}
-          </button>
-          <input
-            ref={cameraInput}
-            type="file"
-            accept="image/*"
-            capture="user"
-            hidden
-            onChange={(e) => {
-              void pickAvatar(e.target.files?.[0], "camera");
-              e.target.value = "";
-            }}
-          />
-          <input
-            ref={libraryInput}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => {
-              void pickAvatar(e.target.files?.[0], "library");
-              e.target.value = "";
-            }}
-          />
-          <p className="t1-label">Lifetime record</p>
-          <p className="text-[48px] tabular-nums tracking-[4px] text-t1-accent">
-            {r ? record(r.match_wins, r.match_losses, r.match_draws) : "0-0"}
-          </p>
-          <p className="t1-label">
-            {played} matches · {r?.events_played ?? 0} events · games{" "}
-            {r ? record(r.game_wins, r.game_losses, r.game_draws) : "0-0"}
-            {r?.byes ? ` · ${r.byes} byes` : ""}
-          </p>
-        </div>
-        {/* League finishes and board ranks (contract/public-events-leagues-2026-11-13.md § 7); no tiles, no section. */}
-        <ProfileAchievements userId={userId ?? (demoAccount ? "demo" : null)} />
-
-        {(userId || isLibraryDemo()) && onDeckPhotos && <DeckPhotosAccountRow onOpen={onDeckPhotos} />}
-
-        {userId && (
-          <Suspense fallback={null}>
-            <FriendsAccountRows onFriends={onFriends} onSharing={onSharing} onProfile={() => onProfile(userId)} eventsPlayed={r?.events_played ?? 0} />
-            {onNotices && onReview && <ModerationAccountRows onNotices={onNotices} onReview={onReview} />}
-          </Suspense>
-        )}
-        {/* Entry fees go to a host's own Stripe account (contract/entry-fees-2026-11-13.md § 1); hidden until the server has payments. */}
-        {(userId || demoAccount) && <Suspense fallback={null}><PaymentsAccountRow /></Suspense>}
-
-        {onDiscord && (
-          <>
-            <div className="bg-t1-surface px-4 py-2 t1-label">Discord</div>
-            <Row title="Table 1 for Discord" detail="Events, sign-ups and results in your server · link your account" onClick={onDiscord} />
-            <Suspense fallback={null}>
-              <CommunityJoin from="account" hideMember />
-            </Suspense>
-          </>
-        )}
-
-        {onSupport && <Row title="Support" detail="Questions and the guide" onClick={onSupport} />}
-
-        <div className="bg-t1-surface px-4 py-2 t1-label">Head-to-head</div>
-        {overview === null && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
-        {overview && rivals.length === 0 && (
-          <div className="bg-t1-surface px-4 py-6 t1-label">Play a match to start your head-to-head.</div>
-        )}
-        {(showAll ? rivals : rivals.slice(0, 8)).map((h) => (
-          <div key={h.opponent_id} role="link" tabIndex={0} onClick={openProfile(h.opponent_id)}
-               onKeyDown={(e) => { if (e.key === "Enter") openProfile(h.opponent_id)?.(); }}
-               className="bg-t1-surface hover:bg-t1-surface-hover cursor-pointer px-4 py-3 flex items-center gap-3">
-            <Avatar name={h.name} userId={h.opponent_id} />
-            <span className="flex-1 min-w-0 flex flex-col">
-              <span className="text-[14px] truncate">{h.name}</span>
-              <span className="t1-label">
-                {h.played} match{h.played === 1 ? "" : "es"} · games {h.game_wins}-{h.game_losses}
-              </span>
-            </span>
-            <span className="tabular-nums text-[16px]">{record(h.match_wins, h.match_losses, h.match_draws)}</span>
-          </div>
-        ))}
-        {rivals.length > 8 && (
-          <button className="bg-t1-surface hover:bg-t1-surface-hover py-3 t1-label" onClick={() => setShowAll((v) => !v)}>
-            {showAll ? "Show fewer" : `Show all ${rivals.length}`}
-          </button>
-        )}
-
-        <div className="bg-t1-surface px-4 py-2 t1-label">Settings</div>
+        <Row title="Profile photo" detail={avatarBusy ? "Saving…" : avatarPath ? "Change or remove" : "Add a photo"}
+             avatar={<Avatar name={overview?.profile?.display_name ?? ""} userId={userId} size={40} />}
+             onClick={() => { if (!avatarBusy && overview?.profile) setAvatarMenu(true); }} />
+        <input
+          ref={cameraInput}
+          type="file"
+          accept="image/*"
+          capture="user"
+          hidden
+          onChange={(e) => {
+            void pickAvatar(e.target.files?.[0], "camera");
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={libraryInput}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            void pickAvatar(e.target.files?.[0], "library");
+            e.target.value = "";
+          }}
+        />
         {nameDraft === null ? (
           <button className={row} onClick={() => setNameDraft(overview?.profile?.display_name ?? "")}>
             <span className="flex-1 min-w-0 flex flex-col">
@@ -339,6 +335,9 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
             </button>
           </div>
         )}
+        {userId
+          ? <Suspense fallback={<Row title="Sharing" onClick={onSharing} />}><SharingAccountRow onSharing={onSharing} /></Suspense>
+          : <Row title="Sharing" detail="Who sees your profile and Library" onClick={onSharing} />}
         <Segmented
           label="Track games"
           value={tracker.mode}
@@ -362,6 +361,21 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
           <span className={`t1-label ${alertsOn ? "text-t1-accent!" : ""}`}>{alertsOn ? "On" : "Off"}</span>
         </button>
         <SharingToggle />
+        {/* Entry fees go to a host's own Stripe account (contract/entry-fees-2026-11-13.md § 1); hidden until the server has payments. */}
+        {(userId || a.demoAccount) && <Suspense fallback={null}><PaymentsAccountRow /></Suspense>}
+        {userId && onNotices && onReview && <Suspense fallback={null}><ModerationAccountRows onNotices={onNotices} onReview={onReview} /></Suspense>}
+
+        {onDiscord && (
+          <>
+            <div className="bg-t1-surface px-4 py-2 t1-label">Discord</div>
+            <Row title="Table 1 for Discord" detail="Events, sign-ups and results in your server · link your account" onClick={onDiscord} />
+            <Suspense fallback={null}>
+              <CommunityJoin from="account" hideMember />
+            </Suspense>
+          </>
+        )}
+
+        {onSupport && <Row title="Support" detail="Questions and the guide" onClick={onSupport} />}
 
         {demoTester && (
           <>
@@ -417,13 +431,17 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
           <span className="text-t1-text!">Privacy policy</span>
           <span>Open</span>
         </a>
+        <div className="bg-t1-surface px-4 py-3.5 flex justify-between t1-label">
+          <span className="text-t1-text!">Version</span>
+          <span>{__APP_VERSION__}</span>
+        </div>
       </div>
       {avatarMenu && <Menu title="Profile photo" items={avatarItems} onClose={() => setAvatarMenu(false)} />}
     </Screen>
   );
 }
 
-/** Account → Deck photos: "12 photos · 5 events" (my_deck_photos asked for one photo, for its totals). */
+/** Account → Records → Deck photos: "12 photos · 5 events" (my_deck_photos asked for one photo, for its totals). */
 function DeckPhotosAccountRow({ onOpen }: { onOpen: () => void }) {
   const [summary, setSummary] = useState<string | undefined>(undefined);
   useEffect(() => {

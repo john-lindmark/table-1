@@ -218,8 +218,8 @@ private struct CatalogStatus: View {
 // MARK: home
 
 /// The Collection tab (Figma 325:10820): the collection as a shelf of its hero art, then a shelf each of decks,
-/// binders and cubes (yours, then the ones you follow), with Trade · Wants · Import along the bottom. + adds cards
-/// or makes a deck, binder or cube; the magnifier searches every card; the camera (Figma 327:8076) scans a pile of
+/// binders and cubes (yours, then the ones you follow). + adds cards, makes a deck, binder or cube, or imports
+/// (Trade and Wants are sub-tabs beside it, contract/main-nav-2026-11-14.md); the magnifier searches every card; the camera (Figma 327:8076) scans a pile of
 /// cards and adds them all to the collection, a deck, cube, binder, wants or a trade.
 struct LibraryHomeView: View {
     @Binding var path: [LibraryRoute]
@@ -284,11 +284,6 @@ struct LibraryHomeView: View {
                 .padding(.bottom, 64)
             }
             .refreshable { await col.sync(); await FollowsStore.shared.load() }
-            HStack(spacing: 1) {
-                action("Trade") { path.append(.trades) }
-                action("Wants") { path.append(.wants) }
-                action("Import") { path.append(.collectionImport) }
-            }
         }
         .task { if FollowsStore.shared.items == nil { await FollowsStore.shared.load() } }
         .task(id: col.version) { await PriceBook.shared.load(col.items.values.map(\.cardId)) }
@@ -357,16 +352,6 @@ struct LibraryHomeView: View {
         }
     }
 
-    private func action(_ title: String, _ go: @escaping () -> Void) -> some View {
-        Button { tap(title.lowercased()); go() } label: {
-            ShelfText(title, size: 11, color: T1.text)
-                .frame(maxWidth: .infinity).frame(height: 50)
-                .background(T1.bg)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
     // MARK: actions
 
     private func add() {
@@ -376,6 +361,7 @@ struct LibraryHomeView: View {
             T1MenuItem(title: "New deck") { newList(.deck) },
             T1MenuItem(title: "New binder") { newBinder() },
             T1MenuItem(title: "New cube") { newList(.cube) },
+            T1MenuItem(title: "Import", detail: "CSV from ManaBox, Moxfield and others; export") { tap("import"); path.append(.collectionImport) },
         ])
     }
 

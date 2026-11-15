@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -66,6 +67,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -480,6 +482,34 @@ fun T1TabBar(tabs: List<T1Tab>, selected: String?, rail: Boolean = false, onSele
                             fontFamily = T1.mono, fontSize = 8.sp, letterSpacing = 1.sp, maxLines = 1)
                     }
                 }
+            }
+        }
+    }
+}
+
+/** One cell of the sub-tab strip. */
+data class T1SubTab(val id: String, val label: String)
+
+/** The sub-tab strip above the tab bar (Figma 765:113447, contract/main-nav-2026-11-14.md § 1): one 44 dp row of
+ *  equal cells on the background, 9 sp mono labels, uppercase, tracking 1.5. Current = text color under a 1 dp accent
+ *  line along the cell's top, as the tab bar draws its selected tab; others muted. In a rail layout it runs along the
+ *  bottom of the content, so it pads for the navigation bar itself ([bottomInsets]). */
+@Composable
+fun T1SubTabBar(subs: List<T1SubTab>, selected: String?, bottomInsets: Boolean = false, onSelect: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth().background(T1.bg)
+        .let { if (bottomInsets) it.windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.End)) else it }
+        .height(44.dp)) {
+        subs.forEach { sub ->
+            val on = sub.id == selected
+            Box(
+                Modifier.weight(1f).fillMaxHeight()
+                    .clickable { onSelect(sub.id) }
+                    .semantics { contentDescription = sub.label; this.selected = on }
+                    .drawBehind { if (on) drawRect(T1.accent, size = Size(size.width, 1.dp.toPx())) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(sub.label.uppercase(), color = if (on) T1.text else T1.muted, fontFamily = T1.mono, fontSize = 9.sp,
+                    letterSpacing = 1.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

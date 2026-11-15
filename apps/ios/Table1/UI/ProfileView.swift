@@ -2,16 +2,19 @@ import AuthenticationServices
 import SwiftUI
 import UIKit
 
-/// The Account tab: lifetime record, friends and sharing, head-to-head, settings, and the account itself.
+/// Account → Records and Account → Settings (contract/main-nav-2026-11-14.md § 3; Profile is your own profile screen).
+/// Records: the lifetime record, deck photos and every head-to-head. Settings: every setting and the account itself.
+enum AccountPart { case records, settings }
+
 struct AccountView: View {
     @Binding var path: [LibraryRoute]
+    var part: AccountPart = .records
     @Environment(SessionModel.self) private var session
     @State private var overview: AccountOverview?
     @State private var alertsOn = false
     /// Send scan corrections as matcher test cases (ScanReports). On by default.
     @AppStorage(ScanReports.key) private var scanReports = true
     @State private var sharing = Telemetry.sharing
-    @State private var showAllRivals = false
     @State private var editingName = false
     @State private var nameDraft = ""
     @State private var confirmDelete = false
@@ -21,96 +24,18 @@ struct AccountView: View {
     @State private var error: String?
     @State private var notice: String?
     @State private var avatarBusy = false
+    private var friends: FriendsStore { FriendsStore.shared }
 
     var body: some View {
-        let r = overview?.record ?? AccountOverview.Record()
-        let rivals = overview?.headToHead ?? []
         T1Screen {
-            Bar(title: overview?.label ?? "Account", subtitle: "Account")
+            Bar(title: part == .records ? "Records" : "Settings", subtitle: overview?.label)
             HairlineList {
                 if let error { Notice(error, error: true) }
                 if let notice { Notice(notice) }
-
-                VStack(spacing: 6) {
-                    avatarButton.padding(.bottom, 18)
-                    LabelText("Lifetime record")
-                    Text(recordText(r.matchWins, r.matchLosses, r.matchDraws))
-                        .font(T1.mono(48)).tracking(4).foregroundStyle(T1.accent)
-                    LabelText("\(r.matches) matches · \(r.eventsPlayed) events · games \(recordText(r.gameWins, r.gameLosses, r.gameDraws))\(r.byes > 0 ? " · \(r.byes) byes" : "")")
+                switch part {
+                case .records: records
+                case .settings: settings
                 }
-                .frame(maxWidth: .infinity).padding(.vertical, 24).background(T1.surface)
-
-                RecordOffer(eventsPlayed: r.eventsPlayed)
-                DeckPhotosAccountRow(path: $path)
-                AccountSocialRows(path: $path)
-                ModerationAccountRows(path: $path)
-                BugsAccountRow(path: $path)
-                SupportAccountRow(path: $path)
-
-                Section1("Head-to-head")
-                if overview == nil {
-                    Notice("Loading…")
-                } else if rivals.isEmpty {
-                    Notice("Play a match to start your head-to-head.")
-                }
-                ForEach(showAllRivals ? rivals : Array(rivals.prefix(8))) { rival in
-                    ListRow(title: rival.name, detail: "\(rival.played) match\(rival.played == 1 ? "" : "es") · games \(rival.gameWins)-\(rival.gameLosses)",
-                            avatar: AvatarView(name: rival.name, userId: rival.opponentId)) {
-                        Text(recordText(rival.matchWins, rival.matchLosses, rival.matchDraws)).font(T1.mono(16))
-                    }
-                    .opensProfile(rival.opponentId, from: "head_to_head")
-                }
-                if rivals.count > 8 {
-                    Ghost(text: showAllRivals ? "Show fewer" : "Show all \(rivals.count)") { showAllRivals.toggle() }
-                }
-
-                Section1("Settings")
-                Button { nameDraft = overview?.profile?.displayName ?? ""; editingName = true } label: {
-                    ListRow(title: "Display name", detail: overview?.profile?.displayName ?? "–") { LabelText("Edit", color: T1.text) }
-                }
-                .buttonStyle(.plain)
-                trackGames
-                Button { toggleAlerts() } label: {
-                    ListRow(title: "Nearby alerts", detail: "Get a Join / Decline alert when an event opens near you") {
-                        LabelText(alertsOn ? "On" : "Off", color: alertsOn ? T1.accent : T1.muted)
-                    }
-                }
-                .buttonStyle(.plain)
-                T1Switch(title: "Improve scanning",
-                         detail: "When you fix a scanned card, send the text the camera read (no photos) so we can test the scanner",
-                         isOn: $scanReports)
-                T1Switch(title: "Share usage and crash data",
-                         detail: "Which features you use and crash reports, tied to your account id only: never names, cards or events",
-                         isOn: Binding(get: { sharing }, set: { sharing = $0; Telemetry.setSharing($0) }))
-                Button { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } } label: {
-                    ListRow(title: "Location, notifications, Live Activities", detail: "Managed in iOS Settings") { LabelText("Open", color: T1.text) }
-                }
-                .buttonStyle(.plain)
-
-                if isDemoTester {
-                    Section1("Developer · testers only")
-                    Notice("Sample events, opponents and results on your account. Only accounts on the tester list see them; your real record never includes them.")
-                    HStack(spacing: 1) {
-                        Ghost(text: demoBusy ? "Working…" : "Load / reset demo", accent: true) { demo(seed: true) }
-                        Ghost(text: "Remove demo") { demo(seed: false) }
-                    }
-                }
-
-                Section1("Account")
-                Ghost(text: "Sign out") { Task { await SignIn.signOut() } }
-                Ghost(text: deleting ? "Deleting…" : "Delete account") { if !deleting { confirmDelete = true } }
-
-                Section1("About")
-                Notice(Legal.fanContent)
-                Link(destination: Legal.termsURL) {
-                    ListRow(title: "Terms of service", detail: "table-1.site/terms") { LabelText("Open", color: T1.text) }
-                }
-                .buttonStyle(.plain)
-                Link(destination: Legal.privacyURL) {
-                    ListRow(title: "Privacy policy", detail: "table-1.site/privacy") { LabelText("Open", color: T1.text) }
-                }
-                .buttonStyle(.plain)
-                Notice("Version \(Legal.version)")
             }
         }
         .refreshable { await load() }
@@ -129,18 +54,99 @@ struct AccountView: View {
         }
     }
 
-    /// Your tile; tap to take or pick a photo, or go back to initials.
-    private var avatarButton: some View {
-        let uid = Repo.userId
-        return Button { avatarMenu() } label: {
-            VStack(spacing: 8) {
-                AvatarView(name: overview?.profile?.displayName ?? "", userId: uid, size: 64)
-                if avatarBusy { LabelText("Saving…") }
+    /// The lifetime record, deck photos and every opponent you've played.
+    @ViewBuilder private var records: some View {
+        let r = overview?.record ?? AccountOverview.Record()
+        let rivals = overview?.headToHead ?? []
+        VStack(spacing: 6) {
+            LabelText("Lifetime record")
+            Text(recordText(r.matchWins, r.matchLosses, r.matchDraws))
+                .font(T1.mono(48)).tracking(4).foregroundStyle(T1.accent)
+            LabelText("\(r.matches) matches · \(r.eventsPlayed) events · games \(recordText(r.gameWins, r.gameLosses, r.gameDraws))\(r.byes > 0 ? " · \(r.byes) byes" : "")")
+        }
+        .frame(maxWidth: .infinity).padding(.vertical, 24).background(T1.surface)
+
+        RecordOffer(eventsPlayed: r.eventsPlayed)
+        DeckPhotosAccountRow(path: $path)
+
+        Section1(rivals.isEmpty ? "Head-to-head" : "Head-to-head · \(rivals.count)")
+        if overview == nil {
+            Notice("Loading…")
+        } else if rivals.isEmpty {
+            Notice("Play a match to start your head-to-head.")
+        }
+        ForEach(rivals) { rival in
+            ListRow(title: rival.name, detail: "\(rival.played) match\(rival.played == 1 ? "" : "es") · games \(rival.gameWins)-\(rival.gameLosses)",
+                    avatar: AvatarView(name: rival.name, userId: rival.opponentId)) {
+                Text(recordText(rival.matchWins, rival.matchLosses, rival.matchDraws)).font(T1.mono(16))
             }
+            .opensProfile(rival.opponentId, from: "head_to_head")
+        }
+    }
+
+    /// Every setting and the account itself, in the contract's order.
+    @ViewBuilder private var settings: some View {
+        Button { avatarMenu() } label: {
+            ListRow(title: "Profile photo", detail: avatarBusy ? "Saving…" : "Take a photo, pick one, or initials",
+                    avatar: AvatarView(name: overview?.profile?.displayName ?? "", userId: Repo.userId))
         }
         .buttonStyle(.plain)
         .disabled(avatarBusy || overview?.profile == nil)
-        .accessibilityLabel("Profile photo")
+        Button { nameDraft = overview?.profile?.displayName ?? ""; editingName = true } label: {
+            ListRow(title: "Display name", detail: overview?.profile?.displayName ?? "–") { LabelText("Edit", color: T1.text) }
+        }
+        .buttonStyle(.plain)
+        Button { path.append(.social(.sharing)) } label: {
+            ListRow(title: "Sharing", detail: friends.sharing.map(SharingRules.summary) ?? "Who sees your profile and Library")
+        }.buttonStyle(.plain)
+        trackGames
+        Button { toggleAlerts() } label: {
+            ListRow(title: "Nearby alerts", detail: "Get a Join / Decline alert when an event opens near you") {
+                LabelText(alertsOn ? "On" : "Off", color: alertsOn ? T1.accent : T1.muted)
+            }
+        }
+        .buttonStyle(.plain)
+        T1Switch(title: "Improve scanning",
+                 detail: "When you fix a scanned card, send the text the camera read (no photos) so we can test the scanner",
+                 isOn: $scanReports)
+        T1Switch(title: "Share usage and crash data",
+                 detail: "Which features you use and crash reports, tied to your account id only: never names, cards or events",
+                 isOn: Binding(get: { sharing }, set: { sharing = $0; Telemetry.setSharing($0) }))
+        Button { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } } label: {
+            ListRow(title: "Location, notifications, Live Activities", detail: "Managed in iOS Settings") { LabelText("Open", color: T1.text) }
+        }
+        .buttonStyle(.plain)
+        // Your Stripe account, for entry fees (contract/entry-fees-2026-11-13.md § 1), when payments are open to you.
+        PaymentsRow()
+            .task { await PaymentsGate.shared.refresh() }
+        ModerationAccountRows(path: $path)
+        BugsAccountRow(path: $path)
+        SupportAccountRow(path: $path)
+
+        if isDemoTester {
+            Section1("Developer · testers only")
+            Notice("Sample events, opponents and results on your account. Only accounts on the tester list see them; your real record never includes them.")
+            HStack(spacing: 1) {
+                Ghost(text: demoBusy ? "Working…" : "Load / reset demo", accent: true) { demo(seed: true) }
+                Ghost(text: "Remove demo") { demo(seed: false) }
+            }
+        }
+
+        Section1("Account")
+        Ghost(text: "Sign out") { Task { await SignIn.signOut() } }
+        Ghost(text: deleting ? "Deleting…" : "Delete account") { if !deleting { confirmDelete = true } }
+
+        Section1("About")
+        Notice(Legal.fanContent)
+        Link(destination: Legal.termsURL) {
+            ListRow(title: "Terms of service", detail: "table-1.site/terms") { LabelText("Open", color: T1.text) }
+        }
+        .buttonStyle(.plain)
+        Link(destination: Legal.privacyURL) {
+            ListRow(title: "Privacy policy", detail: "table-1.site/privacy") { LabelText("Open", color: T1.text) }
+        }
+        .buttonStyle(.plain)
+        Notice("Version \(Legal.version)")
     }
 
     @MainActor

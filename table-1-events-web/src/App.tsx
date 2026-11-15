@@ -16,7 +16,7 @@ import { Home } from "./screens/Home";
 import { Organizer } from "./screens/Organizer";
 import { PlayerView } from "./screens/PlayerView";
 import { PublicStandings } from "./screens/PublicStandings";
-import { Profile } from "./screens/Profile";
+import { AccountRecords, AccountSettings, AccountSignedOut } from "./screens/Profile";
 import { QrJoin } from "./screens/QrJoin";
 import { AddPlayers } from "./screens/AddPlayers";
 import { LifeTracker } from "./screens/LifeTracker";
@@ -29,6 +29,8 @@ import { DesktopShell } from "./components/DesktopShell";
 import type { Board, ListFinish } from "./lib/lists";
 import type { Condition } from "./lib/collection";
 import { DueOffer } from "./components/PersonActions";
+import { isLibraryDemo } from "./lib/libraryDemo";
+import { useSession } from "./lib/useSession";
 import type { RankJob } from "./lib/cubeRanking";
 import type { CardContext } from "./screens/CardDetail";
 
@@ -247,12 +249,30 @@ function QrJoinRoute() {
   return <QrJoin code={code} secret={secret} onJoined={(id) => navigate(`/p/${id}`, { replace: true })} />;
 }
 
-function ProfileRoute() {
+/* The Account tab's sub-tabs (contract/main-nav-2026-11-14.md § 3): Profile (your own profile, as /u/<your id> shows
+   it, with Friends at its top), Records and Settings. */
+function MeProfileRoute() {
   const navigate = useNavigate();
-  return <Profile onSignedOut={() => navigate("/")} onFriends={() => navigate("/friends")} onSharing={() => navigate("/sharing")}
-                  onProfile={(id) => navigate(`/u/${id}`)} onDiscord={() => navigate("/discord")}
-                  onNotices={() => navigate("/me/notices")} onReview={() => navigate("/me/review")}
-                  onDeckPhotos={() => navigate("/me/deck-photos")} onSupport={() => navigate("/support")} />;
+  const { session, ready } = useSession();
+  // Dev server, `?demo`: the demo account's own profile ("demo", as useLibrarySession has it).
+  const demo = import.meta.env.DEV && isLibraryDemo();
+  const userId = demo ? "demo" : session?.user.id;
+  if (!demo && ready && !session) return <AccountSignedOut />;
+  if (!userId) return null;
+  return <ProfileScreen userId={userId} onFriendsList={() => navigate("/friends")} onSharing={() => navigate("/sharing")}
+                        onMatch={() => undefined} onFriends={() => navigate(`/u/${userId}/friends`)}
+                        onRanking={(id) => navigate(`/library/ranking/${id}`)}
+                        onPopular={(id) => navigate(`/library/list/${encodeURIComponent(id)}/rankings`)}
+                        onSection={(kind, id) => navigate(`/u/${userId}/${kind}${id ? `/${id}` : ""}`)} />;
+}
+function MeRecordsRoute() {
+  const navigate = useNavigate();
+  return <AccountRecords onDeckPhotos={() => navigate("/me/deck-photos")} />;
+}
+function MeSettingsRoute() {
+  const navigate = useNavigate();
+  return <AccountSettings onSignedOut={() => navigate("/")} onSharing={() => navigate("/sharing")} onDiscord={() => navigate("/discord")}
+                          onNotices={() => navigate("/me/notices")} onReview={() => navigate("/me/review")} onSupport={() => navigate("/support")} />;
 }
 
 /* Support (contract/support-2026-11-10.md): /support, signed in or out; a topic, an answer, a guide section
@@ -268,7 +288,7 @@ function useSupportGo() {
   };
 }
 function SupportRoute() {
-  return <SupportHome onBack={useBack("/me")} go={useSupportGo()} />;
+  return <SupportHome onBack={useBack("/me/settings")} go={useSupportGo()} />;
 }
 function SupportTopicRoute() {
   const { key = "" } = useParams();
@@ -291,20 +311,20 @@ function SupportGuideRoute() {
 /** /me/deck-photos: every photo of your decks (Account → Deck photos). */
 function MyDeckPhotosRoute() {
   const navigate = useNavigate();
-  return <MyDeckPhotosScreen onBack={useBack("/me")} onOpenEvent={(id) => navigate(`/p/${id}`)}
+  return <MyDeckPhotosScreen onBack={useBack("/me/records")} onOpenEvent={(id) => navigate(`/p/${id}`)}
                              onOpenEventPhotos={(id) => navigate(`/p/${id}/photos`)}
                              onOpenList={(id) => navigate(`/photo/${id}/list`, { state: { from: "account" } })} />;
 }
 
 function NoticesRoute() {
-  return <NoticesScreen onBack={useBack("/me")} />;
+  return <NoticesScreen onBack={useBack("/me/settings")} />;
 }
 function ReviewRoute() {
-  return <ReviewScreen onBack={useBack("/me")} />;
+  return <ReviewScreen onBack={useBack("/me/settings")} />;
 }
 
 function DiscordRoute() {
-  const back = useBack("/me");
+  const back = useBack("/me/settings");
   return <DiscordPage onBack={back} />;
 }
 
@@ -395,7 +415,7 @@ function FollowChangesRoute() {
   return <FollowChangesScreen kind={kind} id={itemId} onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { search: true } })} />;
 }
 function SharingRoute() {
-  return <SharingScreen onBack={useBack("/me")} />;
+  return <SharingScreen onBack={useBack("/me/settings")} />;
 }
 function TradeMatchesRoute() {
   const navigate = useNavigate();
@@ -425,10 +445,10 @@ function BinderRoute() {
   return <BinderScreen key={binderId} id={binderId} onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { binder: binderId } })} />;
 }
 
+/** Cards → Wants: a sub-tab's root, with the tab bar and no back arrow (contract/main-nav-2026-11-14.md § 3). */
 function WantsRoute() {
   const navigate = useNavigate();
-  const back = useBack("/library");
-  return <WantsScreen onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { search: true } })}
+  return <WantsScreen onCard={(o) => navigate(`/library/card/${o}`, { state: { search: true } })}
                       onBuy={(what) => navigate(`/library/buy/${what}`)} />;
 }
 
@@ -485,7 +505,7 @@ function ListsRoute({ kind }: { kind: "deck" | "cube" }) {
   const back = useBack("/library");
   return <ListsScreen key={kind} kind={kind} onBack={back} onOpen={(id) => navigate(`/library/list/${id}`)}
                       onFind={() => navigate("/library/find")} onImport={() => navigate(`/library/import/${kind}`)}
-                      onRankings={() => navigate("/library/rankings")} />;
+                      onRankings={() => navigate("/insights/rankings")} />;
 }
 
 function ListRoute() {
@@ -536,17 +556,23 @@ function RankingsRoute() {
   const navigate = useNavigate();
   const subject = set ? `set:${set.toUpperCase()}` : listId ?? null;
   // A popular cube's Rankings ("set:PLSV" as the list id, from the profile) falls back to your rankings.
-  const back = useBack(set ? "/insights/limited" : listId?.startsWith("set:") ? "/library/rankings" : listId ? `/library/list/${listId}` : "/library/cubes");
-  return <RankingsScreens><RankingsList key={subject ?? "mine"} listId={subject} onBack={back} onOpen={(id) => navigate(`/library/ranking/${id}`)}
+  const back = useBack(set ? "/insights/limited" : listId?.startsWith("set:") ? "/insights/rankings" : listId ? `/library/list/${listId}` : "/insights/rankings");
+  // Every ranking of yours is Insights → Rankings' root (contract/main-nav-2026-11-14.md § 3): the tab bar, no back.
+  const root = subject == null;
+  return <RankingsScreens root={root}><RankingsList key={subject ?? "mine"} listId={subject} onBack={root ? undefined : back} onOpen={(id) => navigate(`/library/ranking/${id}`)}
                                         onCube={(id) => navigate(subjectRankings(id))}
                                         onPopular={(id) => navigate(`/library/list/${encodeURIComponent(id)}/rankings`)} /></RankingsScreens>;
+}
+/** A sub-tab's old address selects the sub-tab (testdata/main-nav/cases.json routes), keeping `?demo`. */
+function RedirectTo({ to }: { to: string }) {
+  return <Navigate to={`${to}${useLocation().search}`} replace />;
 }
 function RankingRoute() {
   const { rankingId, job, oracleId, otherId } = useParams();
   const navigate = useNavigate();
   const loc = useLocation();
   const base = `/library/ranking/${rankingId}`;
-  const back = useBack(loc.pathname === base ? "/library/cubes" : base);
+  const back = useBack(loc.pathname === base ? "/insights/rankings" : base);
   if (!rankingId) return <Navigate to="/library" replace />;
   const go = rankingGo(navigate, rankingId);
   const j = (job ?? "F") as RankJob;
@@ -628,10 +654,10 @@ function VersionRoute() {
   return <VersionScreen id={listId} number={Number(n)} onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { list: listId } })} />;
 }
 
+/** Cards → Trade: a sub-tab's root, with the tab bar and no back arrow. */
 function TradesRoute() {
   const navigate = useNavigate();
-  const back = useBack("/library");
-  return <TradesScreen onBack={back} onOpen={(id) => navigate(`/library/trade/${id}`)} onNew={() => navigate("/library/trade/new")}
+  return <TradesScreen onOpen={(id) => navigate(`/library/trade/${id}`)} onNew={() => navigate("/library/trade/new")}
                        onMatch={(id) => navigate(`/library/match/${id}`)} onMatches={() => navigate("/library/matches")} />;
 }
 
@@ -727,7 +753,9 @@ export default function App() {
         <Route path="/discord" element={<DiscordRoute />} />
         <Route path="/discord/link" element={<DiscordLinkPage />} />
         <Route path="/nearby" element={<NearbyRoute />} />
-        <Route path="/me" element={<ProfileRoute />} />
+        <Route path="/me" element={<MeProfileRoute />} />
+        <Route path="/me/records" element={<MeRecordsRoute />} />
+        <Route path="/me/settings" element={<MeSettingsRoute />} />
         <Route path="/me/notices" element={<NoticesRoute />} />
         <Route path="/me/deck-photos" element={<MyDeckPhotosRoute />} />
         <Route path="/me/review" element={<ReviewRoute />} />
@@ -777,7 +805,7 @@ export default function App() {
         <Route path="/library/list/:listId/guide/m/:matchupId" element={<SideboardGuideRoute page="matchup" />} />
         <Route path="/library/list/:listId/guide/m/:matchupId/:side" element={<SideboardGuideRoute page="pick" />} />
         <Route path="/library/list/:listId/rankings" element={<RankingsRoute />} />
-        <Route path="/library/rankings" element={<RankingsRoute />} />
+        <Route path="/library/rankings" element={<RedirectTo to="/insights/rankings" />} />
         <Route path="/library/ranking/:rankingId" element={<RankingRoute />} />
         <Route path="/library/ranking/:rankingId/screen/:job" element={<RankingRoute />} />
         <Route path="/library/ranking/:rankingId/lists/:job" element={<RankingRoute />} />
@@ -808,6 +836,7 @@ export default function App() {
         <Route path="/library/trade/:tradeId" element={<TradeRoute />} />
         <Route path="/insights" element={<InsightsHome section="constructed" />} />
         <Route path="/insights/limited" element={<InsightsHome section="limited" />} />
+        <Route path="/insights/rankings" element={<RankingsRoute />} />
         <Route path="/insights/review" element={<InsightsReview />} />
         <Route path="/insights/limited/:set/rankings" element={<RankingsRoute />} />
         <Route path="/insights/limited/:set/:event/:group/pair/:pair" element={<InsightsPair />} />

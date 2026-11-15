@@ -5,6 +5,7 @@
 import { applyWants, binderById, bindersNow, liveWants, allocItemKey, type Alloc, type WantOp } from "./binders";
 import { coverPrinting, oracleIndexById, type Catalog } from "./catalog";
 import { loadDemoLists } from "./libraryDemo";
+import { DEMO_OVERVIEW } from "./profileDemo";
 import { loadPrices, usdPrice } from "./prices";
 import {
   DEFAULT_SHARING, linesValue, matchLines, sees, setFriendsDemo, shownLines, type CopyIn, type FriendsDemo, type FriendsList,
@@ -14,6 +15,8 @@ import {
 
 const id = (n: number) => `d0000000-0000-0000-0000-0000000f${String(n).padStart(4, "0")}`;
 export const DEMO_FRIEND = id(1);
+/** The demo account's own id (DEMO_USER in collection.ts). */
+const SELF = "demo";
 /** `/l/<DEMO_LINK>?demo`: a share link to Mara's deck. */
 export const DEMO_LINK = "demoMaraPublicDeckLink";
 
@@ -165,6 +168,14 @@ class Demo implements FriendsDemo {
   }
 
   profile(uid: string): ProfileData {
+    // Your own profile (Account → Profile on `/me?demo`): the sample record and your friends list.
+    if (uid === SELF) {
+      const r = DEMO_OVERVIEW.record;
+      return { user_id: SELF, display_name: DEMO_OVERVIEW.profile?.display_name ?? "You", handle: null, avatar_url: null, relation: "self",
+               friends_since: null, visible: true,
+               sections: { record: { match_wins: r.match_wins, match_losses: r.match_losses, match_draws: r.match_draws, events_played: r.events_played },
+                           friends: {}, binders: [], decks: [], cubes: [] } };
+    }
     const x = this.person(uid), s = this.people.get(uid), lv = this.level(uid);
     const base = { user_id: uid, display_name: x.display_name, handle: x.handle, avatar_url: null, relation: this.relation(uid) };
     if (!s) return { ...base, friends_since: null, visible: false, sections: {} };
@@ -202,6 +213,7 @@ class Demo implements FriendsDemo {
 
   /** Mara shows her friends list to friends (Theo is yours too); nobody else shares theirs. */
   friendsOf(uid: string): Person[] {
+    if (uid === SELF) return this.list.friends.map((x) => ({ ...x, relation: "friend" as Relation, mutual: false }));
     if (uid !== DEMO_FRIEND || this.level(uid) < 1) return [];
     const rows = [p(2, "Theo Vance"), p(3, "Ines Ruiz"), p(7, "Nadia Stone", { handle: "nstone" })]
       .map((x) => ({ ...x, relation: this.relation(x.user_id), mutual: this.relation(x.user_id) === "friend" }));

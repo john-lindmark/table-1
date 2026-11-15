@@ -112,7 +112,7 @@ fun RankingsRow(listId: String, onOpen: () -> Unit) {
 // ── a cube's rankings, or all of yours
 
 @Composable
-fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit, onCube: (String) -> Unit = {}) {
+fun RankingsScreen(listId: String?, onBack: (() -> Unit)?, onOpen: (String) -> Unit, onCube: (String) -> Unit = {}) {
     LaunchedEffect(Unit) { Telemetry.screen("rankings") }
     val scope = rememberCoroutineScope()
     var data by remember { mutableStateOf<CubeRankings?>(null) }
@@ -120,6 +120,8 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
     var rankable by remember { mutableStateOf<List<RankableCube>>(emptyList()) }
     var sets by remember { mutableStateOf<List<RankableSet>>(emptyList()) }
     var popular by remember { mutableStateOf<List<PopularCube>>(emptyList()) }
+    /** Your friends' rankings (every ranking of yours only); null when the server can't say (an older server). */
+    var friends by remember { mutableStateOf<List<RankingRow>?>(null) }
     val isSet = RankSubject.setKey(listId) != null
     var error by remember { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
@@ -135,13 +137,14 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
             runCatching { RankingsStore.rankable() }.onSuccess { rankable = it }
             runCatching { RankingsStore.rankableSets() }.onSuccess { sets = it }
             runCatching { RankingsStore.popularCubes() }.onSuccess { popular = it }
+            friends = runCatching { RankingsStore.friends() }.getOrNull()
         }
     }
     val cube = data?.cube
     /** A set's screen says "set"; a popular cube's or an Arena cube version's says "cube". */
     val noun = RankSubject.noun(cube?.kind)
     T1Screen {
-        Bar("Rankings", if (listId == null) "Yours, and cubes and sets you can rank" else cube?.let { if (it.mine || isSet) it.name else "${it.name} · ${it.owner?.displayName ?: ""}" },
+        Bar("Rankings", if (listId == null) null else cube?.let { if (it.mine || isSet) it.name else "${it.name} · ${it.owner?.displayName ?: ""}" },
             onBack = onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             error?.let { Notice(it, error = true) }
@@ -181,13 +184,25 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
                     parseInstant(r.updatedAt)?.let { Label(Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(shortFmt)) }
                 }
             }
-            if (mine.isNotEmpty()) { if (listId != null) Section("Yours"); mine.forEach { row(it) } }
+            if (listId == null || mine.isNotEmpty()) Section("Yours")
+            mine.forEach { row(it) }
             if (listId != null) {
                 Section(if (isSet) "Your friends'" else "Everyone else's")
                 if (others.isEmpty()) Notice(if (isSet) "None of your friends has ranked this $noun yet." else "Nobody else has ranked this cube yet.")
                 others.forEach { row(it) }
             } else {
-                if (mine.isEmpty()) Notice("No rankings yet. Open one of your cubes and tap Rankings, or rank a friend's cube below.")
+                // Insights → Rankings (contract/main-nav-2026-11-14.md § 3): Yours, Your friends', Popular cubes, then
+                // cubes and sets you can rank.
+                if (mine.isEmpty()) Notice("No rankings yet. Rank a popular cube below, or open one of your cubes and tap Rankings.")
+                friends?.let { f ->
+                    Section("Your friends'")
+                    if (f.isEmpty()) Notice("When a friend shares a ranking, it shows here.")
+                    f.forEach { row(it) }
+                }
+                if (popular.isNotEmpty()) {
+                    Section("Popular cubes")
+                    popular.forEach { c -> ListRow(c.name, c.detail, onClick = { onCube(c.subjectId) }) }
+                }
                 Section("Cubes you can rank")
                 if (rankable.isEmpty()) Notice("When a friend, or someone you've played with, shares a cube with you, it shows here. " +
                     "You can also open any cube shared with you on someone's profile and tap Rankings.")
@@ -195,10 +210,6 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
                     ListRow(c.name, listOfNotNull(c.owner?.displayName, plural(c.cards, "card"), if (c.rankings == 0) "no rankings yet" else plural(c.rankings, "ranking"),
                         if (c.mine > 0) "${c.mine} yours" else null).joinToString(" · "), onClick = { onCube(c.id) },
                         avatar = { Avatar(c.owner?.displayName ?: "?", c.owner?.userId, 28, opensFrom = "rankings") })
-                }
-                if (popular.isNotEmpty()) {
-                    Section("Popular cubes")
-                    popular.forEach { c -> ListRow(c.name, c.detail, onClick = { onCube(c.subjectId) }) }
                 }
                 if (sets.isNotEmpty()) {
                     Section("Sets you can rank")

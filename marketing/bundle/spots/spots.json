@@ -32,7 +32,7 @@
       "title": "Your record, every event",
       "headline": "Every match you have played, kept",
       "body": "Your lifetime record, head-to-head against the people you play most, and every event's standings and results, from the first draft on. Share your record with friends, or keep it to yourself.",
-      "shot": { "route": "/me?demo", "ready": "Head-to-head" },
+      "shot": { "route": "/me/records?demo", "ready": "Head-to-head" },
       "onboarding": true,
       "store": true
     },

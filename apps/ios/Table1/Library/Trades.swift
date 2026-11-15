@@ -158,6 +158,8 @@ func ownedFinishes() -> [String: Set<String>] {
 
 struct TradesView: View {
     @Binding var path: [LibraryRoute]
+    /// Cards → Trade (contract/main-nav-2026-11-14.md): a sub-tab root, with no back arrow.
+    var root = false
     @Environment(\.dismiss) private var dismiss
     private var store: TradesStore { TradesStore.shared }
 
@@ -165,7 +167,7 @@ struct TradesView: View {
         let drafts = store.trades.filter { !$0.confirmed }
         let done = store.trades.filter(\.confirmed)
         T1Screen {
-            Bar(title: "Trades", subtitle: store.loaded ? "\(drafts.count) open" : nil, back: { dismiss() })
+            Bar(title: "Trades", subtitle: store.loaded ? "\(drafts.count) open" : nil, back: root ? nil : { dismiss() })
             if let error = store.error { Notice(error, error: true) }
             ScrollView {
                 HairlineList {

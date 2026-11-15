@@ -94,34 +94,6 @@ private struct RowAction: View {
 
 // MARK: account and library rows
 
-/// Account tab: Friends, Sharing and your own profile.
-struct AccountSocialRows: View {
-    @Binding var path: [LibraryRoute]
-    private var store: FriendsStore { FriendsStore.shared }
-
-    var body: some View {
-        let friends = store.list?.friends.count ?? 0, waiting = store.requestsWaiting
-        Section1("Friends and sharing")
-        Button { path.append(.social(.friends)) } label: {
-            ListRow(title: "Friends", detail: [plural(friends, "friend"), waiting > 0 ? "\(waiting) waiting" : nil].compactMap { $0 }.joined(separator: " · ")) {
-                if waiting > 0 { LabelText("\(waiting) new", color: T1.accent) }
-            }
-        }.buttonStyle(.plain)
-        Button { path.append(.social(.sharing)) } label: {
-            ListRow(title: "Sharing", detail: store.sharing.map(SharingRules.summary) ?? "Who sees your profile and Library")
-        }.buttonStyle(.plain)
-        // Each time the Account tab opens: are payments open to this account?
-        .task { await PaymentsGate.shared.refresh() }
-        // Your Stripe account, for entry fees (contract/entry-fees-2026-11-13.md § 1).
-        PaymentsRow()
-        if let me = Repo.userId {
-            Button { path.append(.social(.profile(me))) } label: {
-                ListRow(title: "Your profile", detail: "Name, photo and what you share")
-            }.buttonStyle(.plain)
-        }
-    }
-}
-
 // MARK: friends
 
 struct FriendsView: View {
@@ -359,6 +331,9 @@ struct FriendAddPanel: View {
 struct ProfileScreen: View {
     let userId: String
     @Binding var path: [LibraryRoute]
+    /// Account → Profile (contract/main-nav-2026-11-14.md): your own profile as a sub-tab root, no back arrow, with
+    /// Friends at the top.
+    var root = false
     @Environment(\.dismiss) private var dismiss
     private var store: FriendsStore { FriendsStore.shared }
     @State private var data: ProfileData?
@@ -374,11 +349,12 @@ struct ProfileScreen: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: data?.displayName ?? "Profile", subtitle: subtitle, back: { dismiss() }) {
+            Bar(title: data?.displayName ?? "Profile", subtitle: subtitle, back: root ? nil : { dismiss() }) {
                 if let data, data.relation != .me { BarButton("More") { menu(data) } }
             }
             HairlineList {
                 if let error { Notice(error, error: true) }
+                if root { friendsRow }
                 if let data {
                     if data.relation == .me {
                         T1Segmented(options: [(3, "You"), (1, "A friend"), (0, "Anyone")], selection: Binding(get: { viewAs }, set: { v in
@@ -404,8 +380,21 @@ struct ProfileScreen: View {
                 if store.sharing == nil { await store.loadSharing() }
                 popular = (try? await RankingsStore.shared.popularCubes()) ?? []
             }
+            if root { await store.load() }
         }
+        // As a sub-tab root it stays alive: coming back from Sharing or a friend reads it again.
+        .onAppear { if root, data != nil { Task { await load(); await store.load() } } }
         .refreshable { await load() }
+    }
+
+    /// Friends, with requests waiting (the Profile sub-tab's first row).
+    private var friendsRow: some View {
+        let friends = store.list?.friends.count ?? 0, waiting = store.requestsWaiting
+        return Button { path.append(.social(.friends)) } label: {
+            ListRow(title: "Friends", detail: [plural(friends, "friend"), waiting > 0 ? "\(waiting) waiting" : nil].compactMap { $0 }.joined(separator: " · ")) {
+                if waiting > 0 { LabelText("\(waiting) new", color: T1.accent) }
+            }
+        }.buttonStyle(.plain)
     }
 
     /// A failed or missing call (the server part may not be live) draws no section.
@@ -492,7 +481,8 @@ struct ProfileScreen: View {
         } else if d.sectionCount == 0 && d.relation != .me {
             Notice("Nothing shared yet.")
         }
-        if let f = s.friends {
+        // The Profile sub-tab already leads with your Friends; the same row again under it would read twice.
+        if let f = s.friends, !(root && !asOther) {
             Button {
                 Telemetry.capture("profile_section_opened", ["section": "friends"])
                 path.append(.social(.profileFriends(userId, d.displayName)))

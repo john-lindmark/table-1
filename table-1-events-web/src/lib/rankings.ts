@@ -537,6 +537,13 @@ export function useRanking(id: string, catalog: Catalog | null, watch = true): R
   useEffect(() => (watch && catalog ? m.watch() : undefined), [id, catalog, watch]);
   return m;
 }
+/** Your friends' rankings you may open, every subject, newest first (rankings_friends, contract/main-nav-2026-11-14.md
+ *  § 4): rows as cube_rankings() writes them, the subject under `cube`. Throws on an older server; the caller hides it. */
+export const fetchFriendsRankings = async (limit = 200): Promise<RankingRow[]> => {
+  if (demo) return demo.friendsRankings();
+  const rows = await rpc<RankingRow[]>("rankings_friends", { p_limit: limit });
+  return (rows ?? []).map(subjectRow);
+};
 
 /* ── dev demo: the fixture's cube, two friends' finished rankings and one of yours in progress ── */
 
@@ -646,6 +653,13 @@ export class DemoRankings {
     if (listId !== this.cubeId && listId !== DemoRankings.maraCube && listId !== DemoRankings.demoSet
         && !DemoRankings.popular.some((c) => c.id === listId)) return { cube: null, can_rank: false, rankings: [] };
     return { cube: this.cube(listId, false), can_rank: true, rankings: all.filter((r) => r.list_id === listId) };
+  }
+
+  /** Your friends' rankings (the demo's Mara and Theo), newest first, each with its subject. */
+  friendsRankings(): RankingRow[] {
+    return [...this.rows.values()].filter((r) => !r.mine)
+      .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? "") || a.id.localeCompare(b.id))
+      .map((r) => ({ ...r, cube: this.cube(r.list_id, false) }));
   }
 
   /** A stand-in for Claude's brief (the demo has no server): marked as a sample. */

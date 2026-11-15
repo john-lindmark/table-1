@@ -45,7 +45,7 @@ final class PayBrowser: NSObject, ASWebAuthenticationPresentationContextProvidin
 // MARK: Account → Payments
 
 /// The Account row after Sharing: `NOT CONNECTED` / `FINISH SETTING UP` / `READY`. Hidden until the server answers
-/// and says payments are open to this account (`PaymentsGate`, refreshed by AccountSocialRows).
+/// and says payments are open to this account (`PaymentsGate`, refreshed by Account → Settings).
 struct PaymentsRow: View {
     var body: some View {
         let gate = PaymentsGate.shared

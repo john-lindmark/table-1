@@ -54,6 +54,8 @@ struct EventsDemoRoot: View {
     @State private var screen: String
     @State private var path: [Route]
     @State private var accountPath: [LibraryRoute] = []
+    /// The Account sub-tab in `-T1EventsDemo account` (`-T1Sub profile|records|settings`, default Records).
+    @State private var accountSub: SubTab = EventsDemoArgs.sub(.records)
     private let full: Bool
     private let startTab: String?
 
@@ -198,11 +200,17 @@ struct EventsDemoRoot: View {
                 }
                 .environment(\.openProfile) { path.append(.library(.social(.profile($0)))) }
                 .environment(\.openLibrary) { path.append(.library($0)) }
-                // As in the app: only a tab's root draws the tab bar.
-                if path.isEmpty { T1TabBar(items: SignedInView.tabs, selection: .events) { _ in } }
+                // As in the app: only a tab's root draws the bars.
+                if path.isEmpty {
+                    T1SubTabBar(items: MainNav.subs(.events), selection: .events) { _ in }
+                    T1TabBar(items: SignedInView.tabs, selection: .events) { _ in }
+                }
             case "account":
                 NavigationStack(path: $accountPath) {
-                    AccountView(path: $accountPath)
+                    ZStack {
+                        if accountSub == .profile { ProfileScreen(userId: FriendsDemoBackend.me, path: $accountPath, root: true) }
+                        else { AccountView(path: $accountPath, part: accountSub == .settings ? .settings : .records).id(accountSub) }
+                    }
                         .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $accountPath) }
                         // `-T1Open deckphotos`: Account → Deck photos opened once the stack is up.
                         // `-T1Open support[:<section>[:<entry>]]`: Account → Support, or a guide section scrolled to an entry.
@@ -218,7 +226,10 @@ struct EventsDemoRoot: View {
                 }
                 .environment(\.openProfile) { accountPath.append(.social(.profile($0))) }
                 .environment(\.openLibrary) { accountPath.append($0) }
-                T1TabBar(items: SignedInView.tabs, selection: .account) { _ in }
+                if accountPath.isEmpty {
+                    T1SubTabBar(items: MainNav.subs(.account), selection: accountSub) { accountSub = $0.id }
+                    T1TabBar(items: SignedInView.tabs, selection: .account) { _ in }
+                }
             case "photo":
                 DeckPhotoDemo()
             case "seating":

@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -39,6 +42,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -130,7 +134,7 @@ private fun Scroll(content: @Composable ColumnScope.() -> Unit) {
     }
 }
 
-/** The Insights tab: Constructed | Limited. */
+/** Insights → Constructed or Limited (the sub-tab strip sets `section`). */
 @Composable
 fun InsightsHomeScreen(navigate: (String) -> Unit, moderator: Boolean) {
     val s = InsightsStore
@@ -145,7 +149,7 @@ fun InsightsHomeScreen(navigate: (String) -> Unit, moderator: Boolean) {
                 }.semantics { contentDescription = "Search cards" }, contentAlignment = Alignment.Center) { IconGlyph(T1Icon.Search) }
             }
         }
-        T1Segmented(listOf("Constructed", "Limited"), if (s.section == "limited") 1 else 0) { s.pickSection(if (it == 1) "limited" else "constructed") }
+        // The sub-tab strip picks Constructed or Limited (contract/main-nav-2026-11-14.md § 3); no selector here.
         Scroll {
             if (s.section == "limited") LimitedHome(navigate) else ConstructedHome(navigate)
             if (moderator) ListRow("Review", "Proposed archetypes and bans", onClick = { navigate(InsightsRoutes.REVIEW) })
@@ -980,10 +984,12 @@ fun InsightsReviewScreen(onBack: () -> Unit) {
 }
 
 /** Every Insights route, for the app's NavHost and the Debug demo. */
-fun NavGraphBuilder.insightsGraph(nav: NavHostController, moderator: Boolean) {
+fun NavGraphBuilder.insightsGraph(nav: NavHostController, moderator: Boolean,
+                                  /** The tab's root: in the app, Constructed / Limited / Rankings by the sub-tab strip. */
+                                  root: (@Composable () -> Unit)? = null) {
     val go: (String) -> Unit = { nav.navigate(it) }
     val back: () -> Unit = { nav.popBackStack() }
-    composable("insights") { InsightsHomeScreen(navigate = go, moderator = moderator) }
+    composable("insights") { root?.invoke() ?: InsightsHomeScreen(navigate = go, moderator = moderator) }
     composable("insights/arch/{format}/{id}") { e ->
         ArchetypeInsightScreen(e.arguments?.getString("format") ?: "", e.arguments?.getString("id")?.toIntOrNull() ?: 0, null, go, back)
     }
@@ -1018,5 +1024,13 @@ fun NavGraphBuilder.insightsGraph(nav: NavHostController, moderator: Boolean) {
 fun InsightsDemoRoot() {
     val nav = rememberNavController()
     site.table1.events.ui.components.KeyboardAwayOnNavigate(nav)
-    NavHost(navController = nav, startDestination = "insights") { insightsGraph(nav, moderator = false) }
+    // The sub-tab strip's Constructed / Limited (contract/main-nav-2026-11-14.md), on the Insights root only.
+    val route = nav.currentBackStackEntryAsState().value?.destination?.route
+    Column(Modifier.fillMaxSize()) {
+        // The strip pads for the navigation bar itself, so the screen above it doesn't.
+        Box(Modifier.weight(1f).let { if (route == "insights") it.consumeWindowInsets(androidx.compose.foundation.layout.WindowInsets.navigationBars) else it }) { NavHost(navController = nav, startDestination = "insights") { insightsGraph(nav, moderator = false) } }
+        if (route == "insights") site.table1.events.ui.components.T1SubTabBar(
+            listOf(site.table1.events.ui.components.T1SubTab("constructed", "Constructed"), site.table1.events.ui.components.T1SubTab("limited", "Limited")),
+            if (InsightsStore.section == "limited") "limited" else "constructed", bottomInsets = true) { InsightsStore.pickSection(it) }
+    }
 }

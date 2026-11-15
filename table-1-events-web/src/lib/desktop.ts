@@ -72,7 +72,7 @@ export type NavKey =
   | "events" | "find" | "life"
   | "library" | "cards" | "add" | "binders" | "wants" | "decks" | "cubes" | "rankings" | "trades" | "matches" | "import"
   | "constructed" | "limited"
-  | "account" | "friends" | "sharing";
+  | "account" | "records" | "settings" | "friends" | "sharing";
 
 export interface NavItem {
   key: NavKey;
@@ -80,7 +80,8 @@ export interface NavItem {
   to: string;
 }
 
-/** The sidebar, top to bottom: Play, then the Collection tab's screens, Insights, then Account. */
+/** The sidebar, top to bottom: Play, then the Cards tab's screens, Insights, then Account (the tabs of
+ *  contract/main-nav-2026-11-14.md; each tab's sub-tabs also draw as the strip at the top of the column). */
 export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Play",
@@ -91,16 +92,15 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
-    title: "Collection",
+    title: "Cards",
     items: [
-      { key: "library", title: "Overview", to: "/library" },
+      { key: "library", title: "Collection", to: "/library" },
       { key: "cards", title: "All cards", to: "/library/cards" },
       { key: "add", title: "Add cards", to: "/library/add" },
       { key: "binders", title: "Binders", to: "/library/binders" },
       { key: "wants", title: "Wants", to: "/library/wants" },
       { key: "decks", title: "Decks", to: "/library/decks" },
       { key: "cubes", title: "Cubes", to: "/library/cubes" },
-      { key: "rankings", title: "Rankings", to: "/library/rankings" },
       { key: "trades", title: "Trades", to: "/library/trades" },
       { key: "matches", title: "Trade matches", to: "/library/matches" },
       { key: "import", title: "Import and export", to: "/library/import" },
@@ -110,13 +110,16 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Insights",
     items: [
       { key: "constructed", title: "Constructed", to: "/insights" },
-      { key: "limited", title: "Arena draft", to: "/insights/limited" },
+      { key: "limited", title: "Limited", to: "/insights/limited" },
+      { key: "rankings", title: "Rankings", to: "/insights/rankings" },
     ],
   },
   {
     title: "Account",
     items: [
-      { key: "account", title: "Account", to: "/me" },
+      { key: "account", title: "Profile", to: "/me" },
+      { key: "records", title: "Records", to: "/me/records" },
+      { key: "settings", title: "Settings", to: "/me/settings" },
       { key: "friends", title: "Friends", to: "/friends" },
       { key: "sharing", title: "Sharing", to: "/sharing" },
     ],
@@ -134,8 +137,11 @@ export function navKeyFor(pathname: string, listKind?: (id: string) => "deck" | 
   // Finding events, a league and a format board (contract/public-events-leagues-2026-11-13.md).
   if (p === "/find" || p.startsWith("/league/") || p.startsWith("/boards/")) return "find";
   if (p === "/me") return "account";
+  if (p === "/me/records" || p === "/me/deck-photos") return "records";
+  if (p === "/me/settings" || /^\/me\/(notices|review)$/.test(p)) return "settings";
   if (p === "/sharing") return "sharing";
   if (p === "/friends" || p.startsWith("/friends/") || p.startsWith("/u/")) return "friends";
+  if (p === "/insights/rankings") return "rankings";
   if (p === "/insights/limited" || p.startsWith("/insights/limited/")) return "limited";
   if (p === "/insights" || p.startsWith("/insights/")) return "constructed";
   if (p === "/library") return "library";

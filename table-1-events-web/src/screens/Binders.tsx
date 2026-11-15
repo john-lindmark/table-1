@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bar, Dialog, Field, Menu, Modal, Notice, Row, Screen, Section, SwitchRow, type MenuItem } from "../components/kit";
+import { Bar, Dialog, Field, Menu, Modal, Notice, Row, Screen, Section, SwitchRow, TabNav, type MenuItem } from "../components/kit";
 import { errorMessage } from "../lib/api";
 import { RARITY_NAME, basicCardIds, coverPrinting, normName, oracleIndexById, type Catalog } from "../lib/catalog";
 import { DEMO_USER, applyOps, undoBatch, useCollection, type Finish, type Item } from "../lib/collection";
@@ -45,8 +45,8 @@ const value = (items: Item[]) => {
   return any ? sum : null;
 };
 
-function SignedOut({ title, onBack }: { title: string; onBack: () => void }) {
-  return <Screen><Bar title={title} onBack={onBack} /><Notice tone="info">Sign in to sort your collection.</Notice></Screen>;
+function SignedOut({ title, onBack }: { title: string; onBack?: () => void }) {
+  return <Screen>{!onBack && <TabNav />}<Bar title={title} onBack={onBack} /><Notice tone="info">Sign in to sort your collection.</Notice></Screen>;
 }
 
 /** `library_searched` once per visit, when the screen's search is first used (never the text). */
@@ -496,7 +496,8 @@ function coverOf(c: Catalog, oracleId: string): string | null {
   return oi < 0 ? null : c.pId[coverPrinting(c, oi)];
 }
 
-export function WantsScreen({ onBack, onCard, onBuy }: { onBack: () => void; onCard: (oracleId: string) => void; onBuy?: (what: "wants" | "missing") => void }) {
+/** `onBack` none: Wants is Cards → Wants' root (contract/main-nav-2026-11-14.md), with the tab bar. */
+export function WantsScreen({ onBack, onCard, onBuy }: { onBack?: () => void; onCard: (oracleId: string) => void; onBuy?: (what: "wants" | "missing") => void }) {
   const { session, ready, userId } = useLibrarySession();
   const col = useCollection(userId);
   const b = useBinders(userId);
@@ -588,6 +589,7 @@ export function WantsScreen({ onBack, onCard, onBuy }: { onBack: () => void; onC
   };
   return (
     <LibScreen>
+      {!onBack && <TabNav />}
       <Bar title="Wants" subtitle={`${wanted} wanted · ${short} missing`} onBack={onBack} />
       {(error || fail || b.error) && <Notice tone="error">{error ?? fail ?? b.error}</Notice>}
       {(wants.length > 0 || missing.length > 0) && <Field label="Search wants" value={q} onChange={setQ} placeholder="Name or type" />}

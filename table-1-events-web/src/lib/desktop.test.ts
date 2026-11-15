@@ -42,6 +42,13 @@ describe("navKeyFor", () => {
     expect(navKeyFor(`/library/list/${ID}`)).toBe("decks");
   });
 
+  it("marks the Account and Insights sub-tabs on their pushed screens (contract/main-nav-2026-11-14.md)", () => {
+    expect(navKeyFor("/me/deck-photos")).toBe("records");
+    expect(navKeyFor("/me/notices")).toBe("settings");
+    expect(navKeyFor("/insights/rankings")).toBe("rankings");
+    expect(navKeyFor("/insights/limited/FRA/rankings")).toBe("limited");
+  });
+
   it("puts profiles and friend screens under Friends", () => {
     expect(navKeyFor(`/u/${ID}`)).toBe("friends");
     expect(navKeyFor(`/u/${ID}/deck/${ID}`)).toBe("friends");

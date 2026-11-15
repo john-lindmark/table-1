@@ -507,7 +507,7 @@ private data class WantRowView(val want: Want, val name: String, val printing: C
 private data class MissingRowView(val line: MissingLine, val printing: CatalogPrinting?, val name: String, val oracleId: String?, val type: String = "")
 
 @Composable
-fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit, onBuy: ((String) -> Unit)? = null) {
+fun WantsScreen(onBack: (() -> Unit)?, onCard: (String) -> Unit, onBuy: ((String) -> Unit)? = null) {
     val col by CollectionStore.state.collectAsState()
     val b by BindersStore.state.collectAsState()
     val lists by ListsStore.state.collectAsState()

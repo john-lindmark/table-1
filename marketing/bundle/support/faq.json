@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-14",
+  "updated": "2026-11-15",
   "contact": {
     "discord": "https://discord.gg/SEYnjHTGVr",
     "email": "privacy@table-1.site"
@@ -67,12 +67,33 @@
       "id": "start-what",
       "topic": "start",
       "q": "What is Table 1?",
-      "a": "Table 1 runs Magic: The Gathering tournaments and keeps your cards. The Events tab is for playing in and running events, Collection holds your cards, binders, wants, decks, cubes and trades, Insights shows what's winning in Constructed and Arena drafts, and Account has your record, friends and settings.\n\nThe same account works in the iPhone app, the Android app and on table-1.site.",
+      "a": "Table 1 runs Magic: The Gathering tournaments and keeps your cards. The Play tab is for playing in and running events, Cards holds your cards, binders, wants, decks, cubes and trades, Insights shows what's winning in Constructed and Arena drafts, and Account has your record, friends and settings.\n\nThe same account works in the iPhone app, the Android app and on table-1.site.",
       "keywords": [
         "about",
         "overview",
         "app",
         "tabs"
+      ],
+      "guide": "overview"
+    },
+    {
+      "id": "start-tabs",
+      "topic": "start",
+      "q": "Where did Trades, Wants, Rankings and my settings go?",
+      "a": "Each tab has a row of sub-tabs just above the tab bar. Play: Events and Life tracker. Cards: Collection, Trade and Wants (Import is in the Collection's + menu). Insights: Constructed, Limited and Rankings, where your rankings, your friends' and the popular cubes to rank are. Account: Profile (with Friends at the top), Records (your record, deck photos and head-to-head) and Settings (every setting, Sign out and Delete account).\n\nA tab opens on the sub-tab you last used.",
+      "keywords": [
+        "navigation",
+        "tabs",
+        "sub-tabs",
+        "menu",
+        "where",
+        "moved",
+        "settings",
+        "records",
+        "trade",
+        "wants",
+        "rankings",
+        "import"
       ],
       "guide": "overview"
     },
@@ -127,7 +148,7 @@
       "id": "start-name",
       "topic": "start",
       "q": "Why does it ask for my first and last name?",
-      "a": "New email and Discord accounts are asked for a name before anything else, so organizers and opponents see a real name in pairings and standings. Apple and Google accounts bring one. Change it any time in Account → Display name.",
+      "a": "New email and Discord accounts are asked for a name before anything else, so organizers and opponents see a real name in pairings and standings. Apple and Google accounts bring one. Change it any time in Account → Settings → Display name.",
       "keywords": [
         "display name",
         "rename",
@@ -184,7 +205,7 @@
       "id": "play-join",
       "topic": "play",
       "q": "How do I join an event?",
-      "a": "Scan the organizer's QR code, open their link, tap Nearby on the Events tab for open events within 150 m, or type the 4-character event code and tap Join.\n\nCopied the code or a message with it? Paste finds the code in what you copied and joins straight away.\n\nPublic events, and your friends' Friends events, are also listed under Find events on the Events tab: open one and tap Sign up.",
+      "a": "Scan the organizer's QR code, open their link, tap Nearby on Play → Events for open events within 150 m, or type the 4-character event code and tap Join.\n\nCopied the code or a message with it? Paste finds the code in what you copied and joins straight away.\n\nPublic events, and your friends' Friends events, are also listed under Find events on Play → Events: open one and tap Sign up.",
       "keywords": [
         "join",
         "code",
@@ -200,7 +221,7 @@
       "id": "play-find",
       "topic": "play",
       "q": "How do I find events near me?",
-      "a": "On the Events tab, scroll to Find events, or tap the search icon in the bar to open Find. Use the filters: Format, Where (Everywhere, or within 25, 50, 100 or 250 km), When (Today, This weekend, This week, This month) and More (Public or Friends events, Team events, League events, Seats left). Picking a distance asks for your location, only then, and it isn't kept.\n\nEach row shows the day and time, format, venue and how far away it is. Tap one for its page, and Sign up there.\n\nOnly events set to Public, and Friends events run by your friends, are listed. For an event that's right where you are, Nearby on the Events tab still lists open events within 150 m.",
+      "a": "On Play → Events, scroll to Find events, or tap the search icon in the bar to open Find. Use the filters: Format, Where (Everywhere, or within 25, 50, 100 or 250 km), When (Today, This weekend, This week, This month) and More (Public or Friends events, Team events, League events, Seats left). Picking a distance asks for your location, only then, and it isn't kept.\n\nEach row shows the day and time, format, venue and how far away it is. Tap one for its page, and Sign up there.\n\nOnly events set to Public, and Friends events run by your friends, are listed. For an event that's right where you are, Nearby on Play → Events still lists open events within 150 m.",
       "keywords": [
         "find",
         "near me",
@@ -235,7 +256,7 @@
       "id": "play-leagues",
       "topic": "play",
       "q": "How do league points and standings work?",
-      "a": "A league runs seasons. Each event in a season gives points for where you finish (for example 12 for first, 10 for second, 8 for top 4, 6 for top 8, 3 for top 16 and 1 for playing), and some leagues add points per match won. A bigger event can count 1.5, 2 or 3 times. A season can count only your best few results.\n\nStandings go by points, then your best finish, then your second best, and so on. A Q marks players who have qualified for the season's final: usually each event's winner (the next best finisher when the winner has already qualified), then the top players on points.\n\nOpen a league from the Leagues section on the Events tab, Find → Leagues (Running now lists leagues under way), or the league row on an event's page. The list icon shows the league's own points rule; tap a player's row to see their events. Follow the league to hear about new events, results and when you qualify.",
+      "a": "A league runs seasons. Each event in a season gives points for where you finish (for example 12 for first, 10 for second, 8 for top 4, 6 for top 8, 3 for top 16 and 1 for playing), and some leagues add points per match won. A bigger event can count 1.5, 2 or 3 times. A season can count only your best few results.\n\nStandings go by points, then your best finish, then your second best, and so on. A Q marks players who have qualified for the season's final: usually each event's winner (the next best finisher when the winner has already qualified), then the top players on points.\n\nOpen a league from the Leagues section on Play → Events, Find → Leagues (Running now lists leagues under way), or the league row on an event's page. The list icon shows the league's own points rule; tap a player's row to see their events. Follow the league to hear about new events, results and when you qualify.",
       "keywords": [
         "league",
         "season",
@@ -254,7 +275,7 @@
       "id": "play-boards",
       "topic": "play",
       "q": "How do I get on or off a leaderboard?",
-      "a": "Each format has a board in Find → Boards. Your rating comes from matches against other players with accounts in finished events that are Public or in a league and had six or more players. Everyone starts at 1500; wins move you up, losses down. You're listed after 10 rated matches on a board, with one in the last year. Until then the board says how many you have to go.\n\nTo come off, go to Account → Sharing → Leaderboards and pick Hidden. That takes you off every board and takes your board ranks off your profile for everyone else. Your results in public events still count for the people you played. Pick Listed to come back.",
+      "a": "Each format has a board in Find → Boards. Your rating comes from matches against other players with accounts in finished events that are Public or in a league and had six or more players. Everyone starts at 1500; wins move you up, losses down. You're listed after 10 rated matches on a board, with one in the last year. Until then the board says how many you have to go.\n\nTo come off, go to Account → Settings → Sharing → Leaderboards and pick Hidden. That takes you off every board and takes your board ranks off your profile for everyone else. Your results in public events still count for the people you played. Pick Listed to come back.",
       "keywords": [
         "leaderboard",
         "board",
@@ -318,7 +339,7 @@
       "id": "play-report",
       "topic": "play",
       "q": "How do I report my match result?",
-      "a": "The live card on the Events tab leads with reporting your result. One player's report counts; when your opponent reports the same score it's confirmed, and a different score is a dispute for the organizer to settle.\n\nResults that nobody disputes confirm themselves when the round ends.",
+      "a": "The live card on Play → Events leads with reporting your result. One player's report counts; when your opponent reports the same score it's confirmed, and a different score is a dispute for the organizer to settle.\n\nResults that nobody disputes confirm themselves when the round ends.",
       "keywords": [
         "result",
         "score",
@@ -420,7 +441,7 @@
       "id": "play-follow",
       "topic": "play",
       "q": "Can I follow an event I'm not playing in?",
-      "a": "Yes. Open its link signed in and tap Follow. It shows on the Events tab under Following, with a notification when each round is paired, when it finishes and if it's cancelled. Tap Following to turn its notifications off or unfollow. Nobody, the organizer included, sees who follows.",
+      "a": "Yes. Open its link signed in and tap Follow. It shows on Play → Events under Following, with a notification when each round is paired, when it finishes and if it's cancelled. Tap Following to turn its notifications off or unfollow. Nobody, the organizer included, sees who follows.",
       "keywords": [
         "follow event",
         "watch",
@@ -433,7 +454,7 @@
       "id": "play-deck-photo",
       "topic": "play",
       "q": "How do I add a photo of my deck?",
-      "a": "On the event screen, Deck photo lets you take or pick a photo with a note, and turn it upright before saving. Once your last match is in (or the event is over), the event screen opens on Add a deck photo, which goes straight to the camera or your photos; if you haven't added one ten minutes later, a notification reminds you once. Only you and the organizer see it until the event is over; then everyone in the event does. Account → Deck photos lists every photo of a deck you've played. Hold a photo to copy it, save it to Photos or share it. A photo already up can be turned with Rotate right or Rotate left by you, whoever took it, or the event's organizer.",
+      "a": "On the event screen, Deck photo lets you take or pick a photo with a note, and turn it upright before saving. Once your last match is in (or the event is over), the event screen opens on Add a deck photo, which goes straight to the camera or your photos; if you haven't added one ten minutes later, a notification reminds you once. Only you and the organizer see it until the event is over; then everyone in the event does. Account → Records → Deck photos lists every photo of a deck you've played. Hold a photo to copy it, save it to Photos or share it. A photo already up can be turned with Rotate right or Rotate left by you, whoever took it, or the event's organizer.",
       "keywords": [
         "photo",
         "picture",
@@ -463,7 +484,7 @@
       "id": "organize-create",
       "topic": "organize",
       "q": "How do I create an event?",
-      "a": "On the Events tab, tap + New. Pick Constructed or Limited, the format, and for Limited a set or cube. Leave the name empty and it names itself. You're in as a player by default; switch that off to only run it. Add players by name, invite by email, or let them join by code, QR or Nearby.",
+      "a": "On Play → Events, tap + New. Pick Constructed or Limited, the format, and for Limited a set or cube. Leave the name empty and it names itself. You're in as a player by default; switch that off to only run it. Add players by name, invite by email, or let them join by code, QR or Nearby.",
       "keywords": [
         "create",
         "new event",
@@ -633,7 +654,7 @@
       "id": "organize-league",
       "topic": "organize",
       "q": "How do I run a league?",
-      "a": "On the Events tab, tap + New → New league (or tap + on Find → Leagues): a name, region, description and link, then the new league's page opens. From the organizer button on its page, add a season with its dates and a points rule (by place, by match wins, or your own brackets), how many best results count and who qualifies for the final. Add other organizers from your friends.\n\nTo put an event in the season, open the event's Setup → Details → League and pick the league, the season, a multiplier for a bigger event and whether it's the final. On the final, Setup → Players has a Qualified list to invite everyone who qualified. Private events can't be in a league.",
+      "a": "On Play → Events, tap + New → New league (or tap + on Find → Leagues): a name, region, description and link, then the new league's page opens. From the organizer button on its page, add a season with its dates and a points rule (by place, by match wins, or your own brackets), how many best results count and who qualifies for the final. Add other organizers from your friends.\n\nTo put an event in the season, open the event's Setup → Details → League and pick the league, the season, a multiplier for a bigger event and whether it's the final. On the final, Setup → Players has a Qualified list to invite everyone who qualified. Private events can't be in a league.",
       "keywords": [
         "league",
         "season",
@@ -688,7 +709,7 @@
       "id": "tracker-open",
       "topic": "tracker",
       "q": "How do I use the life tracker?",
-      "a": "Tap Life on the Events tab, or open it from your match. Tap the top of a number for +1 and the bottom for −1; hold to repeat. Without an event it starts on Setup: pick 2 to 5 players and 20, 30 or 40 life, then Start.",
+      "a": "Tap Life tracker under Play, or open it from your match. Tap the top of a number for +1 and the bottom for −1; hold to repeat. Without an event it starts on Setup: pick 2 to 5 players and 20, 30 or 40 life, then Start.",
       "keywords": [
         "life",
         "life counter",
@@ -786,7 +807,7 @@
       "id": "collection-add",
       "topic": "collection",
       "q": "How do I add cards to my collection?",
-      "a": "On the Collection tab, + → Add cards: search by name (Scryfall's syntax works too) or scan with the camera. Everything you add in one go can be undone in one step. A card starts as its original printing; tap it to change the printing, condition, language or finish.",
+      "a": "On Cards → Collection, + → Add cards: search by name (Scryfall's syntax works too) or scan with the camera. Everything you add in one go can be undone in one step. A card starts as its original printing; tap it to change the printing, condition, language or finish.",
       "keywords": [
         "add cards",
         "collection",
@@ -813,7 +834,7 @@
       "id": "collection-scan-wrong",
       "topic": "collection",
       "q": "The scanner picked the wrong printing or card.",
-      "a": "Tap the row to change its printing. Your fix becomes the next guess, so the rest of a stack from the same set follows it. Old cards like Alpha, Beta, Unlimited and Revised print no set or year, so the scanner guesses from the border color; fix one and the rest follow.\n\nWhen you correct a scan, the app sends the text it read (never a picture) to help improve recognition. Turn that off in Account → Improve scanning.",
+      "a": "Tap the row to change its printing. Your fix becomes the next guess, so the rest of a stack from the same set follows it. Old cards like Alpha, Beta, Unlimited and Revised print no set or year, so the scanner guesses from the border color; fix one and the rest follow.\n\nWhen you correct a scan, the app sends the text it read (never a picture) to help improve recognition. Turn that off in Account → Settings → Improve scanning.",
       "keywords": [
         "wrong printing",
         "wrong card",
@@ -844,7 +865,7 @@
       "id": "collection-scan-pile",
       "topic": "collection",
       "q": "Can I scan a pile and put it in a deck, binder or trade?",
-      "a": "Yes. The camera at the top of the Collection tab scans as many cards as you like; then Add puts them all in your collection, a deck, a cube, a binder, your wants or a trade at once, each in the printing and finish its row shows. The Collection tab says what went where, with Undo.",
+      "a": "Yes. The camera at the top of Cards → Collection scans as many cards as you like; then Add puts them all in your collection, a deck, a cube, a binder, your wants or a trade at once, each in the printing and finish its row shows. Cards → Collection says what went where, with Undo.",
       "keywords": [
         "scan pile",
         "bulk",
@@ -857,7 +878,7 @@
       "id": "collection-import",
       "topic": "collection",
       "q": "Can I import my collection from another app?",
-      "a": "Collection → Import reads CSV exports from ManaBox, Moxfield, Archidekt, Deckbox, Dragon Shield, TCGplayer and Delver Lens, and most other CSVs with a card name column. You see a preview of matched and unmatched cards and the value before anything is added, then choose Add to collection or Replace collection. One Undo takes it all back.",
+      "a": "Cards → Collection → + → Import reads CSV exports from ManaBox, Moxfield, Archidekt, Deckbox, Dragon Shield, TCGplayer and Delver Lens, and most other CSVs with a card name column. You see a preview of matched and unmatched cards and the value before anything is added, then choose Add to collection or Replace collection. One Undo takes it all back.",
       "keywords": [
         "import",
         "csv",
@@ -933,7 +954,7 @@
       "id": "collection-search",
       "topic": "collection",
       "q": "How do I search for cards, decks or binders?",
-      "a": "The magnifier on the Collection tab searches every card, with how many you own. It also finds your decks, cubes and binders, ones you follow, friends' shared ones, the lists that hold a card you name, Insights archetypes and rankings. Add cards searches take Scryfall's syntax (t:dragon, c:r, mv<=3); Adv writes it for you.",
+      "a": "The magnifier on Cards → Collection searches every card, with how many you own. It also finds your decks, cubes and binders, ones you follow, friends' shared ones, the lists that hold a card you name, Insights archetypes and rankings. Add cards searches take Scryfall's syntax (t:dragon, c:r, mv<=3); Adv writes it for you.",
       "keywords": [
         "search",
         "find",
@@ -962,7 +983,7 @@
       "id": "decks-new",
       "topic": "decks",
       "q": "How do I make a deck or cube?",
-      "a": "Collection → + → New deck or New cube. Name it, pick a format, then add cards by search or scan. Or import a list, or for decks find one online with the deck finder. New decks start Private.",
+      "a": "Cards → Collection → + → New deck or New cube. Name it, pick a format, then add cards by search or scan. Or import a list, or for decks find one online with the deck finder. New decks start Private.",
       "keywords": [
         "new deck",
         "create deck",
@@ -1158,7 +1179,7 @@
       "id": "trades-matches",
       "topic": "trades",
       "q": "What are trade matches?",
-      "a": "Collection → Trade, under Matches: who has what you want, and who wants what you have for trade. It looks only at your friends and people you've played an event with in the last 90 days, and only at what they've shared with you. Start a trade makes the draft for you.",
+      "a": "Cards → Trade, under Matches: who has what you want, and who wants what you have for trade. It looks only at your friends and people you've played an event with in the last 90 days, and only at what they've shared with you. Start a trade makes the draft for you.",
       "keywords": [
         "trade matches",
         "match",
@@ -1227,7 +1248,7 @@
       "id": "rankings-start",
       "topic": "rankings",
       "q": "How do I rank a cube or a Limited set?",
-      "a": "Open a cube you can see (yours, or one shared with you) and tap Rankings, then Rank to start yours. For a set, Insights → Limited → Rank this set, or Rankings → Sets you can rank. Upcoming sets can be ranked during spoiler season; new cards wait until you place them.\n\nPopular cubes nobody on Table 1 owns (PowerLSV, LSVCube, the MTGO Vintage Cube and the Arena Powered Cube) are listed at the end of your own profile and on Rankings, ready to rank.",
+      "a": "Open a cube you can see (yours, or one shared with you) and tap Rankings, then Rank to start yours. For a set, Insights → Limited → Rank this set, or Insights → Rankings → Sets you can rank. Upcoming sets can be ranked during spoiler season; new cards wait until you place them.\n\nPopular cubes nobody on Table 1 owns (PowerLSV, LSVCube, the MTGO Vintage Cube and the Arena Powered Cube) are listed at the end of your own profile and on Insights → Rankings, ready to rank.",
       "keywords": [
         "rank set",
         "limited set",
@@ -1257,7 +1278,7 @@
       "id": "rankings-share",
       "topic": "rankings",
       "q": "Who sees my ranking?",
-      "a": "A cube ranking starts Shared with the cube, so everyone who can see the cube can see it. Your rankings also show on your profile, under Rankings, to whoever Account → Sharing → Rankings reaches (friends to start); a ranking set to Only me never shows to anyone else. Switch a ranking to Only me in its Settings. Top 100 image makes a picture to post, and Discord's /ranking posts it in a channel.",
+      "a": "A cube ranking starts Shared with the cube, so everyone who can see the cube can see it. Your rankings also show on your profile, under Rankings, to whoever Account → Settings → Sharing → Rankings reaches (friends to start); a ranking set to Only me never shows to anyone else. Switch a ranking to Only me in its Settings. Top 100 image makes a picture to post, and Discord's /ranking posts it in a channel.",
       "keywords": [
         "share ranking",
         "private",
@@ -1341,7 +1362,7 @@
       "id": "friends-add",
       "topic": "friends",
       "q": "How do I add a friend?",
-      "a": "Account → Friends → Add a friend: find people you've played with, search profiles by name or handle, or ask by email. Tapping a player in standings or a players list opens their profile, with Add friend. Friends are mutual: they accept, or quietly ignore.",
+      "a": "Account → Profile → Friends → Add a friend: find people you've played with, search profiles by name or handle, or ask by email. Tapping a player in standings or a players list opens their profile, with Add friend. Friends are mutual: they accept, or quietly ignore.",
       "keywords": [
         "friend",
         "add friend",
@@ -1354,7 +1375,7 @@
       "id": "friends-share",
       "topic": "friends",
       "q": "Who can see my collection and decks?",
-      "a": "Everything in your Library starts private. Account → Sharing sets who sees each part (Private, Friends or Anyone on Table 1), and every deck, cube and binder has its own Who sees this. New decks always start Private. View your profile as a friend or anyone to check what others see.",
+      "a": "Everything in your Library starts private. Account → Settings → Sharing sets who sees each part (Private, Friends or Anyone on Table 1), and every deck, cube and binder has its own Who sees this. New decks always start Private. View your profile as a friend or anyone to check what others see.",
       "keywords": [
         "privacy",
         "sharing",
@@ -1369,7 +1390,7 @@
       "id": "friends-achievements",
       "topic": "friends",
       "q": "What are the achievements on a profile?",
-      "a": "Small tiles under the name: league finishes (CHAMPION, TOP 8, QUALIFIED, event wins) and ranks on the format leaderboards (#14 over Modern). Tap one to open that league or board.\n\nWho sees yours is the Achievements choice in Account → Sharing: Anyone to start, or Friends or Private. Hiding yourself from the leaderboards also takes your board ranks off your profile for everyone else.",
+      "a": "Small tiles under the name: league finishes (CHAMPION, TOP 8, QUALIFIED, event wins) and ranks on the format leaderboards (#14 over Modern). Tap one to open that league or board.\n\nWho sees yours is the Achievements choice in Account → Settings → Sharing: Anyone to start, or Friends or Private. Hiding yourself from the leaderboards also takes your board ranks off your profile for everyone else.",
       "keywords": [
         "achievements",
         "badges",
@@ -1497,7 +1518,7 @@
       "id": "offline-waiting",
       "topic": "offline",
       "q": "It says changes are waiting to send.",
-      "a": "Those are cards you added while the server couldn't be reached. They stay on screen and go in order with the next sync (opening the app, the Collection tab, or any later change), and can never go in twice. Undo on a waiting change takes it back out.",
+      "a": "Those are cards you added while the server couldn't be reached. They stay on screen and go in order with the next sync (opening the app, the Cards tab, or any later change), and can never go in twice. Undo on a waiting change takes it back out.",
       "keywords": [
         "waiting",
         "pending",
@@ -1538,7 +1559,7 @@
       "id": "account-delete",
       "topic": "account",
       "q": "How do I delete my account?",
-      "a": "Account → Delete account, in the app or on the website (table-1.site/delete-account). Your collection, binders, wants, decks, cubes, trades, friendships, sharing settings and photos are removed. Results you played stay in their events as \"Deleted player\". It can't be undone.",
+      "a": "Account → Settings → Delete account, in the app or on the website (table-1.site/delete-account). Your collection, binders, wants, decks, cubes, trades, friendships, sharing settings and photos are removed. Results you played stay in their events as \"Deleted player\". It can't be undone.",
       "keywords": [
         "delete account",
         "remove account",
@@ -1552,7 +1573,7 @@
       "id": "account-data",
       "topic": "account",
       "q": "What data does Table 1 collect?",
-      "a": "Which screens and features are used, and crash reports, tied only to your account's internal id; never your email, names, cards, events or what you search. Turn it off in Account → Share usage and crash data. Scan corrections send the text the camera read, never images; turn that off in Account → Improve scanning. The privacy policy has the details.",
+      "a": "Which screens and features are used, and crash reports, tied only to your account's internal id; never your email, names, cards, events or what you search. Turn it off in Account → Settings → Share usage and crash data. Scan corrections send the text the camera read, never images; turn that off in Account → Settings → Improve scanning. The privacy policy has the details.",
       "keywords": [
         "privacy",
         "data",
@@ -1579,8 +1600,8 @@
     {
       "id": "account-track-games",
       "topic": "account",
-      "q": "Can the Events tab open the life tracker instead of reporting?",
-      "a": "Yes. Account → Track games chooses whether you track games in the app (the life tracker comes first) or elsewhere (reporting the result comes first).",
+      "q": "Can Play → Events open the life tracker instead of reporting?",
+      "a": "Yes. Account → Settings → Track games chooses whether you track games in the app (the life tracker comes first) or elsewhere (reporting the result comes first).",
       "keywords": [
         "track games",
         "settings",

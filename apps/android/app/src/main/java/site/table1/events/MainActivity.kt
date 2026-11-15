@@ -66,6 +66,9 @@ class MainActivity : ComponentActivity() {
             // (contracts entry-fees, teams-finals-alerts and room-tools, 2026-11-13). You are Ann Ito. The league's side
             // is on the leagues hook: `--es t1Leagues league|season|tools|dues|find|alerts`.
             intent?.getStringExtra("t1Events")?.let { site.table1.events.data.EventDemo.load(it) }
+            // `--es t1MainNav <tab>[:<sub>]` (e.g. `collection:wants`): the signed-in tabs and sub-tab strip signed out, for
+            // design QA of the main navigation (contract/main-nav-2026-11-14.md); the screens can't load without an account.
+            intent?.getStringExtra("t1MainNav")?.let { site.table1.events.ui.MainNavState.demo(it) }
             // `--es t1RankEngine /data/local/tmp/rank-engine.js [--es t1RankArgs <open args json>]`: loads that engine file in
             // QuickJS whatever its rules, logs its self test and timings to Logcat (tag RankEngine), then unloads it.
             intent?.getStringExtra("t1RankEngine")?.let { path ->

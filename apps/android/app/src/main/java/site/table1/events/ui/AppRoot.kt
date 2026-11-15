@@ -113,7 +113,11 @@ import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Tab
 import site.table1.events.ui.components.T1TabBar
-import site.table1.events.ui.screens.AccountScreen
+import site.table1.events.ui.screens.AccountRecordsScreen
+import site.table1.events.ui.screens.AccountSettingsScreen
+import site.table1.events.ui.components.T1SubTab
+import site.table1.events.ui.components.T1SubTabBar
+import site.table1.events.library.friendsRow
 import site.table1.events.ui.screens.AddPlayersScreen
 import site.table1.events.ui.screens.CreateEventScreen
 import site.table1.events.ui.screens.DeckPhotosScreen
@@ -139,7 +143,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Signed out → sign-in. Signed in → tabs Events | Collection (the Library) | Insights | Account. A QR join link that arrived before
+ * Signed out → sign-in. Signed in → tabs Play | Cards (the Library) | Insights | Account, each with its sub-tabs
+ * (contract/main-nav-2026-11-14.md). A QR join link that arrived before
  * sign-in (camera scan, notification) is held and completed right after.
  */
 @Composable
@@ -150,6 +155,11 @@ fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: Web
     if (site.table1.events.data.LeaguesDemo.shown) { LeaguesDemoRoot(); return }
     // Debug: `--es t1Events setup|details|fee|…` opens entry fees, teams and the room tools on stand-in events.
     if (site.table1.events.data.EventDemo.shown) { EventDemoRoot(); return }
+    // Debug: `--es t1MainNav <tab>[:<sub>]` draws the signed-in tabs and sub-tab strip signed out.
+    MainNavState.demoTab?.let { t ->
+        SignedInApp(null, {}, null, {}, demoTab = t)
+        return
+    }
     val status by T1App.supabase.auth.sessionStatus.collectAsState()
     // A failed refresh (offline, 5xx) keeps the app on the session it last had (SessionView).
     var kept by remember { mutableStateOf<UserSession?>(null) }
@@ -205,7 +215,9 @@ fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: Web
 }
 
 @Composable
-private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: WebLink?, onLinkConsumed: () -> Unit) {
+private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: WebLink?, onLinkConsumed: () -> Unit,
+                        /** Debug (`--es t1MainNav`): the tab to open on, its sub-tab as already selected. */
+                        demoTab: String? = null) {
     val nav = rememberNavController()
     // Every move to another screen (a push, Back, a tab) puts the keyboard away (ui/components/KeyboardAway.kt).
     site.table1.events.ui.components.KeyboardAwayOnNavigate(nav)
@@ -253,8 +265,14 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
     // A tapped table-1.site link (contract/universal-links-2026-10-22.md): its tab, then the screens above it.
     val context = LocalContext.current
     fun show(tab: String, stack: List<String>) {
-        nav.navigate(tab) { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
-        stack.forEach { nav.navigate(it) }
+        // A sub-tab's own screen (Trades, Wants, every ranking of yours) selects that sub-tab instead of pushing a copy.
+        val placed = MainNav.place(tab, stack)
+        when {
+            placed.sub != null -> MainNavState.select(placed.tab, placed.sub, how = "link")
+            placed.tab == "insights" && placed.stack.isEmpty() -> MainNavState.select("insights", InsightsStore.section, how = "link")
+        }
+        nav.navigate(placed.tab) { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
+        placed.stack.forEach { nav.navigate(it) }
     }
     LaunchedEffect(pendingLink) {
         val link = pendingLink ?: return@LaunchedEffect
@@ -272,11 +290,13 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
             }
             is WebLink.Insights -> if (link.set != null) {
                 InsightsStore.pickSection("limited")
+                MainNavState.select("insights", "limited", how = "link")
                 InsightsStore.pickSet(link.set)
                 link.limited?.let { InsightsStore.limitedSort = it.sort; InsightsStore.limitedRarity = it.rarity; InsightsStore.limitedColor = it.color }
                 show("insights", emptyList())
             } else {
                 InsightsStore.pickSection("constructed")
+                MainNavState.select("insights", "constructed", how = "link")
                 InsightsStore.pickFormat(link.format)
                 link.tier?.let(InsightsStore::pickTier)
                 link.days?.let(InsightsStore::pickDays)
@@ -308,6 +328,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
         launchSingleTop = true
         restoreState = true
     }
+
+    LaunchedEffect(demoTab) { if (demoTab != null && demoTab != "events") tab(demoTab) }
 
     // The collection mirror syncs on open and on each return; the catalog pack is checked once a day.
     val userId = Repo.userId
@@ -353,6 +375,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
             when {
                 !topLevel -> it
                 rail -> it.consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Start))
+                    .consumeWindowInsets(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
                 else -> it.consumeWindowInsets(WindowInsets.navigationBars)
             }
         }) {
@@ -388,11 +411,36 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 // Finding events, leagues and format boards (contract/public-events-leagues-2026-11-13.md).
                 leaguesGraph(nav) { foregrounds }
                 // Insights (contract/insights-2026-10-24.md): the metagame and Arena draft.
-                insightsGraph(nav, moderator)
+                // Insights → Constructed / Limited / Rankings (the strip; contract/main-nav-2026-11-14.md § 3).
+                insightsGraph(nav, moderator) {
+                    SubTabRoot(MainNavState.insights(InsightsStore.section)) { sub ->
+                        if (sub == "rankings") RankingsScreen(null, onBack = null, onOpen = { nav.navigate("collection/ranking/$it") },
+                            onCube = { nav.navigate("collection/list/$it/rankings") })
+                        else site.table1.events.insights.InsightsHomeScreen(navigate = { nav.navigate(it) }, moderator = moderator)
+                    }
+                }
+                // Account → Profile / Records / Settings.
                 composable("account") {
-                    AccountScreen(foregrounds = foregrounds, onFriends = { nav.navigate("friends") }, onSharing = { nav.navigate("sharing") },
-                        onProfile = { nav.navigate("profile/$it") }, onNotices = { nav.navigate("notices") }, onReview = { nav.navigate("review") }, onBugs = { nav.navigate("bugs") },
-                        onDeckPhotos = { nav.navigate("mydeckphotos") }, onSupport = { nav.navigate("support") }, onPayments = { nav.navigate("payments") })
+                    SubTabRoot(MainNavState.current("account")) { sub ->
+                        when (sub) {
+                            "records" -> AccountRecordsScreen(foregrounds = foregrounds, onDeckPhotos = { nav.navigate("mydeckphotos") })
+                            "settings" -> AccountSettingsScreen(foregrounds = foregrounds, onSharing = { nav.navigate("sharing") },
+                                onNotices = { nav.navigate("notices") }, onReview = { nav.navigate("review") }, onBugs = { nav.navigate("bugs") },
+                                onSupport = { nav.navigate("support") }, onPayments = { nav.navigate("payments") })
+                            else -> {
+                                // Your own profile as others see it, Friends (requests waiting) at its top.
+                                val me = Repo.userId ?: ""
+                                val friends by FriendsStore.state.collectAsState()
+                                LaunchedEffect(foregrounds) { FriendsStore.load() }
+                                ProfileUserScreen(me, onBack = null,
+                                    onSection = { kind, item -> nav.navigate("profile/$me/$kind/${item ?: "-"}") },
+                                    onMatch = {}, onSharing = { nav.navigate("sharing") },
+                                    onFriends = { nav.navigate("profile/$me/friends") }, onRanking = { nav.navigate("collection/ranking/$it") },
+                                    onPopular = { nav.navigate("collection/list/$it/rankings") }, go = { nav.navigate(it) },
+                                    top = { friendsRow(friends) { nav.navigate("friends") } })
+                            }
+                        }
+                    }
                 }
                 // Account → Payments (contract/entry-fees-2026-11-13.md § 1): your Stripe connection.
                 composable("payments") { site.table1.events.ui.screens.PaymentsScreen(onBack = { nav.popBackStack() }) }
@@ -465,8 +513,17 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     TradeMatchScreen(id, onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile/$id") },
                         onCard = { nav.navigate("collection/card/$it?search=1") }, onTrade = { nav.navigate("collection/trade/$it") })
                 }
+                // Cards → Collection / Trade / Wants (contract/main-nav-2026-11-14.md § 3): Trades and Wants as roots.
                 composable("collection") {
-                    LibraryHomeScreen(foregrounds = foregrounds, go = { nav.navigate(it) })
+                    SubTabRoot(MainNavState.current("collection")) { sub ->
+                        when (sub) {
+                            "trade" -> TradesScreen(onBack = null, onOpen = { nav.navigate("collection/trade/${it ?: "new"}") },
+                                onMatch = { nav.navigate("collection/match/$it") }, onMatches = { nav.navigate("collection/matches") })
+                            "wants" -> WantsScreen(onBack = null, onCard = { nav.navigate("collection/card/$it?search=1") },
+                                onBuy = { nav.navigate("collection/buy/$it") })
+                            else -> LibraryHomeScreen(foregrounds = foregrounds, go = { nav.navigate(it) })
+                        }
+                    }
                 }
                 composable("collection/binders") {
                     BindersScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/binder/$it") },
@@ -499,7 +556,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 }
                 composable("collection/cubes") {
                     ListsScreen(ListKind.Cube, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") },
-                        onImport = { nav.navigate("collection/import/cube") }, onRankings = { nav.navigate("collection/rankings") })
+                        onImport = { nav.navigate("collection/import/cube") }, onRankings = { MainNavState.select("insights", "rankings", how = "link"); tab("insights") })
                 }
                 // Cube rankings (contract/cube-rankings-2026-10-21.md).
                 composable("collection/rankings") {
@@ -713,15 +770,32 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
             }
         }
     }, {
+        // The sub-tab strip, exactly when the tab bar shows (contract/main-nav-2026-11-14.md § 1).
+        val tabNow = route?.let(MainNav::tab)
+        if (topLevel && tabNow != null) {
+            val current = when (tabNow.id) {
+                "events" -> "events"
+                "insights" -> MainNavState.insights(InsightsStore.section)
+                else -> MainNavState.current(tabNow.id)
+            }
+            T1SubTabBar(tabNow.subs.map { T1SubTab(it.id, it.label) }, current, bottomInsets = rail) { sub ->
+                MainNavState.select(tabNow.id, sub)
+                // Life tracker opens full screen over everything; the strip stays on Events underneath.
+                if (tabNow.subs.first { it.id == sub }.fullScreen) nav.navigate("tracker")
+            }
+        }
+    }, {
         if (topLevel) {
             T1TabBar(
                 rail = rail,
-                tabs = listOf(
-                    T1Tab("events", "Events", T1Icon.TabEvents),
-                    T1Tab("collection", "Collection", T1Icon.TabCollection),
-                    T1Tab("insights", "Insights", T1Icon.TabInsights),
-                    T1Tab("account", "Account", T1Icon.TabAccount),
-                ),
+                tabs = MainNav.tabs.map { t ->
+                    T1Tab(t.id, t.label, when (t.id) {
+                        "events" -> T1Icon.TabEvents
+                        "collection" -> T1Icon.TabCollection
+                        "insights" -> T1Icon.TabInsights
+                        else -> T1Icon.TabAccount
+                    })
+                },
                 selected = route,
                 onSelect = {
                     // The Library home syncs the collection itself each time it opens.
@@ -730,21 +804,29 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 },
             )
         }
-    }), Modifier.fillMaxSize()) { (content, bar), constraints ->
+    }), Modifier.fillMaxSize()) { (content, strip, bar), constraints ->
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
         val b = bar.firstOrNull()?.measure(loose)
         if (rail) {
+            // The rail down the start edge; the strip along the bottom of the content beside it.
             val bw = b?.width ?: 0
-            val c = content.first().measure(androidx.compose.ui.unit.Constraints.fixed(constraints.maxWidth - bw, constraints.maxHeight))
+            val w = constraints.maxWidth - bw
+            val st = strip.firstOrNull()?.measure(androidx.compose.ui.unit.Constraints(minWidth = w, maxWidth = w, maxHeight = constraints.maxHeight))
+            val sh = st?.height ?: 0
+            val c = content.first().measure(androidx.compose.ui.unit.Constraints.fixed(w, constraints.maxHeight - sh))
             layout(constraints.maxWidth, constraints.maxHeight) {
                 b?.place(0, 0)
                 c.place(bw, 0)
+                st?.place(bw, constraints.maxHeight - sh)
             }
         } else {
             val bh = b?.height ?: 0
-            val c = content.first().measure(androidx.compose.ui.unit.Constraints.fixed(constraints.maxWidth, constraints.maxHeight - bh))
+            val st = strip.firstOrNull()?.measure(loose.copy(minWidth = constraints.maxWidth))
+            val sh = st?.height ?: 0
+            val c = content.first().measure(androidx.compose.ui.unit.Constraints.fixed(constraints.maxWidth, constraints.maxHeight - bh - sh))
             layout(constraints.maxWidth, constraints.maxHeight) {
                 c.place(0, 0)
+                st?.place(0, constraints.maxHeight - bh - sh)
                 b?.place(0, constraints.maxHeight - bh)
             }
         }
@@ -902,4 +984,12 @@ private fun androidx.navigation.NavGraphBuilder.supportGraph(nav: androidx.navig
         site.table1.events.ui.support.SupportGuideScreen(e.arguments?.getString("section") ?: "", e.arguments?.getString("e"),
             e.arguments?.getString("from") ?: "link", go)
     }
+}
+
+/** A tab's root, by sub-tab: a sub-tab swaps the screen in place (no push, no back arrow) and each sub-tab root keeps
+ *  its saved state (scroll, rememberSaveable) while the tab is alive (contract/main-nav-2026-11-14.md § 1). */
+@Composable
+private fun SubTabRoot(sub: String, content: @Composable (String) -> Unit) {
+    val holder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+    holder.SaveableStateProvider(sub) { content(sub) }
 }

@@ -72,38 +72,85 @@ import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1Switch
 import site.table1.events.library.ScanReports
 import site.table1.events.library.FriendsStore
-import site.table1.events.library.friendsAccountRows
 import site.table1.events.library.moderationAccountRows
 import site.table1.events.library.bugsAccountRow
 import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
 import site.table1.events.ui.components.rememberOpenProfile
 
-/** The Account tab: lifetime record, head-to-head, settings, and the account itself. */
+/** Account → Records (contract/main-nav-2026-11-14.md § 3): the lifetime record, deck photos, the record offer, then
+ *  head-to-head with every opponent. */
 @Composable
-fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit, onProfile: (String) -> Unit, onNotices: () -> Unit = {}, onReview: () -> Unit = {}, onBugs: () -> Unit = {}, onDeckPhotos: () -> Unit = {}, onSupport: () -> Unit = {},
-                  onPayments: () -> Unit = {}) {
-    /** Account → Payments (contract/entry-fees-2026-11-13.md § 1): your Stripe connection as last known; null (no row)
-     *  while the server has no payments, the call failed, or payments aren't open to this account (PaymentsGate). */
+fun AccountRecordsScreen(foregrounds: Int, onDeckPhotos: () -> Unit) {
+    /** Deck photos' summary ("12 photos · 5 events"), from my_deck_photos asked for one photo. */
+    var deckPhotos by remember { mutableStateOf<String?>(null) }
+    val friends by FriendsStore.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    var overview by remember { mutableStateOf<AccountOverview?>(null) }
+    var recordOffered by remember { mutableStateOf(SharingOffer.Record.answered) }
+    var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(foregrounds) {
+        Telemetry.screen("account_records")
+        runCatching { Repo.accountOverview() }.onSuccess { overview = it; error = null }.onFailure { it.rethrowIfCancelled(); error = it.message }
+        runCatching { DeckPhotosRepo.mine(limit = 1) }.onSuccess { deckPhotos = MyDeckPhotoRules.summary(it.total, it.events) }
+        if (friends.sharing == null) FriendsStore.loadSharing()
+    }
+    val r = overview?.record
+    val rivals = overview?.headToHead.orEmpty()
+    T1Screen {
+        Bar("Records")
+        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            error?.let { item { Notice(it, error = true) } }
+            item {
+                BigNumber(
+                    record(r?.matchWins ?: 0, r?.matchLosses ?: 0, r?.matchDraws ?: 0),
+                    "${r?.matches ?: 0} matches · ${r?.eventsPlayed ?: 0} events · games ${record(r?.gameWins ?: 0, r?.gameLosses ?: 0, r?.gameDraws ?: 0)}" +
+                        if ((r?.byes ?: 0) > 0) " · ${r?.byes} byes" else "",
+                )
+            }
+            deckPhotosAccountRow(deckPhotos, onDeckPhotos)
+            // After your first event, with Record private: offer once to show it to friends (§ UX rules 8).
+            if (!recordOffered && (r?.eventsPlayed ?: 0) >= 1 && friends.sharing?.own(SharePart.Record) == Visibility.Private) item {
+                ListRow("Show your record on your profile?", "Friends would see your wins, losses and draws") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                        BarAction("Friends") { SharingOffer.Record.answer(true); recordOffered = true; scope.launch { FriendsStore.setAll(listOf(SharePart.Record), Visibility.Friends) } }
+                        BarAction("Not now") { SharingOffer.Record.answer(false); recordOffered = true }
+                    }
+                }
+            }
+            item { Section("Head-to-head") }
+            when {
+                overview == null -> item { Notice("Loading…") }
+                rivals.isEmpty() -> item { Notice("Play a match to start your head-to-head.") }
+                else -> items(rivals, key = { it.opponentId }) { rival ->
+                    ListRow(rival.name, "${rival.played} match${if (rival.played == 1) "" else "es"} · games ${rival.gameWins}-${rival.gameLosses}",
+                        onClick = rememberOpenProfile("head_to_head")(rival.opponentId), avatar = { Avatar(rival.name, rival.opponentId) }) {
+                        Text(record(rival.matchWins, rival.matchLosses, rival.matchDraws), color = T1.text, fontFamily = T1.mono, fontSize = 16.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Account → Settings (contract/main-nav-2026-11-14.md § 3): every setting and account action, in the contract's order. */
+@Composable
+fun AccountSettingsScreen(foregrounds: Int, onSharing: () -> Unit, onNotices: () -> Unit = {}, onReview: () -> Unit = {}, onBugs: () -> Unit = {},
+                          onSupport: () -> Unit = {}, onPayments: () -> Unit = {}) {
+    /** Payments (contract/entry-fees-2026-11-13.md § 1): your Stripe connection as last known; null (no row) while the
+     *  server has no payments, the call failed, or payments aren't open to this account (PaymentsGate). */
     var payments by remember { mutableStateOf<site.table1.events.data.PaymentsAccount?>(null) }
     LaunchedEffect(foregrounds) {
         payments = site.table1.events.data.PaymentsGate.load(again = true)
-    }
-    /** Account → Deck photos' summary ("12 photos · 5 events"), from my_deck_photos asked for one photo. */
-    var deckPhotos by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(foregrounds) {
-        runCatching { DeckPhotosRepo.mine(limit = 1) }.onSuccess { deckPhotos = MyDeckPhotoRules.summary(it.total, it.events) }
     }
     val friends by FriendsStore.state.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var overview by remember { mutableStateOf<AccountOverview?>(null) }
     var alertsOn by remember { mutableStateOf(false) }
-    var showAll by remember { mutableStateOf(false) }
     var editingName by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
-    var recordOffered by remember { mutableStateOf(SharingOffer.Record.answered) }
     var demoTester by remember { mutableStateOf(false) }
     var demoBusy by remember { mutableStateOf(false) }
     var demoNotice by remember { mutableStateOf<String?>(null) }
@@ -157,82 +204,32 @@ fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit
     val moderation by site.table1.events.library.ModerationStore.state.collectAsState()
     val bugs by site.table1.events.library.BugsStore.state.collectAsState()
     LaunchedEffect(foregrounds) {
+        Telemetry.screen("account_settings")
         load()
-        FriendsStore.load()
         FriendsStore.loadSharing()
         site.table1.events.library.loadModerationRows()
         demoTester = Repo.isDemoTester()
         site.table1.events.library.BugsStore.loadMe()
     }
 
-    val r = overview?.record
-    val rivals = overview?.headToHead.orEmpty()
     T1Screen {
-        Bar(overview?.label ?: "Account", "Account")
+        Bar("Settings")
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             error?.let { item { Notice(it, error = true) } }
             item {
-                // Your tile; tap to take or pick a photo, or go back to initials.
-                val uid = Repo.userId
-                Column(
-                    Modifier.fillMaxWidth().background(T1.surface).padding(top = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Column(
-                        Modifier.clickable(enabled = !avatarBusy && overview?.profile != null, onClickLabel = "Profile photo") {
-                            avatarMenu = true
-                        },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Avatar(overview?.profile?.displayName ?: "", uid, size = 64)
-                    }
-                    if (avatarBusy) Label("Saving…")
+                // Tap to take or pick a photo, or go back to initials.
+                ListRow("Profile photo", if (avatarBusy) "Saving…" else null,
+                    onClick = if (!avatarBusy && overview?.profile != null) ({ avatarMenu = true }) else null,
+                    avatar = { Avatar(overview?.profile?.displayName ?: "", Repo.userId, size = 28) }) {
+                    Label("Edit", color = T1.text)
                 }
             }
-            item {
-                BigNumber(
-                    record(r?.matchWins ?: 0, r?.matchLosses ?: 0, r?.matchDraws ?: 0),
-                    "${r?.matches ?: 0} matches · ${r?.eventsPlayed ?: 0} events · games ${record(r?.gameWins ?: 0, r?.gameLosses ?: 0, r?.gameDraws ?: 0)}" +
-                        if ((r?.byes ?: 0) > 0) " · ${r?.byes} byes" else "",
-                )
-            }
-            deckPhotosAccountRow(deckPhotos, onDeckPhotos)
-            Repo.userId?.let { me -> friendsAccountRows(friends, onFriends, onSharing) { onProfile(me) } }
-            paymentsAccountRow(payments, onPayments)
-            moderationAccountRows(moderation, onNotices, onReview)
-            bugsAccountRow(bugs, onBugs)
-            supportAccountRow(onSupport)
-            // After your first event, with Record private: offer once to show it to friends (§ UX rules 8).
-            if (!recordOffered && (r?.eventsPlayed ?: 0) >= 1 && friends.sharing?.own(SharePart.Record) == Visibility.Private) item {
-                ListRow("Show your record on your profile?", "Friends would see your wins, losses and draws") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                        BarAction("Friends") { SharingOffer.Record.answer(true); recordOffered = true; scope.launch { FriendsStore.setAll(listOf(SharePart.Record), Visibility.Friends) } }
-                        BarAction("Not now") { SharingOffer.Record.answer(false); recordOffered = true }
-                    }
-                }
-            }
-            item { Section("Head-to-head") }
-            when {
-                overview == null -> item { Notice("Loading…") }
-                rivals.isEmpty() -> item { Notice("Play a match to start your head-to-head.") }
-                else -> items(if (showAll) rivals else rivals.take(8), key = { it.opponentId }) { rival ->
-                    ListRow(rival.name, "${rival.played} match${if (rival.played == 1) "" else "es"} · games ${rival.gameWins}-${rival.gameLosses}",
-                        onClick = rememberOpenProfile("head_to_head")(rival.opponentId), avatar = { Avatar(rival.name, rival.opponentId) }) {
-                        Text(record(rival.matchWins, rival.matchLosses, rival.matchDraws), color = T1.text, fontFamily = T1.mono, fontSize = 16.sp)
-                    }
-                }
-            }
-            if (rivals.size > 8) item {
-                Row { Ghost(if (showAll) "Show fewer" else "Show all ${rivals.size}") { showAll = !showAll } }
-            }
-
-            item { Section("Settings") }
             item {
                 ListRow("Display name", overview?.profile?.displayName ?: "–", onClick = { editingName = overview?.profile?.displayName ?: "" }) {
                     Label("Edit", color = T1.text)
                 }
             }
+            item { ListRow("Sharing", friends.sharing?.let(site.table1.events.library.SharingRules::summary) ?: "Who sees your profile and Library", onClick = onSharing) }
             item {
                 Column(
                     Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 14.dp),
@@ -279,6 +276,10 @@ fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit
                     context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
                 }) { Label("Open", color = T1.text) }
             }
+            paymentsAccountRow(payments, onPayments)
+            moderationAccountRows(moderation, onNotices, onReview)
+            bugsAccountRow(bugs, onBugs)
+            supportAccountRow(onSupport)
 
             if (demoTester) {
                 item { Section("Developer · testers only") }

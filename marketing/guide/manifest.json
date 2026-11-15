@@ -4,7 +4,7 @@
   "sha256": "3ff4811daef04033f61fe04c60ab38d181bfb0d41b465cb1c8ac6f472cb30e66",
   "on": "2026-11-14"
  },
- "updated": "2026-11-14",
+ "updated": "2026-11-15",
  "sections": [
   {
    "id": "new",
@@ -12,7 +12,8 @@
   },
   {
    "id": "overview",
-   "nav": "Overview"
+   "nav": "Overview",
+   "new": true
   },
   {
    "id": "foldables",

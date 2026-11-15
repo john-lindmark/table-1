@@ -1,0 +1,68 @@
+{
+  "_note": "contract/main-nav-2026-11-14.md. Tabs and sub-tabs in order; remembered = what a tab opens on for a stored value; routes = web paths and the tab/sub-tab they belong to (sub null: a screen pushed on the tab, not a sub-tab root).",
+  "tabs": [
+    {
+      "id": "events", "label": "Play", "default": "events",
+      "subs": [
+        { "id": "events", "label": "Events", "web": "/" },
+        { "id": "tracker", "label": "Life tracker", "web": "/life", "fullScreen": true }
+      ]
+    },
+    {
+      "id": "collection", "label": "Cards", "default": "collection",
+      "subs": [
+        { "id": "collection", "label": "Collection", "web": "/library" },
+        { "id": "trade", "label": "Trade", "web": "/library/trades" },
+        { "id": "wants", "label": "Wants", "web": "/library/wants" }
+      ]
+    },
+    {
+      "id": "insights", "label": "Insights", "default": "constructed",
+      "subs": [
+        { "id": "constructed", "label": "Constructed", "web": "/insights" },
+        { "id": "limited", "label": "Limited", "web": "/insights/limited" },
+        { "id": "rankings", "label": "Rankings", "web": "/insights/rankings" }
+      ]
+    },
+    {
+      "id": "account", "label": "Account", "default": "profile",
+      "subs": [
+        { "id": "profile", "label": "Profile", "web": "/me" },
+        { "id": "records", "label": "Records", "web": "/me/records" },
+        { "id": "settings", "label": "Settings", "web": "/me/settings" }
+      ]
+    }
+  ],
+  "remembered": [
+    { "tab": "events", "stored": null, "want": "events" },
+    { "tab": "events", "stored": "tracker", "want": "events" },
+    { "tab": "collection", "stored": "wants", "want": "wants" },
+    { "tab": "collection", "stored": "trade", "want": "trade" },
+    { "tab": "collection", "stored": "rankings", "want": "collection" },
+    { "tab": "collection", "stored": "", "want": "collection" },
+    { "tab": "insights", "stored": "rankings", "want": "rankings" },
+    { "tab": "insights", "stored": "limited", "want": "limited" },
+    { "tab": "insights", "stored": "bogus", "want": "constructed" },
+    { "tab": "account", "stored": "settings", "want": "settings" },
+    { "tab": "account", "stored": "records", "want": "records" },
+    { "tab": "account", "stored": null, "want": "profile" }
+  ],
+  "routes": [
+    { "path": "/", "tab": "events", "sub": "events" },
+    { "path": "/library", "tab": "collection", "sub": "collection" },
+    { "path": "/library/trades", "tab": "collection", "sub": "trade" },
+    { "path": "/library/wants", "tab": "collection", "sub": "wants" },
+    { "path": "/library/trades/abc", "tab": "collection", "sub": null },
+    { "path": "/library/list/abc", "tab": "collection", "sub": null },
+    { "path": "/insights", "tab": "insights", "sub": "constructed" },
+    { "path": "/insights/limited", "tab": "insights", "sub": "limited" },
+    { "path": "/insights/rankings", "tab": "insights", "sub": "rankings" },
+    { "path": "/library/rankings", "tab": "insights", "sub": "rankings" },
+    { "path": "/insights/modern", "tab": "insights", "sub": null },
+    { "path": "/me", "tab": "account", "sub": "profile" },
+    { "path": "/me/records", "tab": "account", "sub": "records" },
+    { "path": "/me/settings", "tab": "account", "sub": "settings" },
+    { "path": "/me/notices", "tab": "account", "sub": null },
+    { "path": "/life", "tab": null, "sub": null }
+  ]
+}

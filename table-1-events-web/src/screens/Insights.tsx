@@ -13,6 +13,7 @@ import {
   archetypeBar, archetypeDetail, cardMarkers, finishDetail, finishTitle, hitDetail, searchCards, type CardFinish, type CardHit,
 } from "../lib/insights";
 import { isLibraryDemo } from "../lib/libraryDemo";
+import { storeSub } from "../lib/mainNav";
 import { limitedLabel, limitedPicker, rankableDetail, shownChips, soonText } from "../lib/limitedRank";
 import { ICON, Icon, useCatalog } from "./Library";
 import { createList, type Entry } from "../lib/lists";
@@ -70,6 +71,15 @@ export function InsightsHome({ section }: { section: "constructed" | "limited" }
   const nav = useNavigate();
   const data = useInsightsData();
   const [moderator, setModerator] = useState(false);
+  // The sub-tab strip picks the section (contract/main-nav-2026-11-14.md § 2): the pick Insights keeps on the account.
+  useEffect(() => {
+    // Again after the account's picks arrive: the section on screen is the one picked last.
+    if (data.picks.section !== section) {
+      if (data.picks.section) capture("insights_section_changed", { section });
+      pick({ section });
+      storeSub("insights", section);
+    }
+  }, [section, data.picks.section]);
   useEffect(() => {
     if (!data.session) return;
     void supabase.rpc("moderation_me").then(({ data: me }) => setModerator(!!(me as { moderator?: boolean } | null)?.moderator));
@@ -83,8 +93,6 @@ export function InsightsHome({ section }: { section: "constructed" | "limited" }
                      onClick={() => { capture("insights_card_search_opened", { format: data.picks.format }); nav(`/insights/${data.picks.format}/cards${data.demo ? "?demo" : ""}`); }}>
                <Icon d={ICON.search} />
              </button>) : undefined} />
-      <Segmented options={[{ value: "constructed", label: "Constructed" }, { value: "limited", label: "Limited" }]} value={section}
-                 onChange={(v) => { capture("insights_section_changed", { section: v }); nav(v === "limited" ? "/insights/limited" : "/insights"); }} />
       {!data.session && !data.demo ? (data.ready ? <SignInFirst /> : null)
         : section === "limited" ? <LimitedHome /> : <ConstructedHome />}
       {moderator && <Row title="Review" detail="Proposed archetypes and bans" onClick={() => nav("/insights/review")} />}

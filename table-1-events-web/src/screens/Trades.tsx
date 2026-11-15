@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bar, BigAction, Field, GhostAction, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
+import { Bar, BigAction, Field, GhostAction, Modal, Notice, Row, Screen, Section, Segmented, TabNav } from "../components/kit";
 import { errorMessage } from "../lib/api";
 import { basicCardIds, coverPrinting, normName, searchCatalog, type Catalog } from "../lib/catalog";
 import { useCollection, type Condition, type Finish, type Item } from "../lib/collection";
@@ -27,7 +27,8 @@ const LETTER: Record<Finish, string> = { nonfoil: "n", foil: "f", etched: "e" };
 const finishesOf = (c: Catalog, p: number) => FINISHES.filter((f) => c.pFinishes[p].includes(LETTER[f]));
 
 export function TradesScreen({ onBack, onOpen, onNew, onMatch, onMatches }: {
-  onBack: () => void; onOpen: (id: string) => void; onNew: () => void;
+  /** None: Trades is Cards → Trade's root (contract/main-nav-2026-11-14.md), with the tab bar. */
+  onBack?: () => void; onOpen: (id: string) => void; onNew: () => void;
   /** A trade match (one person), and Trade matches (how matches start, when there are none). */
   onMatch: (userId: string) => void; onMatches: () => void;
 }) {
@@ -35,7 +36,7 @@ export function TradesScreen({ onBack, onOpen, onNew, onMatch, onMatches }: {
   const { trades, loaded, error } = useTrades();
   const drafts = trades.filter((t) => t.status === "draft");
   const done = trades.filter((t) => t.status === "confirmed");
-  if (!session) return <Screen><Bar title="Trades" onBack={onBack} /><Notice tone="info">Sign in to trade.</Notice></Screen>;
+  if (!session) return <Screen>{!onBack && <TabNav />}<Bar title="Trades" onBack={onBack} /><Notice tone="info">Sign in to trade.</Notice></Screen>;
   const row = (t: Trade) => {
     const give = t.gives.reduce((n, l) => n + l.qty, 0), get = t.gets.reduce((n, l) => n + l.qty, 0);
     return <Row key={t.id} title={t.partner ?? "Trade"} detail={`Give ${give} · get ${get} · ${new Date(t.confirmed_at ?? t.updated_at).toLocaleDateString()}`}
@@ -43,6 +44,7 @@ export function TradesScreen({ onBack, onOpen, onNew, onMatch, onMatches }: {
   };
   return (
     <Screen>
+      {!onBack && <TabNav />}
       <Bar title="Trades" subtitle={loaded ? `${drafts.length} open` : undefined} onBack={onBack} />
       {error && <Notice tone="error">{error}</Notice>}
       <Row title="New trade" detail="What you give, what you get" onClick={onNew} />

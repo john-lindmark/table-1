@@ -637,10 +637,6 @@ export function LibraryHome({ go, onNew }: {
     <ShelfTile key={`f-${f.id}`} c={catalog} p={(f.art ? catalog?.printingIndex.get(f.art) : null) ?? null} title={followTitle(f)} subtitle={f.owner?.display_name} note={f.unseen ? `${f.unseen} new` : null}
                onClick={() => { const href = followHref(f); if (href) go(href); }} />
   ));
-  const action = (title: string, href: string) => (
-    <button type="button" onClick={() => { tap(title.toLowerCase()); go(href); }}
-            className="flex-1 h-[50px] bg-t1-bg text-[11px] uppercase tracking-[1.5px] hover:text-t1-accent">{title}</button>
-  );
   return (
     <LibScreen width="wide">
       <TabNav />
@@ -685,17 +681,14 @@ export function LibraryHome({ go, onNew }: {
           {!cubes.length && <ShelfTile c={catalog} p={null} title="New cube" subtitle="Build or import" onClick={() => onNew("cube")} />}
         </Shelf>
       </div>
-      <div className="shrink-0 flex gap-px">
-        {action("Trade", "/library/trades")}
-        {action("Wants", "/library/wants")}
-        {action("Import", "/library/import")}
-      </div>
       {menu && (
         <Menu items={[
           { title: "Add cards", detail: "Search by name or Scryfall syntax", onClick: () => go("/library/add") },
           { title: "New deck", onClick: () => onNew("deck") },
           { title: "New binder", onClick: () => onNew("binder") },
           { title: "New cube", onClick: () => onNew("cube") },
+          // Trade and Wants are sub-tabs now (contract/main-nav-2026-11-14.md § 3); Import moved here from the bottom row.
+          { title: "Import", detail: "Import and export", onClick: () => { tap("import"); go("/library/import"); } },
         ]} onClose={() => setMenu(false)} />
       )}
     </LibScreen>

@@ -47,7 +47,7 @@ struct InsightsDestination: View {
     }
 }
 
-/// The tab's root: Constructed | Limited.
+/// The Constructed and Limited sub-tabs' root (the strip under it picks `section`, contract/main-nav-2026-11-14.md).
 struct InsightsHomeView: View {
     @Binding var path: [InsightsRoute]
     var isFront = true
@@ -63,7 +63,6 @@ struct InsightsHomeView: View {
                     }
                 }
             }
-            T1Segmented(options: [("constructed", "Constructed"), ("limited", "Limited")], selection: $store.section)
             InsightsPage {
                 VStack(spacing: 1) {
                     if store.section == "limited" { LimitedHomeSection(path: $path) } else { ConstructedHomeSection(path: $path) }

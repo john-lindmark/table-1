@@ -91,6 +91,8 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
   const p = pathname.replace(/\/+$/, "") || "/";
   if (p === "/") return "events_home";
   if (p === "/me") return "account";
+  if (p === "/me/records") return "account_records";
+  if (p === "/me/settings") return "account_settings";
   if (p === "/me/deck-photos") return "my_deck_photos";
   if (p === "/support") return "support";
   if (p === "/support/guide") return "support_guides";
@@ -125,6 +127,7 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
     "/friends/add": "friend_add",
     "/sharing": "sharing",
     "/library/rankings": "rankings",
+    "/insights/rankings": "rankings",
   };
   if (fixed[p]) return fixed[p];
   if (/^\/library\/card\/[^/]+$/.test(p)) return "card_detail";

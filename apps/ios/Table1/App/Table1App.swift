@@ -396,14 +396,18 @@ enum Route: Hashable {
     }
 }
 
-enum Tab: Hashable { case events, collection, insights, account }
-
-/// Four tabs in the app's own bar: Events (what's happening, and getting into it), Collection (the
-/// Library), Insights (the metagame and Arena draft, contract/insights-2026-10-24.md) and Account. Each tab keeps
-/// its own NavigationStack alive (switched by opacity), so going back to a tab finds it where it was.
+/// Four tabs in the app's own bar: Play (events, and the life tracker), Cards (the Library, trades and wants),
+/// Insights (the metagame, Arena draft and rankings, contract/insights-2026-10-24.md) and Account, each with a strip of
+/// sub-tabs above the bar (contract/main-nav-2026-11-14.md). Each tab keeps its own NavigationStack alive (switched by
+/// opacity), and its sub-tab roots alive once opened, so going back to a tab finds it where it was; the sub-tab each
+/// tab was on is kept on the device.
 struct SignedInView: View {
     @Environment(SessionModel.self) private var session
     @State private var tab: Tab = .events
+    /// Each tab's sub-tab (Insights' Constructed / Limited reads InsightsStore.section, see `sub(_:)`).
+    @State private var subs: [Tab: SubTab] = Dictionary(uniqueKeysWithValues: Tab.allCases.map { ($0, MainNav.load($0)) })
+    /// Sub-tab roots drawn so far: a root is built when first opened, then kept.
+    @State private var opened: Set<SubTab> = Set(Tab.allCases.map { MainNav.load($0) })
     @State private var path: [Route] = []
     @State private var libraryPath: [LibraryRoute] = []
     @State private var insightsPath: [InsightsRoute] = []
@@ -413,10 +417,10 @@ struct SignedInView: View {
     @State private var keyboardUp = false
 
     static let tabs: [T1TabItem<Tab>] = [
-        T1TabItem(id: .events, label: "Events", icon: .tabEvents),
-        T1TabItem(id: .collection, label: "Collection", icon: .tabCollection),
-        T1TabItem(id: .insights, label: "Insights", icon: .tabInsights),
-        T1TabItem(id: .account, label: "Account", icon: .tabAccount),
+        T1TabItem(id: .events, label: MainNav.label(.events), icon: .tabEvents),
+        T1TabItem(id: .collection, label: MainNav.label(.collection), icon: .tabCollection),
+        T1TabItem(id: .insights, label: MainNav.label(.insights), icon: .tabInsights),
+        T1TabItem(id: .account, label: MainNav.label(.account), icon: .tabAccount),
     ]
 
     var body: some View {
@@ -424,10 +428,14 @@ struct SignedInView: View {
         // AnyLayout keeps every tab's stack (and where it was) when the bar moves.
         let rail = WindowFold.shared.rail
         let stack = rail == nil ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
+        // The bars show only on a tab's root (anything pushed above it hides them), and hide while typing so they
+        // don't ride up on the keyboard.
+        let bars = !keyboardUp && atTabRoot
         stack {
-            if rail == .leading && !keyboardUp && atTabRoot {
+            if rail == .leading && bars {
                 T1TabBar(items: Self.tabs, selection: tab, rail: .leading) { select($0) }
             }
+            VStack(spacing: 0) {
             ZStack {
                 NavigationStack(path: $path) {
                     EventsHomeView(path: $path, isFront: tab == .events)
@@ -456,9 +464,18 @@ struct SignedInView: View {
                 .accessibilityHidden(tab != .events)
 
                 NavigationStack(path: $libraryPath) {
-                    LibraryHomeView(path: $libraryPath)
-                        .screen("library_home", when: tab == .collection)
-                        .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $libraryPath) }
+                    ZStack {
+                        LibraryHomeView(path: $libraryPath)
+                            .screen("library_home", when: tab == .collection && sub(.collection) == .collection)
+                            .subRoot(sub(.collection) == .collection)
+                        if opened.contains(.trade) {
+                            TradesView(path: $libraryPath, root: true).subRoot(sub(.collection) == .trade)
+                        }
+                        if opened.contains(.wants) {
+                            WantsView(path: $libraryPath, root: true).subRoot(sub(.collection) == .wants)
+                        }
+                    }
+                    .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $libraryPath) }
                 }
                 .environment(\.openProfile) { libraryPath.append(.social(.profile($0))) }
                 .environment(\.openLibrary) { libraryPath.append($0) }
@@ -467,9 +484,18 @@ struct SignedInView: View {
                 .accessibilityHidden(tab != .collection)
 
                 NavigationStack(path: $insightsPath) {
-                    InsightsHomeView(path: $insightsPath, isFront: tab == .insights)
-                        .screen(InsightsStore.shared.section == "limited" ? "insights_limited" : "insights_constructed", when: tab == .insights)
-                        .navigationDestination(for: InsightsRoute.self) { InsightsDestination(route: $0, path: $insightsPath) }
+                    ZStack {
+                        InsightsHomeView(path: $insightsPath, isFront: tab == .insights && sub(.insights) != .rankings)
+                            .screen(InsightsStore.shared.section == "limited" ? "insights_limited" : "insights_constructed",
+                                    when: tab == .insights && sub(.insights) != .rankings)
+                            .subRoot(sub(.insights) != .rankings)
+                        if opened.contains(.rankings) {
+                            RankingsView(listId: nil, path: InsightsRoute.library($insightsPath), root: true)
+                                .screen("rankings", when: tab == .insights && sub(.insights) == .rankings)
+                                .subRoot(sub(.insights) == .rankings)
+                        }
+                    }
+                    .navigationDestination(for: InsightsRoute.self) { InsightsDestination(route: $0, path: $insightsPath) }
                 }
                 .environment(\.openProfile) { insightsPath.append(.library(.social(.profile($0)))) }
                 .environment(\.openLibrary) { insightsPath.append(.library($0)) }
@@ -478,9 +504,27 @@ struct SignedInView: View {
                 .accessibilityHidden(tab != .insights)
 
                 NavigationStack(path: $accountPath) {
-                    AccountView(path: $accountPath)
-                        .screen("account", when: tab == .account)
-                        .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $accountPath) }
+                    ZStack {
+                        if opened.contains(.profile) {
+                            Group {
+                                if let me = Repo.userId { ProfileScreen(userId: me, path: $accountPath, root: true) }
+                                else { T1Screen { Bar(title: "Profile"); Notice("Sign in to see your profile.") } }
+                            }
+                            .screen("account_profile", when: tab == .account && sub(.account) == .profile)
+                            .subRoot(sub(.account) == .profile)
+                        }
+                        if opened.contains(.records) {
+                            AccountView(path: $accountPath, part: .records)
+                                .screen("account_records", when: tab == .account && sub(.account) == .records)
+                                .subRoot(sub(.account) == .records)
+                        }
+                        if opened.contains(.settings) {
+                            AccountView(path: $accountPath, part: .settings)
+                                .screen("account_settings", when: tab == .account && sub(.account) == .settings)
+                                .subRoot(sub(.account) == .settings)
+                        }
+                    }
+                    .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $accountPath) }
                 }
                 .environment(\.openProfile) { accountPath.append(.social(.profile($0))) }
                 .environment(\.openLibrary) { accountPath.append($0) }
@@ -490,9 +534,12 @@ struct SignedInView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Only on a tab's main view (anything pushed above it hides the bar), and hidden while typing
-            // so it doesn't ride up on the keyboard.
-            if rail != .leading && !keyboardUp && atTabRoot {
+            // The sub-tab strip (Figma 765:113447): above the tab bar, or along the bottom of the content beside a rail.
+            if bars {
+                T1SubTabBar(items: MainNav.subs(tab), selection: sub(tab)) { selectSub($0) }
+            }
+            }
+            if rail != .leading && bars {
                 T1TabBar(items: Self.tabs, selection: tab, rail: rail) { select($0) }
             }
         }
@@ -567,8 +614,7 @@ struct SignedInView: View {
                 session.pendingLibrary = nil
                 session.tracker = nil
                 T1Overlays.shared.dismissAll()
-                select(.collection)
-                libraryPath = p
+                openCards(p)
             }
         }
         .task(id: session.pendingInsightsPush) {
@@ -581,6 +627,7 @@ struct SignedInView: View {
                 if p.section == "constructed" { store.format = p.key } else { store.setCode = p.key }
                 if let t = p.tier.flatMap(Insights.Tier.init) { store.tierPicked = t }
                 if let d = p.days { store.days = d }
+                setSub(p.section == "limited" ? .limited : .constructed, for: .insights)
                 if let l = p.limited { store.limitedSort = l.sort; store.limitedRarity = l.rarity; store.limitedColor = l.color }
                 tab = .insights
                 insightsPath = switch p.what {
@@ -633,7 +680,9 @@ struct SignedInView: View {
             if let route = session.pendingInsights {
                 session.pendingInsights = nil
                 select(.insights)
-                insightsPath = [route]
+                let (s, rest) = MainNav.insights([route])
+                if let s { setSub(s, for: .insights) }
+                insightsPath = rest
             }
         }
         .task(id: session.pendingJoin) {
@@ -670,14 +719,56 @@ struct SignedInView: View {
         }
         // Hidden tabs stay alive, so a tab root's onAppear doesn't fire on a switch.
         if next != tab {
-            switch next {
-            case .events: if path.isEmpty { Telemetry.screen("events_home") }
-            case .collection: if libraryPath.isEmpty { Telemetry.screen("library_home") }
-            case .insights: if insightsPath.isEmpty { Telemetry.screen(InsightsStore.shared.section == "limited" ? "insights_limited" : "insights_constructed") }
-            case .account: if accountPath.isEmpty { Telemetry.screen("account") }
+            let atRoot = switch next {
+            case .events: path.isEmpty
+            case .collection: libraryPath.isEmpty
+            case .insights: insightsPath.isEmpty
+            case .account: accountPath.isEmpty
             }
+            if atRoot { Telemetry.screen(MainNav.screen(sub(next))) }
         }
         tab = next
+    }
+
+    /// The sub-tab a tab is on. Insights' Constructed / Limited is the section Insights already keeps (it follows
+    /// the account); Rankings is kept on its own (contract § 2).
+    private func sub(_ tab: Tab) -> SubTab {
+        let s = subs[tab] ?? MainNav.defaultSub(tab)
+        if tab == .insights && s != .rankings { return InsightsStore.shared.section == "limited" ? .limited : .constructed }
+        return s
+    }
+
+    /// A tap on the strip. Life tracker opens full screen over everything and isn't kept.
+    private func selectSub(_ item: MainNav.Sub) {
+        Telemetry.capture("nav_sub_tab", ["tab": tab.rawValue, "sub": item.id.rawValue])
+        if item.fullScreen {
+            session.openTracker(matchId: nil, source: "tab")
+            return
+        }
+        if item.id != sub(tab) { Telemetry.screen(MainNav.screen(item.id)) }
+        setSub(item.id, for: tab)
+    }
+
+    private func setSub(_ s: SubTab, for t: Tab) {
+        if s == .constructed { InsightsStore.shared.section = "constructed" }
+        if s == .limited { InsightsStore.shared.section = "limited" }
+        subs[t] = s
+        opened.insert(s)
+        MainNav.save(s, for: t)
+    }
+
+    /// A Cards path from a link or push: Trades and Wants open their sub-tabs, the rest pushes on top.
+    private func openCards(_ stack: [LibraryRoute]) {
+        if let rest = MainNav.rankingsIn(stack) {
+            select(.insights)
+            setSub(.rankings, for: .insights)
+            insightsPath = rest.map { .library($0) }
+            return
+        }
+        select(.collection)
+        let (s, rest) = MainNav.cards(stack)
+        if let s { setSub(s, for: .collection) }
+        libraryPath = rest
     }
 
     /// A tapped table-1.site link: the screens behind its web address, on a fresh stack (contract/universal-links-2026-10-22.md).
@@ -691,8 +782,7 @@ struct SignedInView: View {
             path = stack
             if case .event(let id)? = stack.first { swapForEventPage(id) }
         case .collection(let stack):
-            select(.collection)
-            libraryPath = stack
+            openCards(stack)
         case .account(let stack):
             select(.account)
             accountPath = stack

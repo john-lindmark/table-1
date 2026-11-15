@@ -179,7 +179,7 @@ fun ownedFinishes(): Map<String, Set<String>> =
 // ── list ──────────────────────────────────────────────────────────────────
 
 @Composable
-fun TradesScreen(onBack: () -> Unit, onOpen: (String?) -> Unit, onMatch: (String) -> Unit = {}, onMatches: () -> Unit = {}) {
+fun TradesScreen(onBack: (() -> Unit)?, onOpen: (String?) -> Unit, onMatch: (String) -> Unit = {}, onMatches: () -> Unit = {}) {
     val s by TradesStore.state.collectAsState()
     val friends by FriendsStore.state.collectAsState()
     LaunchedEffect(Unit) { TradesStore.load() }

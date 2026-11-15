@@ -384,25 +384,31 @@ enum LibraryDemo {
 struct LibraryDemoRoot: View {
     @State private var path: [LibraryRoute] = []
     @State private var loaded = true
+    /// The Cards sub-tab, as in the app (`-T1Sub trade|wants` starts on one).
+    @State private var sub: SubTab = EventsDemoArgs.sub(.collection)
 
     var body: some View {
         // Stacked over the app's tab bar on the Collection home, as in the app, for design QA (taps do nothing here).
         let rail = WindowFold.shared.rail
         let stack = rail == nil ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
         stack {
-            NavigationStack(path: $path) {
-                LibraryHomeView(path: $path)
+            VStack(spacing: 0) {
+                NavigationStack(path: $path) {
+                    ZStack {
+                        LibraryHomeView(path: $path).subRoot(sub == .collection)
+                        if sub == .trade { TradesView(path: $path, root: true) }
+                        if sub == .wants { WantsView(path: $path, root: true) }
+                    }
                     .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $path) }
+                }
+                .environment(\.openProfile) { path.append(.social(.profile($0))) }
+                .keyboardAwayOnBack(path.count)
+                if path.isEmpty {
+                    T1SubTabBar(items: MainNav.subs(.collection), selection: sub) { if !$0.fullScreen { sub = $0.id } }
+                }
             }
-            .environment(\.openProfile) { path.append(.social(.profile($0))) }
-            .keyboardAwayOnBack(path.count)
             if path.isEmpty {
-                T1TabBar(items: [
-                    T1TabItem(id: 0, label: "Events", icon: .tabEvents),
-                    T1TabItem(id: 1, label: "Collection", icon: .tabCollection),
-                    T1TabItem(id: 2, label: "Insights", icon: .tabInsights),
-                    T1TabItem(id: 3, label: "Account", icon: .tabAccount),
-                ], selection: 1, rail: rail) { _ in }
+                T1TabBar(items: SignedInView.tabs, selection: .collection, rail: rail) { _ in }
             }
         }
         .overlay(alignment: .top) {

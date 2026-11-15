@@ -341,6 +341,14 @@ final class RankingsStore {
         return try await supabase.rpc("limited_rankable").execute().value
     }
 
+    /// Your friends' rankings you may open, every subject, newest first (Insights → Rankings, contract/main-nav-2026-11-14.md).
+    func friendsRankings() async throws -> [RankingRow] {
+        #if DEBUG
+        if let demo { return demo.friendsRankings() }
+        #endif
+        return try await supabase.rpc("rankings_friends", params: ["p_limit": AnyJSON.integer(200)]).execute().value
+    }
+
     /// The popular cubes with your and your friends' rankings of each.
     func popularCubes() async throws -> [PopularCube] {
         #if DEBUG
@@ -1108,6 +1116,12 @@ final class RankingsDemoBackend: @unchecked Sendable {
         guard listId == cubeId || listId == Self.maraCube || listId == Self.demoSet || Self.popular.contains(where: { $0.subjectId == listId })
         else { return CubeRankings(cube: nil, canRank: false, rankings: []) }
         return CubeRankings(cube: cube(listId!, withCards: false), canRank: true, rankings: all.filter { $0.listId == listId })
+    }
+
+    /// Everyone else's shared rankings stand in for friends' (Mara is the demo's friend).
+    func friendsRankings() -> [RankingRow] {
+        rows.values.filter { !$0.mine && $0.sharing != "private" }.sorted { $0.name < $1.name }
+            .map { var r = $0; r.cube = cube(r.listId, withCards: false); return r }
     }
 
     /// A stand-in for Claude's brief (the demo has no server): marked as a sample, built from the comparison numbers.

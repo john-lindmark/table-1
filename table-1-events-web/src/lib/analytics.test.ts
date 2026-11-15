@@ -131,6 +131,9 @@ describe("screenName", () => {
   it("names routes with the contract's screen names", () => {
     expect(screenName("/")).toBe("events_home");
     expect(screenName("/me")).toBe("account");
+    expect(screenName("/me/records")).toBe("account_records");
+    expect(screenName("/me/settings")).toBe("account_settings");
+    expect(screenName("/insights/rankings")).toBe("rankings");
     expect(screenName(`/e/${UUID}`)).toBe("event");
     expect(screenName(`/p/${UUID}`)).toBe("event");
     expect(screenName("/j/ABCD")).toBe("event");

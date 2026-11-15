@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { MAIN_TABS, storeSub, subOfPath, tabHref, tabOf, type TabId } from "../lib/mainNav";
+import { capture } from "../lib/telemetry";
 import type { RoundWithMatches } from "../lib/types";
 
 /* Shared primitives for the Table 1 look: hard rectangles, 1px hairline gaps,
@@ -306,31 +308,65 @@ const TAB_ICON = {
   account: "M7.2735 8.8515C6.7995 8.37737 6.5625 7.80188 6.5625 7.125C6.5625 6.44813 6.7995 5.87262 7.2735 5.3985C7.74763 4.9245 8.32313 4.6875 9 4.6875C9.67687 4.6875 10.2524 4.9245 10.7265 5.3985C11.2005 5.87262 11.4375 6.44813 11.4375 7.125C11.4375 7.80188 11.2005 8.37737 10.7265 8.8515C10.2524 9.3255 9.67687 9.5625 9 9.5625C8.32313 9.5625 7.74763 9.3255 7.2735 8.8515ZM9.92662 8.05163C10.1839 7.7945 10.3125 7.48563 10.3125 7.125C10.3125 6.76437 10.1839 6.4555 9.92662 6.19838C9.6695 5.94113 9.36063 5.8125 9 5.8125C8.63937 5.8125 8.3305 5.94113 8.07337 6.19838C7.81612 6.4555 7.6875 6.76437 7.6875 7.125C7.6875 7.48563 7.81612 7.7945 8.07337 8.05163C8.3305 8.30887 8.63937 8.4375 9 8.4375C9.36063 8.4375 9.6695 8.30887 9.92662 8.05163ZM9 16.4351L2.625 12.5409V5.45906L9 1.56488L15.375 5.45906V12.5409L9 16.4351ZM9 15.1313L11.9366 13.3239C11.4875 13.0749 11.0142 12.8858 10.5167 12.7566C10.0191 12.6272 9.5135 12.5625 9 12.5625C8.4865 12.5625 7.98094 12.6272 7.48331 12.7566C6.98581 12.8858 6.5125 13.0749 6.06337 13.3239L9 15.1313ZM4.98037 12.6591C5.58125 12.2678 6.22231 11.9664 6.90356 11.7548C7.58481 11.5432 8.28362 11.4375 9 11.4375C9.71638 11.4375 10.4152 11.5432 11.0964 11.7548C11.7777 11.9664 12.4188 12.2678 13.0196 12.6591L14.25 11.925V6.09375L9 2.8875L3.75 6.09375V11.925L4.98037 12.6591Z",
 };
 
-const TABS = [
-  { to: "/", end: true, title: "Events", icon: TAB_ICON.events },
-  { to: "/library", end: false, title: "Collection", icon: TAB_ICON.collection },
-  { to: "/insights", end: false, title: "Insights", icon: TAB_ICON.insights },
-  { to: "/me", end: false, title: "Account", icon: TAB_ICON.account },
-];
+const TAB_ICONS: Record<TabId, string> = TAB_ICON;
 
-/** Events | Collection | Insights | Account along the bottom (Figma 407:9333), as in the apps: icon + label, the
- *  selected tab in text color under a 1 px accent line, the others icon and label both Neutral_4 (muted). Shown on the top-level screens once signed in, last in the
- *  screen's column wherever it's placed and pinned to the bottom of the window; a desktop window has the sidebar
- *  instead. */
-export function TabNav() {
+/**
+ * The sub-tab strip (Figma 765:113447, contract/main-nav-2026-11-14.md § 1): one 44 px row of equal cells on the
+ * background, 9 px tracked labels; the current sub-tab white under a 1 px accent line, the others Neutral_4. A tap swaps
+ * the tab's root in place (the life tracker opens full screen over it).
+ */
+export function SubTabStrip({ tab, current, className = "flex" }: { tab: TabId; current: string; className?: string }) {
   return (
-    <nav className="order-last mt-auto sticky bottom-0 z-10 shrink-0 flex bg-t1-bg pb-[env(safe-area-inset-bottom)] lg:hidden">
-      {TABS.map((t) => (
-        <NavLink key={t.to} to={t.to} end={t.end}
-                 className={({ isActive }) =>
-                   `flex-1 min-w-0 flex flex-col items-center gap-1 pt-[10px] pb-2 border-t ${
-                     isActive ? "border-t1-accent text-t1-text" : "border-transparent text-t1-muted hover:text-t1-text"
-                   }`}>
-          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="currentColor"><path d={t.icon} /></svg>
-          <span className="text-[9px] uppercase tracking-[1.5px] leading-[11px] truncate">{t.title}</span>
-        </NavLink>
-      ))}
-    </nav>
+    <div role="tablist" aria-label={tabOf(tab).label} className={`${className} shrink-0 h-[44px] bg-t1-bg`}>
+      {tabOf(tab).subs.map((s) => {
+        const on = s.id === current;
+        return (
+          <Link key={s.id} to={s.web} role="tab" aria-selected={on}
+                onClick={() => capture("nav_sub_tab", { tab, sub: s.id })}
+                className={`flex-1 min-w-0 flex items-center justify-center px-1 border-t ${
+                  on ? "border-t1-accent text-t1-text" : "border-transparent text-t1-muted hover:text-t1-text"
+                }`}>
+            <span className="text-[9px] uppercase tracking-[1.5px] leading-[11px] truncate">{s.label}</span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Play | Cards | Insights | Account along the bottom (Figma 407:9333), as in the apps: icon + label, the selected tab
+ *  in text color under a 1 px accent line, the others icon and label both Neutral_4 (muted), with the tab's sub-tab
+ *  strip directly above (contract/main-nav-2026-11-14.md). Shown on the sub-tab roots once signed in, last in the
+ *  screen's column wherever it's placed and pinned to the bottom of the window; each tab links to the sub-tab it was
+ *  left on. A desktop window has the sidebar instead, and the strip at the top of the column. */
+export function TabNav() {
+  const { pathname } = useLocation();
+  const here = subOfPath(pathname);
+  // The sub-tab shown is the one the tab comes back to.
+  useEffect(() => {
+    if (here.tab && here.sub) storeSub(here.tab, here.sub);
+  }, [here.tab, here.sub]);
+  return (
+    <>
+      {here.tab && here.sub && <SubTabStrip tab={here.tab} current={here.sub} className="hidden lg:flex order-first" />}
+      <div className="order-last mt-auto sticky bottom-0 z-30 shrink-0 flex flex-col bg-t1-bg pb-[env(safe-area-inset-bottom)] lg:hidden">
+        {here.tab && here.sub && <SubTabStrip tab={here.tab} current={here.sub} />}
+        <nav className="flex">
+          {MAIN_TABS.map((t) => {
+            const on = t.id === here.tab;
+            return (
+              <Link key={t.id} to={tabHref(t.id)} aria-current={on ? "page" : undefined}
+                    className={`flex-1 min-w-0 flex flex-col items-center gap-1 pt-[10px] pb-2 border-t ${
+                      on ? "border-t1-accent text-t1-text" : "border-transparent text-t1-muted hover:text-t1-text"
+                    }`}>
+                <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="currentColor"><path d={TAB_ICONS[t.id]} /></svg>
+                <span className="text-[9px] uppercase tracking-[1.5px] leading-[11px] truncate">{t.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+    </>
   );
 }
 

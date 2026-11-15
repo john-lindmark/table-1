@@ -68,17 +68,14 @@ private fun RowAction(text: String, accent: Boolean = false, onClick: () -> Unit
 
 /* ── rows for other screens ── */
 
-/** Account: Friends, Sharing, your profile. */
-fun LazyListScope.friendsAccountRows(state: FriendsState, onFriends: () -> Unit, onSharing: () -> Unit, onProfile: () -> Unit) {
-    item { Section("Friends and sharing") }
-    item {
+/** Account → Profile's first row: your friends, with the requests waiting. */
+fun LazyListScope.friendsRow(state: FriendsState, onFriends: () -> Unit) {
+    item(key = "friends-row") {
         val friends = state.list?.friends?.size ?: 0
         val waiting = state.requestsWaiting
         ListRow("Friends", listOfNotNull(plural(friends, "friend"), if (waiting > 0) "$waiting waiting" else null).joinToString(" · "),
             onClick = onFriends) { if (waiting > 0) Label("$waiting new", color = T1.accent) }
     }
-    item { ListRow("Sharing", state.sharing?.let(SharingRules::summary) ?: "Who sees your profile and Library", onClick = onSharing) }
-    item { ListRow("Your profile", "Name, photo and what you share", onClick = onProfile) }
 }
 
 /** One person in Trade matches (and in Trades): who, what each side has, and the value. */
@@ -252,8 +249,10 @@ fun FriendAddScreen(onBack: () -> Unit) {
 /* ── profile ── */
 
 @Composable
-fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: String, id: String?) -> Unit, onMatch: () -> Unit, onSharing: () -> Unit,
+fun ProfileUserScreen(userId: String, onBack: (() -> Unit)?, onSection: (kind: String, id: String?) -> Unit, onMatch: () -> Unit, onSharing: () -> Unit,
                       onFriends: () -> Unit = {}, onRanking: (String) -> Unit = {},
+                      /** Account → Profile (contract/main-nav-2026-11-14.md § 3): rows above the profile, Friends first. */
+                      top: (LazyListScope.() -> Unit)? = null,
                       /** Your own profile: a popular cube's Rankings ("set:PLSV"). */
                       onPopular: (String) -> Unit = {},
                       /** An achievement's league or board, by route. */
@@ -311,6 +310,7 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
             if (viewAs < 2) Telemetry.capture("profile_view_as", mapOf("as" to if (viewAs == 1) "friend" else "anyone"))
         }
         Hairlines(Modifier.weight(1f)) {
+            top?.invoke(this)
             if (p == null) { if (error == null) item { Notice("Loading…") }; return@Hairlines }
             val s = p.sections
             item {

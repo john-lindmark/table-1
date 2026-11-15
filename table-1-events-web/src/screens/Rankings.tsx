@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Avatar } from "../components/Avatar";
-import { Bar, Dialog, Field, GhostAction, Menu, Notice, Row, Section, Segmented, type MenuItem } from "../components/kit";
+import { Bar, Dialog, Field, GhostAction, Menu, Notice, Row, Section, Segmented, TabNav, type MenuItem } from "../components/kit";
 import { ZoomablePreview } from "../components/ZoomImage";
 import { cardImageUrl, cornerRatio, type Catalog } from "../lib/catalog";
 import { JOB_TITLE, compare, depthPhrase, suggestedDepth, why, type Link, type RankChange, type RankDepth, type RankJob, type RankSession, type RankingState } from "../lib/cubeRanking";
 import { fileName } from "../lib/deckImage";
 import {
-  createRanking, deleteRanking, fetchBrief, fetchPopularCubes, fetchRankable, fetchRankableSets, fetchRankings, popularDetail, progressText, rankableDetail,
+  createRanking, deleteRanking, fetchBrief, fetchFriendsRankings, fetchPopularCubes, fetchRankable, fetchRankableSets, fetchRankings, popularDetail, progressText, rankableDetail,
   rankingLabel, rankingModel, rankingTitle, setKeyOf, setSubjectId, sharingLabel, shortDate, subjectNoun, UNNAMED, useRanking,
   type CubeRankings, type PopularCube, type RankCard, type RankableCube, type RankableSet, type RankingBrief, type RankingModel, type RankingRow,
 } from "../lib/rankings";
@@ -56,7 +56,9 @@ export function RankingsRow({ listId, onOpen }: { listId: string; onOpen: () => 
 /* ── a cube's rankings, or all of yours ─────────────────────────────── */
 
 export function RankingsScreen({ listId, onBack, onOpen, onCube, onPopular }: {
-  listId: string | null; onBack: () => void; onOpen: (id: string) => void;
+  listId: string | null;
+  /** None: every ranking of yours as Insights → Rankings' root (contract/main-nav-2026-11-14.md § 3), with the tab bar. */
+  onBack?: () => void; onOpen: (id: string) => void;
   /** Your rankings: open someone else's cube's rankings, to rank it. */
   onCube?: (listId: string) => void;
   /** Your rankings: open a popular cube's rankings ("set:PLSV"). */
@@ -67,6 +69,8 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube, onPopular }: {
   const [others2, setOthers2] = useState<RankableCube[]>([]);
   const [sets, setSets] = useState<RankableSet[]>([]);
   const [popular, setPopular] = useState<PopularCube[]>([]);
+  /** Every ranking of yours: your friends' rankings; null when the server can't say (rankings_friends missing). */
+  const [friends, setFriends] = useState<RankingRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [top, setTop] = useState(100);
@@ -77,8 +81,9 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube, onPopular }: {
   const [busy, setBusy] = useState(false);
   const load = () => Promise.all([fetchRankings(listId), listId == null ? fetchRankable() : Promise.resolve([]),
                                   listId == null ? fetchRankableSets().catch(() => []) : Promise.resolve([]),
-                                  listId == null ? fetchPopularCubes().catch(() => []) : Promise.resolve([])])
-    .then(([d, r, s, p]) => { setData(d); setOthers2(r); setSets(s); setPopular(p); setError(null); }).catch((e) => setError((e as Error).message));
+                                  listId == null ? fetchPopularCubes().catch(() => []) : Promise.resolve([]),
+                                  listId == null ? fetchFriendsRankings().catch(() => null) : Promise.resolve(null)])
+    .then(([d, r, s, p, f]) => { setData(d); setOthers2(r); setSets(s); setPopular(p); setFriends(f); setError(null); }).catch((e) => setError((e as Error).message));
   useEffect(() => { void load(); }, [listId]);
   const cube = data?.cube ?? null;
   const isSet = !!setKeyOf(listId);
@@ -105,7 +110,8 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube, onPopular }: {
   );
   return (
     <LibScreen>
-      <Bar title="Rankings" subtitle={listId == null ? "Yours, and cubes and sets you can rank" : cube ? (cube.mine || isSet ? cube.name : `${cube.name} · ${cube.owner?.display_name ?? ""}`) : undefined}
+      {!onBack && <TabNav />}
+      <Bar title="Rankings" subtitle={listId == null ? undefined : cube ? (cube.mine || isSet ? cube.name : `${cube.name} · ${cube.owner?.display_name ?? ""}`) : undefined}
            onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {error && <Notice tone="error">{error}</Notice>}
@@ -130,13 +136,26 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube, onPopular }: {
           </div>
         </>) : <Row title={isSet ? `Rank ${cube.name}` : cube.mine ? "New ranking" : cube.owner ? `Rank ${cube.owner.display_name}'s cube` : "Rank this cube"}
                     detail={cube.mine || isSet ? "Sort each color, then the top 100" : "Your own ranking: each color, then the top 100"} onClick={() => setCreating(true)} />)}
-        {data && mine.length > 0 && (<>{listId != null && <Section title="Yours" />}{mine.map(row)}</>)}
+        {data && mine.length > 0 && (<><Section title="Yours" />{mine.map(row)}</>)}
         {data && listId != null && (<>
           <Section title={isSet ? "Your friends'" : "Everyone else's"} />
           {!others.length && <Notice tone="info">{isSet ? `None of your friends has ranked this ${noun} yet.` : "Nobody else has ranked this cube yet."}</Notice>}
           {others.map(row)}
         </>)}
-        {data && listId == null && !mine.length && <Notice tone="info">No rankings yet. Open one of your cubes and choose Rankings, or rank a friend's cube below.</Notice>}
+        {data && listId == null && !mine.length && (<>
+          <Section title="Yours" />
+          <Notice tone="info">No rankings yet. Rank a popular cube below, or open one of your cubes and tap Rankings.</Notice>
+        </>)}
+        {/* Yours, your friends', popular cubes, then cubes and sets you can rank (contract/main-nav-2026-11-14.md § 3). */}
+        {data && listId == null && friends && (<>
+          <Section title="Your friends'" />
+          {!friends.length && <Notice tone="info">When a friend shares a ranking, it shows here.</Notice>}
+          {friends.map(row)}
+        </>)}
+        {data && listId == null && popular.length > 0 && (<>
+          <Section title="Popular cubes" />
+          {popular.map((c) => <Row key={c.key} title={c.name} detail={popularDetail(c)} onClick={() => (onPopular ?? onCube)?.(c.id)} />)}
+        </>)}
         {data && listId == null && (<>
           <Section title="Cubes you can rank" />
           {!others2.length && <Notice tone="info">When a friend, or someone you've played with, shares a cube with you, it shows here. You can also open any cube
@@ -146,10 +165,6 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube, onPopular }: {
                  detail={[c.owner?.display_name, plural(c.cards, "card"), c.rankings ? plural(c.rankings, "ranking") : "no rankings yet", c.mine ? `${c.mine} yours` : null]
                    .filter(Boolean).join(" · ")} />
           ))}
-        </>)}
-        {data && listId == null && popular.length > 0 && (<>
-          <Section title="Popular cubes" />
-          {popular.map((c) => <Row key={c.key} title={c.name} detail={popularDetail(c)} onClick={() => (onPopular ?? onCube)?.(c.id)} />)}
         </>)}
         {data && listId == null && sets.length > 0 && (<>
           <Section title="Sets you can rank" />
@@ -945,7 +960,7 @@ function RankingImage({ m, c, onClose }: { m: RankingModel; c: Catalog; onClose:
 export { rankingModel };
 
 /** Dev demo (`?demo`): rankings of the fixture's cube, built once the card data and demo lists are in. Signed in: as is. */
-export function RankingsDemoGate({ children }: { children: ReactNode }) {
+export function RankingsDemoGate({ children, root }: { children: ReactNode; /** Insights → Rankings: the tab bar stays. */ root?: boolean }) {
   const { demo, ready, session } = useLibrarySession();
   const { catalog } = useCatalog();
   const { lists } = useListsData();
@@ -958,9 +973,9 @@ export function RankingsDemoGate({ children }: { children: ReactNode }) {
     setReady((n) => n + 1);
   }, [demo, catalog, lists.ready]);
   switch (rankingsGate({ ready, session, demo, demoReady: !!rankingsDemo() })) {
-    case "wait": return <LibScreen><div className="flex-1" /></LibScreen>;
-    case "signIn": return <LibScreen><Bar title="Rankings" /><Notice tone="info">Sign in to rank cubes.</Notice></LibScreen>;
-    case "demoSetup": return <LibScreen><Bar title="Rankings" /><Notice tone="info">Setting up the demo rankings…</Notice></LibScreen>;
+    case "wait": return <LibScreen>{root && <TabNav />}<div className="flex-1" /></LibScreen>;
+    case "signIn": return <LibScreen>{root && <TabNav />}<Bar title="Rankings" /><Notice tone="info">Sign in to rank cubes.</Notice></LibScreen>;
+    case "demoSetup": return <LibScreen>{root && <TabNav />}<Bar title="Rankings" /><Notice tone="info">Setting up the demo rankings…</Notice></LibScreen>;
     case "show": return <>{children}</>;
   }
 }

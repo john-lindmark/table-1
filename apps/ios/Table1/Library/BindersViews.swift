@@ -569,6 +569,8 @@ enum BinderMoveFlow {
 
 struct WantsView: View {
     @Binding var path: [LibraryRoute]
+    /// Cards → Wants (contract/main-nav-2026-11-14.md): a sub-tab root, with no back arrow.
+    var root = false
     @Environment(\.dismiss) private var dismiss
     private var store: BindersStore { BindersStore.shared }
     private var catalog: CatalogStore { CatalogStore.shared }
@@ -593,7 +595,7 @@ struct WantsView: View {
         let shownWants = query.isEmpty ? rows : rows.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
         let shownMissing = query.isEmpty ? missing : missing.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
         T1Screen {
-            Bar(title: "Wants", subtitle: "\(wanted) wanted · \(short) missing", back: { dismiss() })
+            Bar(title: "Wants", subtitle: "\(wanted) wanted · \(short) missing", back: root ? nil : { dismiss() })
             if let error = store.error { Notice(error, error: true) }
             CatalogStatusRow(catalog: catalog)
             if !rows.isEmpty || !missing.isEmpty { T1SearchField(text: $query, prompt: "Name or type") }

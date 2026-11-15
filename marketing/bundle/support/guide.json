@@ -170,7 +170,7 @@
   {
    "id": "overview-1",
    "s": "overview",
-   "x": "The app has four tabs: Events, Collection, Insights and Account. Events is the product: players and organizers arrive there to play or run a tournament. Collection holds the Library: every card you own, your binders and wants, your decks, your cubes and your trades. Insights shows the metagame and Arena draft data. Account holds your profile, friends and sharing."
+   "x": "The app has four tabs: Play, Cards, Insights and Account, each with a row of sub-tabs just above the tab bar: Play is Events · Life tracker, Cards is Collection · Trade · Wants, Insights is Constructed · Limited · Rankings and Account is Profile · Records · Settings. A tab comes back to the sub-tab you left it on, even after closing the app; only Life tracker opens full screen. Play is the product: players and organizers arrive there to play or run a tournament. Cards holds the Library: every card you own, your binders and wants, your decks, your cubes and your trades. Insights shows the metagame, Arena draft data and every ranking. Account holds your profile, your record and your settings."
   },
   {
    "id": "overview-2",
@@ -1665,7 +1665,7 @@
   {
    "id": "insights-1",
    "s": "insights",
-   "x": "What's winning, at a glance. Its own tab between Collection and Account (in the sidebar on a computer), with Constructed | Limited at the top; the app remembers which you used last. Free for anyone signed in."
+   "x": "What's winning, at a glance. Its own tab between Collection and Account (in the sidebar on a computer), with the sub-tabs Constructed · Limited · Rankings above the tab bar; the app remembers which you used last. Free for anyone signed in."
   },
   {
    "id": "insights-2",
@@ -2022,8 +2022,8 @@
    "id": "collection-9",
    "s": "collection",
    "h": "The Collection tab",
-   "t": "Trade · Wants · Import",
-   "x": "along the bottom open Trades (with your trade matches), Wants, and Import and export."
+   "t": "Trade",
+   "x": "and Wants are the Cards tab's own sub-tabs, next to Collection, so the tab bar stays with them; Import (Import and export) is in the home's + menu."
   },
   {
    "id": "collection-10",
@@ -3159,294 +3159,300 @@
   {
    "id": "rankings-1",
    "s": "rankings",
-   "x": "Put a cube's cards in order, best first, the way cuberanker.com does for one famous cube, for any cube on Table 1. A ranking is one person's run through a cube, made of quick screens of up to four cards."
+   "t": "Insights → Rankings",
+   "x": "holds every ranking in one place: Yours, Your friends' (rankings your friends share with you, newest first), Popular cubes (PowerLSV, LSVCube, the MTGO Vintage Cube and the Arena Powered Cube, each a tap from Rank), then Cubes you can rank and Sets you can rank."
   },
   {
    "id": "rankings-2",
+   "s": "rankings",
+   "x": "Put a cube's cards in order, best first, the way cuberanker.com does for one famous cube, for any cube on Table 1. A ranking is one person's run through a cube, made of quick screens of up to four cards."
+  },
+  {
+   "id": "rankings-3",
    "s": "rankings",
    "h": "Where",
    "x": "A Rankings row on every cube you can see: your own, or one a friend or someone you've played with shares on their profile. A cube shared with you by link gets it as soon as you follow it, on the link's own screen; it stays while the link is live and you follow."
   },
   {
-   "id": "rankings-3",
+   "id": "rankings-4",
    "s": "rankings",
    "h": "Where",
    "t": "Cubes → Rankings",
    "x": "lists your rankings across every cube, then Cubes you can rank, with each cube's owner, size and rankings. Rank <owner>'s cube starts your own."
   },
   {
-   "id": "rankings-4",
+   "id": "rankings-5",
    "s": "rankings",
    "h": "Where",
    "x": "A ranking of someone else's cube is wholly yours: they can see it (when it's shared with the cube) but never change it."
   },
   {
-   "id": "rankings-5",
+   "id": "rankings-6",
    "s": "rankings",
    "h": "Where",
    "t": "Named after you",
    "x": "a ranking is titled with the name of the person who made it (\"Mara Quinn\"), everywhere it shows. An optional label follows the name (\"Mara Quinn · Power only\") to tell your rankings of one cube apart."
   },
   {
-   "id": "rankings-6",
+   "id": "rankings-7",
    "s": "rankings",
    "h": "Ranking",
    "x": "Sort each color (White, Blue, Black, Red, Green, Multicolor, Colorless, Lands): its Top 1/4, Top 1/3, Top half or Every card. Then the Final: a top 100 (or 50) across the whole cube. New rankings start at a quarter for a top 50 and a third for a top 100, until you pick."
   },
   {
-   "id": "rankings-7",
+   "id": "rankings-8",
    "s": "rankings",
    "h": "Ranking",
    "x": "The final always comes out exact, whatever the depth: when a color has more cards in your top 50 than it sorted, the final asks about them itself. A quarter takes about a third fewer screens than a half on a 540-card cube."
   },
   {
-   "id": "rankings-8",
+   "id": "rankings-9",
    "s": "rankings",
    "h": "Ranking",
    "t": "Checks",
    "x": "the final places a card only once its order against the other colors was asked directly (see Checks in the final, below), so one answer can't settle a whole run of cards."
   },
   {
-   "id": "rankings-9",
+   "id": "rankings-10",
    "s": "rankings",
    "h": "Ranking",
    "x": "Cards show in the printing the cube holds (a card with several printings shows the one it has most copies of)."
   },
   {
-   "id": "rankings-10",
+   "id": "rankings-11",
    "s": "rankings",
    "h": "Ranking",
    "x": "Each screen shows up to four cards. Drag them into order (or tap two to swap), then Lock in. The app works out everything that follows, so it never asks the same thing twice, and says about how many screens are left."
   },
   {
-   "id": "rankings-11",
+   "id": "rankings-12",
    "s": "rankings",
    "h": "Ranking",
    "x": "Sometimes cards already in order show a lock, and only one card moves to find its place."
   },
   {
-   "id": "rankings-12",
+   "id": "rankings-13",
    "s": "rankings",
    "h": "Ranking",
    "t": "Undo",
    "x": "the last screen; on any card's history, Redo an earlier screen to answer it again. On the web, keys 1–4, the arrows, Enter and Z do it all."
   },
   {
-   "id": "rankings-13",
+   "id": "rankings-14",
    "s": "rankings",
    "h": "Lists and why",
    "x": "Lists for the final and each color, then the cards \"below the top N, in no particular order\". Copy list copies it as text; Top 100 image makes a picture of it, which you can tap to zoom in on, or hold to copy, save or share."
   },
   {
-   "id": "rankings-14",
+   "id": "rankings-15",
    "s": "rankings",
    "h": "Lists and why",
    "x": "Tap a card for its history and Why is it above…: the chain of screens that put one card over another."
   },
   {
-   "id": "rankings-15",
+   "id": "rankings-16",
    "s": "rankings",
    "h": "Lists and why",
    "x": "Watch anyone's ranking live as they go."
   },
   {
-   "id": "rankings-16",
+   "id": "rankings-17",
    "s": "rankings",
    "h": "Lists and why",
    "t": "Post it in Discord",
    "x": "/ranking puts your top 50, top 100 or one color's list in a Discord channel (see Discord)."
   },
   {
-   "id": "rankings-17",
+   "id": "rankings-18",
    "s": "rankings",
    "h": "Rank a Limited set",
    "x": "From Insights → Limited (Rank this set, or New sets to rank) or Rankings (Sets you can rank: sets from the last year with 60 or more cards, sets due in the next 75 days once 20 of their cards are out, and every Arena cube run). The set's Rankings works like a cube's: Rank <set> starts yours, then sort each color and the final."
   },
   {
-   "id": "rankings-18",
+   "id": "rankings-19",
    "s": "rankings",
    "h": "Rank a Limited set",
    "x": "A set ranks its cards once each, English, no basic lands, tokens or art cards, each drawn in its regular frame. A cube run ranks the cards 17Lands lists for it."
   },
   {
-   "id": "rankings-19",
+   "id": "rankings-20",
    "s": "rankings",
    "h": "Rank a Limited set",
    "x": "Spoiler season works: cards the set gains after you start wait outside your lists until you place them, like a cube's new cards."
   },
   {
-   "id": "rankings-20",
+   "id": "rankings-21",
    "s": "rankings",
    "h": "Rank a Limited set",
    "t": "Shared with friends",
    "x": "to start (or Only me): everyone can see a set, so your ranking goes to your friends rather than to everyone on Table 1. Your friends' rankings of the set are listed under yours, to watch and compare."
   },
   {
-   "id": "rankings-21",
+   "id": "rankings-22",
    "s": "rankings",
    "h": "Popular cubes",
    "t": "Four cubes nobody on Table 1 owns",
    "x": "PowerLSV and LSVCube (LSV's, on Cube Cobra), the MTGO Vintage Cube and the Arena Powered Cube. They're listed under Popular cubes at the end of your own profile (not in View as) and on Rankings, above Sets you can rank: \"LSV · 528 cards · 3 friends' rankings · 1 yours\"."
   },
   {
-   "id": "rankings-22",
+   "id": "rankings-23",
    "s": "rankings",
    "h": "Popular cubes",
    "x": "A tap opens the cube's Rankings: Rank PowerLSV starts yours (depth, top 50 or 100, Shared with friends or Only me), then Yours and Your friends'. Everything else is the cube ranker: colors, the final and its checks, first picks, compare with a brief, the Top 100 image, Discord's /ranking."
   },
   {
-   "id": "rankings-23",
+   "id": "rankings-24",
    "s": "rankings",
    "h": "Popular cubes",
    "t": "Who sees one",
    "x": "like a set ranking: your friends, and whoever your profile's Rankings setting reaches. It shows on your profile's Rankings with the others."
   },
   {
-   "id": "rankings-24",
+   "id": "rankings-25",
    "s": "rankings",
    "h": "Popular cubes",
    "t": "The lists",
    "x": "read from where each cube lives: Cube Cobra's lists (in the printings those cubes use), mtgo.com's current Vintage Cube list (Scryfall's copy is behind it), and Scryfall's Arena Powered Cube. They're read again every Monday; cards that join wait to be placed and cards that leave drop out, as with any cube. A source that can't be read, or reads under 300 cards, keeps the list as it was. Two of LSV's cards aren't in the card data and are left out."
   },
   {
-   "id": "rankings-25",
+   "id": "rankings-26",
    "s": "rankings",
    "h": "Checks in the final",
    "x": "Before the final places a card, it looks at each other color's best card still to be placed, whether that card is in the running for the top or not. Unless a screen showed the two together, or two separate chains of screens with no card in common both put one above the other, the next screen is a check: your card with those cards (and its own color's next card when only the color's sort put it above), nothing locked, read \"Final · checking #31 of the top 50\". One answer on its own can no longer settle a whole run of cards."
   },
   {
-   "id": "rankings-26",
+   "id": "rankings-27",
    "s": "rankings",
    "h": "Checks in the final",
    "x": "Your answer on a check wins: if you now put Counterspell above Novice Inspector, the earlier answers that said otherwise give way. A check can also reorder two cards of one color the color's own sort got wrong."
   },
   {
-   "id": "rankings-27",
+   "id": "rankings-28",
    "s": "rankings",
    "h": "Checks in the final",
    "x": "The list keeps every place it already knows while the checks run; the final reads done once every place is checked. \"About N to go\" counts the places still to check."
   },
   {
-   "id": "rankings-28",
+   "id": "rankings-29",
    "s": "rankings",
    "h": "Checks in the final",
    "x": "A ranker who answers the same way every time gets the same list as before, after the checks."
   },
   {
-   "id": "rankings-29",
+   "id": "rankings-30",
    "s": "rankings",
    "h": "Checks in the final",
    "x": "Finished finals reopen for their checks."
   },
   {
-   "id": "rankings-30",
+   "id": "rankings-31",
    "s": "rankings",
    "h": "Checks in the final",
    "t": "What the tighter checks cost",
    "x": "Sorting each color deeper made no difference to the final, so the depth you pick only changes how many screens it takes."
   },
   {
-   "id": "rankings-31",
+   "id": "rankings-32",
    "s": "rankings",
    "h": "Checks in the final",
    "t": "Rule fixes without an app update",
    "x": "Table 1 can send phones a newer copy of how rankings decide. The app uses it only when it's newer than its own and ranks a set of known rankings exactly right first; otherwise, or with no signal, the app's own copy decides. Your screens are never changed by it: only which screen comes next and how the lists read."
   },
   {
-   "id": "rankings-32",
+   "id": "rankings-33",
    "s": "rankings",
    "h": "Refine with first picks",
    "x": "Once the final is done, Open a pack: 15 cards from the cube. Pick the one you'd take first. The pick refines your ranking like any screen."
   },
   {
-   "id": "rankings-33",
+   "id": "rankings-34",
    "s": "rankings",
    "h": "Refine with first picks",
    "x": "When your ranking already puts a card in the pack above your pick, it says so, for example \"You ranked Mana Drain #3 and Fury #20, but picked Fury\". Keep my ranking, or Let the pick win: the screens behind the disagreement come out and those cards are asked again."
   },
   {
-   "id": "rankings-34",
+   "id": "rankings-35",
    "s": "rankings",
    "h": "Refine with first picks",
    "t": "Pick history",
    "x": "lists every pick, the pack's best card by your ranking, and whether it disagreed."
   },
   {
-   "id": "rankings-35",
+   "id": "rankings-36",
    "s": "rankings",
    "h": "Change log",
    "x": "Every place change is kept, newest first by day, and filterable by list: \"Mana Drain · Final: #5 (new)\", \"Fury · Final: #4 → #9 (redo screen 12)\". A card's history shows its own changes."
   },
   {
-   "id": "rankings-36",
+   "id": "rankings-37",
    "s": "rankings",
    "h": "Compare, with a brief",
    "t": "Compare with another ranking",
    "x": "on any list: how many cards both have placed, how far apart they sit on average, the ten biggest differences, and the cards in one top half but not the other."
   },
   {
-   "id": "rankings-37",
+   "id": "rankings-38",
    "s": "rankings",
    "h": "Compare, with a brief",
    "t": "In brief",
    "x": "comes first: two to four short sentences written by Claude on where the two of you agree and the one or two clearest differences (colors, mana fixing, aggro or control, cheap interaction or big threats, the curve), naming a few cards. It knows which lands fix your mana and which are utility lands like Strip Mine or Karakas, and it gives each card's color as the card has it. It's written from both rankings' places, kept until either ranking changes, and refers to people only by name."
   },
   {
-   "id": "rankings-38",
+   "id": "rankings-39",
    "s": "rankings",
    "h": "When the cube changes",
    "x": "Cards that leave the cube drop out of your lists; what they told the ranking still counts, so your order stays. If one left your top 100 (or a color's top half), that list asks a screen or two to fill the place."
   },
   {
-   "id": "rankings-39",
+   "id": "rankings-40",
    "s": "rankings",
    "h": "When the cube changes",
    "x": "Cards that join wait under New in the cube, not placed yet, and the list keeps showing your order around them."
   },
   {
-   "id": "rankings-40",
+   "id": "rankings-41",
    "s": "rankings",
    "h": "When the cube changes",
    "x": "The ranking says what changed (\"3 cards joined … and 2 cards left …\"). Re-rank asks only about the new cards, mostly one new card against cards you've already ordered, then Next moves on to the next list that has one. Once every new card has a place, the note goes away."
   },
   {
-   "id": "rankings-41",
+   "id": "rankings-42",
    "s": "rankings",
    "h": "When the cube changes",
    "x": "When someone else starts a ranking of your cube that you can see, you get a notification (at most one a week per person). Tapping it opens their ranking on iPhone."
   },
   {
-   "id": "rankings-42",
+   "id": "rankings-43",
    "s": "rankings",
    "h": "Saving",
    "x": "Each screen saves as you lock it in, one at a time. Undo and Redo take out only the screen you chose."
   },
   {
-   "id": "rankings-43",
+   "id": "rankings-44",
    "s": "rankings",
    "h": "Saving",
    "x": "What isn't saved yet stays on your phone (or in your browser) through a crash, a force-quit, a closed tab or no signal, and is sent again until it's saved. A ranking with screens still to save says so, and tries again after a few seconds, then every minute."
   },
   {
-   "id": "rankings-44",
+   "id": "rankings-45",
    "s": "rankings",
    "h": "Saving",
    "x": "If the ranking changed on another device, the app reads it again and adds your screens on top, rather than throwing them away."
   },
   {
-   "id": "rankings-45",
+   "id": "rankings-46",
    "s": "rankings",
    "h": "Saving",
    "x": "A second tap on Lock in, or Enter pressed before the next screen draws, is ignored rather than locking the old order in again."
   },
   {
-   "id": "rankings-46",
+   "id": "rankings-47",
    "s": "rankings",
    "h": "Saving",
    "x": "The server refuses any save that would take out screens you didn't take out, from any version of the app, and keeps every screen that leaves a ranking, so one can always be put back."
   },
   {
-   "id": "rankings-47",
+   "id": "rankings-48",
    "s": "rankings",
    "h": "Who sees a ranking",
    "x": "Your rankings show on your profile, under Rankings, to whoever your Rankings setting in Sharing reaches (Friends to start; see Sharing); a shared set ranking reaches those people too, not only your friends. A ranking starts Shared with the cube: everyone who can see the cube can see it, so a cube's owner sees every ranking of it. Switch to Only me in Settings, where you can also give it a Label (optional) or remove one, change its depth or size, or delete it. Labels others can see are checked like deck names."
@@ -4277,13 +4283,13 @@
   {
    "id": "account-10",
    "s": "account",
-   "x": "The Account tab has your avatar, Friends, Sharing, View your profile, and notices from Table 1 when there are any."
+   "x": "The Account tab has three sub-tabs: Profile (your own profile as others see it, with Friends and requests waiting at the top), Records (your lifetime record, Deck photos, and Head-to-head with every opponent you've played) and Settings (profile photo, display name, Sharing, how you track games, nearby alerts, scan reports, usage and crash data, Payments, notices from Table 1, Support, Sign out, Delete account and About)."
   },
   {
    "id": "account-11",
    "s": "account",
    "t": "Deck photos",
-   "x": "under your lifetime record, every photo of a deck you played, by event, each with its Decklist row (see After the event)."
+   "x": "in Records under your lifetime record, every photo of a deck you played, by event, each with its Decklist row (see After the event)."
   },
   {
    "id": "account-12",

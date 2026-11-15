@@ -180,6 +180,8 @@ select pg_temp.ms('cube_ranking_push, redo of the first of 6000 (p_drop)', $$sel
   (public.cube_rankings('e7000000-0000-0000-0000-0000000000f1')->'rankings'->0->>'rev')::int, 6000, '[]', p_count := 6000, p_removed := 1,
   p_drop := jsonb_build_array(public.cube_ranking_get('f7000000-0000-0000-0000-0000000000f1')->'log'->0))$$, 400, 1);
 select pg_temp.ms('cube_rankings of a cube', $$select public.cube_rankings('e7000000-0000-0000-0000-0000000000f1')$$, 25);
+-- Insights → Rankings: friends' rankings (20261114200000_rankings_friends).
+select pg_temp.ms('rankings_friends', $$select public.rankings_friends()$$, 25);
 -- Discord's /ranking (20261103235000_discord_rankings): the ranking with its 540 cards' facts, and the picker.
 reset role;
 insert into t1_private.discord_links (discord_user_id, user_id) values ('110001', :BIG);

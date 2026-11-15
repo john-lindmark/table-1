@@ -44,9 +44,13 @@ struct RankingsRow: View {
 // MARK: a cube's rankings (or all of yours)
 
 struct RankingsView: View {
-    /// The cube; nil lists every ranking of yours.
+    /// The cube; nil lists every ranking of yours, your friends' and what you can rank (Insights → Rankings).
     let listId: String?
     @Binding var path: [LibraryRoute]
+    /// Insights → Rankings (contract/main-nav-2026-11-14.md): a sub-tab root, with no back arrow.
+    var root = false
+    /// Your friends' rankings (every ranking of yours only); nil: none, or an older server.
+    @State private var friends: [RankingRow]?
     @Environment(\.dismiss) private var dismiss
     @State private var data: CubeRankings?
     /// Every ranking of yours: other people's cubes you can rank too, and Limited sets.
@@ -65,9 +69,9 @@ struct RankingsView: View {
     var body: some View {
         let cube = data?.cube
         T1Screen {
-            Bar(title: "Rankings", subtitle: listId == nil ? "Yours, and cubes and sets you can rank"
+            Bar(title: "Rankings", subtitle: listId == nil ? nil
                     : cube.map { $0.mine || $0.isSet ? $0.name : "\($0.name) · \($0.owner?.displayName ?? "")" },
-                back: { dismiss() })
+                back: root ? nil : { dismiss() })
             HairlineList {
                 if let error { Notice(error, error: true) }
                 if data == nil && error == nil { Notice("Loading rankings…") }
@@ -82,7 +86,7 @@ struct RankingsView: View {
                     if data.canRank, let cube { newRanking(cube) }
                     let mine = data.rankings.filter(\.mine), others = data.rankings.filter { !$0.mine }
                     if !mine.isEmpty {
-                        if listId != nil { Section1("Yours") }
+                        Section1(listId == nil ? "Yours · \(mine.count)" : "Yours")
                         ForEach(mine) { row($0) }
                     }
                     if listId != nil {
@@ -90,13 +94,17 @@ struct RankingsView: View {
                         if others.isEmpty { Notice(cube?.isSet == true ? "None of your friends has ranked this \(cube?.noun ?? "set") yet." : "Nobody else has ranked this cube yet.") }
                         ForEach(others) { row($0) }
                     } else if mine.isEmpty {
-                        Notice("No rankings yet. Open one of your cubes and tap Rankings, or rank a friend's cube below.")
+                        Section1("Yours")
+                        Notice("No rankings yet. Rank a popular cube below, or open one of your cubes and tap Rankings.")
                     }
-                    if listId == nil { rankable; popularCubes; rankableSets }
+                    if listId == nil { friendsSection; popularCubes; rankable; rankableSets }
                 }
             }
         }
         .task(id: listId.map { ListsStore.shared.unsaved[$0] == nil } ?? true) { await load() }
+        // As a sub-tab root it stays alive: coming back from a ranking (or a new one) reads the lists again.
+        .onAppear { if root, data != nil { Task { await load() } } }
+        .refreshable { await load() }
     }
 
     private func load() async {
@@ -111,7 +119,9 @@ struct RankingsView: View {
                 async let cubes = RankingsStore.shared.rankable()
                 async let limited = RankingsStore.shared.rankableSets()
                 async let pop = RankingsStore.shared.popularCubes()
+                async let theirs = RankingsStore.shared.friendsRankings()
                 others = try await cubes
+                friends = try? await theirs
                 sets = (try? await limited) ?? []
                 popular = (try? await pop) ?? []
             }
@@ -119,6 +129,15 @@ struct RankingsView: View {
         } catch where !error.isCancellation {
             self.error = error.localizedDescription
         } catch {}
+    }
+
+    /// Your friends' shared rankings, newest first, each with who made it (contract/main-nav-2026-11-14.md § 3).
+    @ViewBuilder private var friendsSection: some View {
+        if let friends {
+            Section1(friends.isEmpty ? "Your friends'" : "Your friends' · \(friends.count)")
+            if friends.isEmpty { Notice("When a friend shares a ranking, it shows here.") }
+            ForEach(friends) { row($0) }
+        }
     }
 
     /// Other people's cubes shared with you, to rank in your own ranking.
