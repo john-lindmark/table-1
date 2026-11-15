@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Table 1 Feature Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column with a sticky section index; hairline-separated blocks like the app itself. */
+:root {
+  --bg: #f4f4f7; --surface: #ffffff; --line: #dcdce4; --fg: #171725; --muted: #5e5e6e; --accent: #007a68; --accent-ink: #ffffff; --warn: #b4235a;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #171725; --surface: #282839; --line: #3a3a4e; --fg: #f1f1f5; --muted: #a3a3b6; --accent: #00ffd9; --accent-ink: #171725; --warn: #ff6b9a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #171725; --surface: #282839; --line: #3a3a4e; --fg: #f1f1f5; --muted: #a3a3b6; --accent: #00ffd9; --accent-ink: #171725; --warn: #ff6b9a; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 16px; line-height: 1.6; padding: 0 16px; margin: 0; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 40px 80px; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px; }
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); gap: 24px; } nav.index { position: static !important; } }
+
+.label { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+header.top { grid-column: 1 / -1; border-bottom: 1px solid var(--line); padding-bottom: 28px; display: flex; flex-direction: column; gap: 10px; }
+header.top h1 { font-family: var(--mono); font-weight: 600; font-size: clamp(28px, 5vw, 44px); line-height: 1.1; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+header.top p { margin: 0; max-width: 64ch; color: var(--muted); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+
+nav.index { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; display: flex; flex-direction: column; gap: 2px; max-height: calc(100vh - 48px); overflow-y: auto; }
+nav.index a { font-family: var(--mono); font-size: 13px; color: var(--fg); text-decoration: none; padding: 5px 0 5px 12px; border-left: 1px solid var(--line); }
+nav.index a:hover, nav.index a:focus-visible { border-left-color: var(--accent); color: var(--accent); outline: none; }
+nav.index .label { margin-bottom: 8px; }
+nav.index .new { color: var(--accent); font-size: 10px; letter-spacing: .12em; margin-left: 6px; }
+
+main { min-width: 0; display: flex; flex-direction: column; gap: 56px; }
+section { display: flex; flex-direction: column; gap: 18px; scroll-margin-top: 24px; }
+h2 { font-family: var(--mono); font-size: 22px; font-weight: 600; margin: 0; text-wrap: balance; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+h2 .tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; color: var(--muted); }
+h2 .tag.new { color: var(--accent); }
+h3 { font-family: var(--mono); font-size: 15px; font-weight: 600; margin: 0; letter-spacing: .02em; }
+p { margin: 0; max-width: 68ch; }
+.lead { color: var(--muted); }
+ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 68ch; }
+li::marker { color: var(--accent); }
+strong { font-weight: 600; }
+code, .k { font-family: var(--mono); font-size: .88em; background: var(--surface); border: 1px solid var(--line); padding: 1px 5px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.cell { background: var(--surface); padding: 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cell p, .cell ul { font-size: 15px; }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 520px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--surface); }
+td { background: var(--surface); }
+tr:last-child td { border-bottom: 0; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.status { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 2px 8px; border: 1px solid var(--line); white-space: nowrap; }
+.status.live { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.status.open { color: var(--warn); border-color: var(--warn); }
+
+.note { border-left: 2px solid var(--accent); padding: 4px 0 4px 14px; color: var(--muted); max-width: 68ch; }
+.note.warn { border-left-color: var(--warn); }
+.changes { border: 1px solid var(--line); background: var(--surface); padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+.changes ul { font-size: 15px; }
+footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 20px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <span class="label">Table 1 · Feature guide · updated {{updated}}</span>
+    <h1>Table 1, everything it does</h1>
+    <p>Table 1 is a suite for competitive Magic: The Gathering players: a tournament runner first, with a card library (collection, binders, wants, decks, cubes and trades), metagame and draft insights, and friends alongside. The same features run on iOS, Android and the web from one shared backend; where a feature isn't on every platform yet, its section says so.</p>
+    <div class="meta">
+      <span class="label">iOS · SwiftUI</span><span class="label">Android · Compose</span><span class="label">Web · table-1.site</span><span class="label">Backend · Supabase</span>
+    </div>
+  </header>
+
+  <nav class="index" aria-label="Sections">
+    <span class="label">Contents</span>
+{{nav}}  </nav>
+
+  <main>
+{{sections}}  </main>
+
+  <footer><span class="label">Source: the Table 1 repository's feature specs and contracts, {{updated}}</span></footer>
+</div>
+</body>
+</html>

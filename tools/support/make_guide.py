@@ -6,13 +6,14 @@ carries build numbers, dates, what was tested and what isn't live. Support searc
 so this script keeps each section's entries and scrubs the rest:
 
   * sections in SKIP_SECTIONS go entirely (What's new, Status);
+  * <span class="team">…</span> goes whole: put a note about builds, dates or testing in one and no rule is needed;
   * "New" / "Updated" tags and the status chips go;
   * a sentence (or parenthesis) that talks about builds, releases, testing, dates or the team goes (DROP patterns);
   * entries listed in scrub.json's "drop" (section id + the start of the entry's text) go whole;
   * "colour" becomes "color".
 
 Then FORBIDDEN is checked over the result: if anything matches, the script fails and names it, so a new guide
-paragraph never reaches the apps unread. Usage, after saving the guide's HTML (Artifact read):
+paragraph never reaches the apps unread. Usage, normally run by tools/guide/build.py on the page it builds from marketing/guide/:
 
     python3 tools/support/make_guide.py <guide.html>
 
@@ -23,12 +24,13 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / "marketing/bundle/support/guide.json"
+OUT = Path(os.environ.get("T1_GUIDE_JSON") or ROOT / "marketing/bundle/support/guide.json")
 SCRUB = json.loads((Path(__file__).parent / "scrub.json").read_text())
 
 SKIP_SECTIONS = {"new", "status"}
@@ -54,7 +56,8 @@ def text(fragment: str) -> str:
 
 
 def strip_tags(body: str) -> str:
-    """Take out the New/Updated tags and status chips, keeping cell labels like "Missing"."""
+    """Take out team notes, the New/Updated tags and status chips, keeping cell labels like "Missing"."""
+    body = re.sub(r'\s*<span class="team">.*?</span>', "", body, flags=re.S)
     body = re.sub(r'<span class="(?:label|new|tag[^"]*)">(?:New|Updated)[^<]*</span>', "", body)
     body = re.sub(r'<span class="tag[^"]*">[^<]*</span>', "", body)
     body = re.sub(r'<span class="status[^"]*">[^<]*</span>', "", body)
@@ -172,7 +175,7 @@ def main(path: str) -> None:
 
     OUT.write_text(json.dumps({"source": "Table 1 Feature Guide", "sections": sections, "entries": items},
                               ensure_ascii=False, indent=1) + "\n")
-    print(f"{len(sections)} sections, {len(items)} entries, {OUT.stat().st_size // 1024} KB → {OUT.relative_to(ROOT)}")
+    print(f"{len(sections)} sections, {len(items)} entries, {OUT.stat().st_size // 1024} KB → {OUT}")
 
 
 if __name__ == "__main__":

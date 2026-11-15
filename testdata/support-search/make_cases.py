@@ -9,6 +9,7 @@ over the real bundled files marketing/bundle/support/faq.json and guide.json. Ch
 from __future__ import annotations
 
 import json
+import os
 import unicodedata
 from pathlib import Path
 
@@ -55,7 +56,7 @@ def hit(q: str, w: str) -> bool:
 
 def docs():
     faq = json.loads((SUPPORT / "faq.json").read_text())
-    guide = json.loads((SUPPORT / "guide.json").read_text())
+    guide = json.loads(Path(os.environ.get("T1_GUIDE_JSON") or SUPPORT / "guide.json").read_text())
     topics = {t["key"]: t["title"] for t in faq["topics"]}
     sections = {s["id"]: s["title"] for s in guide["sections"]}
     out = []
@@ -137,7 +138,7 @@ def main():
     out = {"about": "Support search cases (contract/support-2026-11-10.md § Search), from make_cases.py over the "
                     "bundled faq.json and guide.json. top: kind:id:score, best first, at most 8.",
            "stop": sorted(STOP), "limit": LIMIT, "normalize": norm, "cases": cases}
-    (Path(__file__).parent / "cases.json").write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n")
+    Path(os.environ.get("T1_SUPPORT_CASES") or Path(__file__).parent / "cases.json").write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n")
     for c in cases:
         print(f'{c["query"]!r:32} {c["count"]:3} {"partial " if c["partial"] else ""}{c["top"][:3]}')
 

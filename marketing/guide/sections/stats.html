@@ -1,0 +1,43 @@
+    <section id="stats">
+      <h2>Deck and cube stats <span class="tag new">New</span></h2>
+      <p class="lead">A <strong>Stats</strong> row under each deck ("24 lands · avg MV 1.72 · $1,535.36") or cube ("W 44 · U 56 · …") opens the numbers. Everything is worked out on your device from the card file, so it's instant and offline.</p>
+      <div class="grid">
+        <div class="cell">
+          <span class="label">Decks</span>
+          <ul>
+            <li><strong>Curve</strong> by mana value, creatures against other spells; <strong>types</strong>; <strong>average mana value</strong> with and without lands.</li>
+            <li><strong>Pips against sources:</strong> colored symbols in the costs next to the lands, dorks and rocks that make each color (fetch lands count for the colors they find).</li>
+            <li><strong>Legality</strong> per format with reasons, including copy limits.</li>
+            <li><strong>Price</strong> at market for each printing and finish, leaving out basic lands (your collection's value still counts the basics you own), and the <strong>tokens</strong> the deck makes.</li>
+          </ul>
+        </div>
+        <div class="cell">
+          <span class="label">Practice</span>
+          <ul>
+            <li><strong>Sample hand</strong> with London mulligans: draw seven, mulligan, put cards on the bottom, keep drawing.</li>
+            <li><strong>Draw odds:</strong> the chance of seeing at least k of a card or card type by each turn, on the play or the draw.</li>
+          </ul>
+        </div>
+        <div class="cell">
+          <span class="label">Cubes</span>
+          <ul>
+            <li><strong>Color balance</strong>, <strong>curve per color</strong> and <strong>type mix</strong>.</li>
+            <li><strong>Asfan:</strong> expected copies per pack by color, type or mana value, for a pack size you set.</li>
+            <li><strong>Sample pack</strong> drawn from the cube.</li>
+          </ul>
+        </div>
+      </div>
+      <p class="note">The same math runs on every platform and is checked against one shared set of cases, written by an independent reference. Every stat for a 540-card cube computes in well under 30 ms.</p>
+      <h3>Spice <span class="label">New</span></h3>
+      <p>How far a deck or cube strays from the ones like it, from 0 to 100. Each non-basic card in the main deck (and the command zone) counts by its copies. A card played in a quarter or more of the similar lists is stock and adds nothing. A rarer card adds more, up to its full weight for a card never seen. Basic lands never count, and sideboard cards are listed but not scored.</p>
+      <ul>
+        <li><strong>The words:</strong> <strong>Stock</strong> 0–9 (nine in ten tournament lists), <strong>Tuned</strong> 10–24, <strong>Spicy</strong> 25–49, <strong>Brew</strong> 50 and up.</li>
+        <li><strong>Similar decks</strong> are the tournament lists Insights reads (Magic Online, TopDeck.gg and, since 29 October, Melee), never older than a year. First the deck's own archetype, named by the same rules as Insights: its lists from the last 90 days, or the year if that's under 30 lists. A deck that comes out as Other, or whose archetype has too few lists, is compared with the archetype that plays the most of its cards. If even that one plays under a quarter of them, it's compared with the whole format, and Spice says "Nothing close in Modern". A deck copied from an Insights list isn't compared with that list.</li>
+        <li><strong>Canadian Highlander</strong> decks are one-ofs that share few cards, so each card is compared with the year's lists that could play it (their colours include the card's), and a card counts as stock from a tenth of them.</li>
+        <li><strong>Where:</strong> the Stats row ends with "Spice 34". Stats opens on the score and word in teal, then what it was compared with ("412 Boros Energy lists · last 90 days · MTGO and TopDeck.gg"). Under that come <strong>Spiciest cards</strong> ("4 Ancient Grudge · in 2 of 412 lists", "never seen"; the first eight, then Show all) and <strong>Stock cards you don't play</strong> (cards in half the similar lists or more, up to 12; none when the comparison is the whole format). Tap a card for its page. A deck or cube shared with you, on a profile or through a link, has a <strong>Spice</strong> row that opens the same.</li>
+        <li><strong>Other formats</strong> (Commander, Premodern and the rest) say "No tournament lists for this format yet". Legacy and Vintage decks are compared from 31 October <span class="label">New</span>, as their lists come in.</li>
+        <li><strong>Cubes</strong> are to be compared with the 20 most similar of Cube Cobra's popular public cubes, each counted by how alike it is, with the nearest named ("LSVCube · 62% alike"). Cube Cobra's terms don't allow reading its cubes without permission, so Table 1 is asking first. Until then a cube's Spice says "No cubes to compare with yet".</li>
+        <li>Worked out on the server, at most once a day for each version of a deck. Anyone who can see the deck or cube can see its Spice.</li>
+      </ul>
+      <p class="note">Built and tested on the server and all three platforms on 28 October, against one shared set of cases from an independent reference. Live on the server since 28 October: a recent Boros Energy list there scores 1 (Stock) against 360 Boros Energy lists, the same list with Ancient Grudge, Brute Force and Oath of Druids added scores 33 (Spicy), and a deck takes well under a second the first time each day, then comes from memory. On table-1.site since 28 October; iPhone and Android with their next builds.</p>
+    </section>

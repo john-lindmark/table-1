@@ -1,0 +1,219 @@
+{
+ "artifact": "https://claude.ai/artifact/Lj6y8earFPdKFka4YdN8Ai",
+ "published": {
+  "sha256": "3ff4811daef04033f61fe04c60ab38d181bfb0d41b465cb1c8ac6f472cb30e66",
+  "on": "2026-11-14"
+ },
+ "updated": "2026-11-14",
+ "sections": [
+  {
+   "id": "new",
+   "nav": "What's new"
+  },
+  {
+   "id": "overview",
+   "nav": "Overview"
+  },
+  {
+   "id": "foldables",
+   "nav": "Foldable phones",
+   "new": true
+  },
+  {
+   "id": "create",
+   "nav": "Creating an event",
+   "new": true
+  },
+  {
+   "id": "run",
+   "nav": "Running an event",
+   "new": true
+  },
+  {
+   "id": "play",
+   "nav": "Playing in an event",
+   "new": true
+  },
+  {
+   "id": "find",
+   "nav": "Finding events",
+   "new": true
+  },
+  {
+   "id": "leagues",
+   "nav": "Leagues",
+   "new": true
+  },
+  {
+   "id": "boards",
+   "nav": "Leaderboards",
+   "new": true
+  },
+  {
+   "id": "widgets",
+   "nav": "Widgets and quick actions",
+   "new": true
+  },
+  {
+   "id": "roto",
+   "nav": "Roto cube drafts",
+   "new": true
+  },
+  {
+   "id": "after",
+   "nav": "After the event",
+   "new": true
+  },
+  {
+   "id": "tracker",
+   "nav": "Life tracker",
+   "new": true
+  },
+  {
+   "id": "insights",
+   "nav": "Insights",
+   "new": true
+  },
+  {
+   "id": "library",
+   "nav": "Library and catalog",
+   "new": true
+  },
+  {
+   "id": "collection",
+   "nav": "Collection",
+   "new": true
+  },
+  {
+   "id": "binders",
+   "nav": "Binders and wants",
+   "new": true
+  },
+  {
+   "id": "csv",
+   "nav": "Collection import and export",
+   "new": true
+  },
+  {
+   "id": "scanning",
+   "nav": "Card scanning",
+   "new": true
+  },
+  {
+   "id": "trades",
+   "nav": "Trades",
+   "new": true
+  },
+  {
+   "id": "decks",
+   "nav": "Decks and cubes",
+   "new": true
+  },
+  {
+   "id": "heroes",
+   "nav": "Hero cards",
+   "new": true
+  },
+  {
+   "id": "search",
+   "nav": "Advanced search",
+   "new": true
+  },
+  {
+   "id": "stats",
+   "nav": "Deck and cube stats",
+   "new": true
+  },
+  {
+   "id": "deckimage",
+   "nav": "Deck image",
+   "new": true
+  },
+  {
+   "id": "rankings",
+   "nav": "Cube and set rankings",
+   "new": true
+  },
+  {
+   "id": "legality",
+   "nav": "Formats and legality"
+  },
+  {
+   "id": "finder",
+   "nav": "Deck finder",
+   "new": true
+  },
+  {
+   "id": "import",
+   "nav": "Importing and exporting lists"
+  },
+  {
+   "id": "friends",
+   "nav": "Friends and profiles",
+   "new": true
+  },
+  {
+   "id": "sharing",
+   "nav": "Sharing",
+   "new": true
+  },
+  {
+   "id": "matches",
+   "nav": "Trade matches",
+   "new": true
+  },
+  {
+   "id": "following",
+   "nav": "Following",
+   "new": true
+  },
+  {
+   "id": "safety",
+   "nav": "Safety and moderation",
+   "new": true
+  },
+  {
+   "id": "push",
+   "nav": "Notifications",
+   "new": true
+  },
+  {
+   "id": "sync",
+   "nav": "Sync and offline",
+   "new": true
+  },
+  {
+   "id": "account",
+   "nav": "Account and sign-in",
+   "new": true
+  },
+  {
+   "id": "support",
+   "nav": "Support",
+   "new": true
+  },
+  {
+   "id": "privacy",
+   "nav": "Privacy and telemetry"
+  },
+  {
+   "id": "links",
+   "nav": "Links",
+   "new": true
+  },
+  {
+   "id": "web",
+   "nav": "Website",
+   "new": true
+  },
+  {
+   "id": "discord",
+   "nav": "Discord",
+   "new": true
+  },
+  {
+   "id": "status",
+   "nav": "Status and what's next"
+  }
+ ]
+}

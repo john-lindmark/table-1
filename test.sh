@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Table 1 test runner. See TESTING.md.
 #
-#   ./test.sh            fast tier: web types + Vitest, engine/web rules parity, Deno engine, cards-sync, list-import and Insights worker tests, database tests
+#   ./test.sh            fast tier: web types + Vitest, engine/web rules parity, Deno engine, cards-sync, list-import and Insights worker tests, database tests, Feature Guide sources
 #   ./test.sh full       fast + iOS unit tests (own simulator) + Android unit tests
 #   ./test.sh perf       performance budgets: Swiss pairing at scale, database RPC timings, web bundle size,
 #                        iOS and Android scanner/catalog timings
@@ -37,6 +37,7 @@ web_unit()   { (cd table-1-events-web && npx tsc -b && npx vitest run); }
 parity()     { tools/test/engine-parity.sh; }
 engine()     { (cd supabase/functions && deno test --quiet events-engine/ cards-sync/ live-activity/ notify-worker/ discord-bot/ discord-community/ payments/ && deno test --quiet --allow-read=../../testdata list-import/ moderate/ bugs/ ranking-brief/ meta-sync/ limited-sync/ insight-brief/ deck-image/ meta-image/ ranking-image/ deck-finder/ deck-photo-read/); }
 database()   { supabase/tests/run.sh; }
+guide()      { python3 tools/guide/build.py --check; }
 ios_unit() {
   xcrun simctl list devices | grep -q " $IOS_SIM (" || xcrun simctl create "$IOS_SIM" "iPhone 17" >/dev/null
   swift test --quiet --package-path apps/ios/Packages/ScanIndex --scratch-path "$IOS_DD/ScanIndex" >/dev/null 2>&1 \
@@ -50,7 +51,7 @@ android_unit() { (cd apps/android && JAVA_HOME=$JAVA_HOME_17 ./gradlew -q testDe
 web_perf()   { (cd table-1-events-web && T1_PERF=1 npx vitest run src/lib/tournament.perf.test.ts src/lib/roto.perf.test.ts src/lib/collectionCsv.perf.test.ts src/lib/deckStats.perf.test.ts) && tools/test/web-bundle.sh; }
 db_perf()    { T1_PERF=1 supabase/tests/run.sh perf_; }
 
-fast() { run "web types + unit" web_unit; run "rules parity" parity; run "engine (deno)" engine; run "database" database; }
+fast() { run "web types + unit" web_unit; run "rules parity" parity; run "engine (deno)" engine; run "database" database; run "feature guide" guide; }
 full() { fast; run "ios unit + perf" ios_unit; run "android unit + perf" android_unit; }
 perf() { run "web perf + bundle" web_perf; run "database perf" db_perf; }
 
@@ -60,6 +61,7 @@ staged() {
   grep -qE '^(table-1-events-web/|supabase/functions/(events-engine|ranking-brief)/)' <<<"$files" && { run "web types + unit" web_unit; run "rules parity" parity; }
   grep -qE '^(supabase/functions/(events-engine|list-import|cards-sync|moderate|bugs|ranking-brief|live-activity|notify-worker|meta-sync|limited-sync|insight-brief|discord-bot|discord-community|deck-image|meta-image|ranking-image|deck-finder|deck-photo-read|payments)/|testdata/(deck-photo-lists|list-export|moderation|bugs|cube-ranking|insights|deck-image|insight-charts|popular-cubes)/)' <<<"$files" && run "engine (deno)" engine
   grep -qE '^supabase/(migrations|tests)/' <<<"$files" && run "database" database
+  grep -qE '^(marketing/guide/|marketing/bundle/support/|tools/(guide|support)/|testdata/support-search/)' <<<"$files" && run "feature guide" guide
   true
 }
 

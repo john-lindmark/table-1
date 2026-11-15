@@ -1,0 +1,13 @@
+    <section id="csv">
+      <h2>Collection import and export <span class="tag new">New</span></h2>
+      <p class="lead">Library → <strong>Import and export</strong>. Bring a whole collection over from another app as one change you can undo, or take it out again.</p>
+      <ul>
+        <li><strong>Reads</strong> CSV exports from ManaBox, Moxfield, Archidekt, Deckbox, Dragon Shield, TCGplayer and Delver Lens, telling the format apart by its header. Any other CSV with a name column works too.</li>
+        <li>Each line matches by Scryfall id, then set and collector number, then set and name, then name (the original printing). Condition and language carry over, on each app's own grading scale.</li>
+        <li><strong>Preview</strong> before anything is written: matched cards and printings, unmatched lines (each with <strong>Fix</strong> or <strong>Skip</strong>), and the total value.</li>
+        <li><strong>Add to collection</strong> or <strong>Replace collection</strong> (asks first and says how many cards that removes). Large files go in parts; a failure partway can be retried without doubling anything. One Undo takes it all back.</li>
+        <li><strong>Binders and wants come too:</strong> ManaBox binders and wishlists, Dragon Shield folders, and Moxfield/Deckbox tradelist counts (into a for-trade "Trade binder").</li>
+        <li><strong>Export</strong> for Moxfield or ManaBox, with binder and tradelist columns. Both read back to the same collection.</li>
+        <li>Everything is parsed on your device; a 20,000-line file has a speed budget on every platform.</li>
+      </ul>
+    </section>

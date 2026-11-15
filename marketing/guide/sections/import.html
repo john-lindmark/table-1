@@ -1,0 +1,33 @@
+    <section id="import">
+      <h2>Importing and exporting lists</h2>
+      <p class="lead">New deck or New cube → <strong>Import from a link or list</strong>. Paste a link or the list itself, check the preview, rename it and pick the format, then create.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Source</th><th>How it works</th></tr></thead>
+          <tbody>
+            <tr><td>Cube Cobra</td><td>Paste the cube's link, or its CSV export. Exact printings and foils carry over; the maybeboard goes to Considering. A cube made from a link remembers it, for <strong>Sync with Cube Cobra</strong> later (see <a href="#decks">Decks and cubes</a>).</td></tr>
+            <tr><td>Archidekt</td><td>Paste the deck link. Exact printings, foils, sideboard, maybeboard, commander and format carry over.</td></tr>
+            <tr><td>MTGGoldfish</td><td>Paste the deck link.</td></tr>
+            <tr><td>ManaBox and other sites</td><td>Paste a public link; the page is read automatically.</td></tr>
+            <tr><td>Moxfield</td><td>Moxfield doesn't let other apps read its decks. In Moxfield choose Export, copy the list as text, and paste it.</td></tr>
+            <tr><td>Pasted text or CSV</td><td>Moxfield, ManaBox, Arena and MTGO exports: "4 Lightning Bolt (2X2) 117 *F*", section headers, a blank line before the sideboard, a plain one-card-per-line cube list, or a pasted card CSV.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>When a list names a set and collector number, that exact printing is used; otherwise the original printing. A foil marking carries over when that printing comes in foil, and a card whose printing only comes in foil or etched is saved that way even when the list doesn't say.</p>
+      <h3>Export <span class="label">New</span></h3>
+      <p><strong>Export</strong> on each deck or cube (yours, or one a friend shares with you) opens a screen that shows the current version as text in the format you pick (Text, Arena, Moxfield or MTGO for decks; Text or Cube Cobra for cubes). Under it: <strong>To Arena</strong> copies the Arena list (Arena imports from the clipboard) and <strong>To MTGO</strong> saves the MTGO .txt file; cubes get <strong>To Cube Cobra</strong> (the CSV). <strong>Download</strong> saves the text shown as a file and <strong>Copy text</strong> copies it.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Format</th><th>For</th><th>What you get</th></tr></thead>
+          <tbody>
+            <tr><td>Arena</td><td>Decks</td><td>Deck, Sideboard (and Commander) sections with set and number, ready to paste into Arena</td></tr>
+            <tr><td>Moxfield</td><td>Decks</td><td>Arena's layout plus foil markers and a Maybeboard for Considering</td></tr>
+            <tr><td>MTGO</td><td>Decks</td><td>A .txt file: main deck, blank line, sideboard</td></tr>
+            <tr><td>Cube Cobra</td><td>Cubes</td><td>A CSV in Cube Cobra's own columns, main then Considering, with finishes</td></tr>
+            <tr><td>Plain text</td><td>Decks, cubes</td><td>"4 Lightning Bolt", one line per card</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Every format is tested byte for byte against golden files on all three platforms, and every export reads back through Table 1's own importer.</p>
+    </section>

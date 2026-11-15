@@ -1,0 +1,39 @@
+    <section id="tracker">
+      <h2>Life tracker <span class="tag new">Updated</span></h2>
+      <p class="lead">Full screen, edge to edge, screen stays awake. With two players, your half is at the bottom and your opponent's is upside down at the top; with three to five, everyone sits around the phone. Tap the top of a number for +1, the bottom for −1; hold to repeat.</p>
+      <h3>Setup <span class="label">New</span></h3>
+      <ul>
+        <li>Opened without an event (from Events, the life tracker shortcut or a tracker link), the tracker starts on <strong>Setup</strong>: <strong>Players</strong> 2 · 3 · 4 · 5 and <strong>Starting life</strong> 20 · 30 · 40, starting on what you picked last time.</li>
+        <li><strong>Start</strong> begins a fresh game and opens the <strong>Chooser</strong>, so the table picks who goes first.</li>
+        <li><strong>Continue</strong> (when a saved game has changes or recorded games) picks it up where you left it.</li>
+        <li><strong>New match</strong> in Options or History goes back to Setup. An event's match never shows Setup: it's always two players at the event's life.</li>
+      </ul>
+      <h3>Three to five players <span class="label">New</span></h3>
+      <ul>
+        <li>Players sit clockwise from the bottom, each facing their own edge of the phone: three is one down each side and one at the bottom, four is two down each side, five is two down each side and one at the bottom. They're named <strong>P1</strong> to <strong>P5</strong> (two players stay You and Opponent).</li>
+        <li>Each seat works like a two-player half, the way its player sees it: life on their left, counters beside it, +1 on their top half, and a swipe toward themselves to open the counter picker (only Done closes it).</li>
+        <li><strong>Record</strong> lights up once only one player is left and is filled in with them; otherwise it asks who won, listing every player and Draw. Games follow one another with no best of three, and History keeps the score ("P1 1 · P2 0 · P3 2").</li>
+      </ul>
+      <h3>Commander damage <span class="label">New</span></h3>
+      <ul>
+        <li>At 30 or 40 starting life (Commander 40, Pauper Commander 30), the counter picker lists <strong>commander damage from each opponent</strong> first ("Commander P3", or just "Commander" with one opponent), then poison and the rest. A turned-on column reads "Cmd P3".</li>
+        <li>Commander damage is life lost too: +1 takes a life, −1 gives it back, and Undo or Reset takes both back together. History shows it ("P1 · Commander P3 +3 → 3").</li>
+        <li><strong>21</strong> commander damage from one opponent loses the game; that column turns red. Oathbreaker plays at 20 without commander damage.</li>
+      </ul>
+      <h3>Everywhere</h3>
+      <ul>
+        <li><strong>Every tap counts</strong> <span class="label">New</span>: a tap on +1 or −1 counts however far your finger slides (on iPhone the moment it touches down, on Android and the website when it lifts). A finger that rolls a long way before the hold delay doesn't start the repeat. On Android and the website a second finger on the same zone is its own tap.</li>
+        <li><strong>Counters from the top strip</strong> <span class="label">New</span>: pull down from the strip along the top of your box (by the small line, the edge nearest the middle bar) to turn on up to 3 counters: poison (you lose at 10), energy, experience, rad and speed (and commander damage at 30+ life). <strong>Done</strong> closes the picker <span class="label">New</span>: no swipe does, so swiping up scrolls its list instead of closing it.</li>
+        <li>The center strip shows the round clock (teal, amber under 10 minutes, pink in overtime), your round and table, and <strong>Record · Options · Reset</strong>. Someone watching sees Options only.</li>
+        <li><strong>Reset</strong> asks first, then puts everyone's life back to the starting life and every counter to 0 for this game. In a game on your own phone with games already recorded, it also offers <strong>Reset match</strong>, which clears the games too and keeps the players, starting life and counters you turned on. In an event, recorded games stay: they're the event's record.</li>
+        <li><strong>Options</strong> rises from the bottom: <strong>Chooser</strong>, <strong>Roll dice</strong>, <strong>History</strong>, <strong>New match</strong> (without an event) and <strong>Leave tracker</strong>.</li>
+        <li><strong>Chooser</strong> covers the screen. Everyone puts a finger down; a ring closes around each finger, and once no finger has landed or lifted for two seconds one is picked at random and fills in teal. A moment later (1.5 seconds) the tracker comes back on its own; Done leaves sooner.</li>
+        <li><strong>Roll dice:</strong> pick the die (D4, D6, D8, D10, D12, D20) and how many (1 to 10), then Roll. The total shows large, with each die under it ("2D6 · 4 + 5"); tap the total to roll again. Your die and count are remembered.</li>
+        <li>History groups quick taps into one entry ("Marcus · Life −5 → 15") and lets you undo.</li>
+        <li>With two players, when someone hits 0 life or 10 poison Record lights up. Recording a game moves to the next one; when the match is decided the app offers to report it, for example "Report 2–1 to the event?".</li>
+        <li><strong>After the result is in</strong> <span class="label">New</span> (event matches): once the match's result is reported, confirmed, disputed or set by the organizer, Record reads <strong>Result in</strong> and no more games can be recorded; change the result from the event. Life and counters still work. Clearing the result (a re-paired round) opens it again. Tables on your own phone are never locked.</li>
+        <li>In an event, both players' phones stay in sync and the organizer can watch read-only (or keep score for a guest match).</li>
+        <li><strong>Into the next round</strong> <span class="label">New</span>: once your next round is paired, the tracker opens your new match in place of the old one (Back still returns where you came from); with a bye the strip says "Round 3 paired · you have a bye". It checks on opening, every 15 seconds while on screen and when you come back to the app. Organizers watching or keeping score stay on their match.</li>
+      </ul>
+      <p class="note">Setup, three to five players and commander damage: built and tested on all three platforms on 3 November against one shared set of cases (seats, names, what the picker lists, commander damage taken off life, who has lost, the score); no server change. Checked on the website at phone width (Setup, the Chooser, four players, a side seat's counter picker, 3 commander damage taking 3 life) and in iPhone Simulator screenshots of every table size (not tapped); Android built and tested, not yet run on a device. Live on table-1.site since 3 November; in iPhone build 49 (TestFlight) and Android bundle 29895843 (Play internal testing).</p>
+    </section>
