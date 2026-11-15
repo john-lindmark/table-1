@@ -258,8 +258,9 @@ struct CardRow<Trailing: View>: View {
                     Text(title).font(T1.mono(14)).lineLimit(1)
                     if let cost, !cost.isEmpty { ManaCostView(cost: cost, size: 12).fixedSize() }
                 }
-                if let detail { LabelText(detail) }
-                if let note { LabelText(note, color: noteAccent ? T1.accent : T1.muted) }
+                // An empty line is no line: the name stays centered beside the card.
+                if let detail, !detail.isEmpty { LabelText(detail) }
+                if let note, !note.isEmpty { LabelText(note, color: noteAccent ? T1.accent : T1.muted) }
             }
             Spacer(minLength: 0)
             trailing

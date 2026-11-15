@@ -303,7 +303,7 @@ fun CardRow(printing: CatalogPrinting?, title: String, detail: String? = null, o
             }
             detail?.takeIf { it.isNotEmpty() }?.let { Label(it) }
             // A second detail line (a want's price trend), in the accent when noteAccent.
-            note?.let { Label(it, color = if (noteAccent) T1.accent else T1.muted) }
+            note?.takeIf { it.isNotEmpty() }?.let { Label(it, color = if (noteAccent) T1.accent else T1.muted) }
         }
         trailing()
     }
