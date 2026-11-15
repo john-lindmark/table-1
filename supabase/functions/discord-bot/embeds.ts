@@ -230,7 +230,7 @@ export function eventEmbed(c: Card) {
   ];
   if (c.waitlist > 0) fields.push({ name: `Waitlist · ${c.waitlist}`, value: names(c.waitlist_names), inline: false });
   fields.push({ name: "Rounds", value: c.auto_rounds && c.status === "setup" ? `${c.number_of_rounds} (follows the players)` : String(c.number_of_rounds), inline: true });
-  fields.push({ name: "Top cut", value: c.top_cut === 8 ? "Top 8" : "None", inline: true });
+  if (c.top_cut > 0) fields.push({ name: "Top cut", value: `Top ${c.top_cut}`, inline: true });
   const pods = podsLine(c);
   if (pods) fields.push({ name: "Pods", value: pods, inline: true });
   if (c.short_code && c.sign_up !== "closed") fields.push({ name: "Join code", value: `\`${c.short_code}\``, inline: true });

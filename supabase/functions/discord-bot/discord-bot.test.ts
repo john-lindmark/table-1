@@ -120,6 +120,8 @@ Deno.test("the event card: parameters, who's in, escaped names, viewer-local tim
   assert(players.value.includes("Bea @​everyone"), "mentions are defused");
   assert(players.value.includes("Cal\\_"));
   assertEquals(e.fields.find((f) => f.name === "Top cut")?.value, "Top 8");
+  assertEquals(eventEmbed({ ...card, top_cut: 4 }).fields.find((f) => f.name === "Top cut")?.value, "Top 4");
+  assert(!eventEmbed({ ...card, top_cut: 0 }).fields.some((f) => f.name === "Top cut"), "no top cut, no field");
   assertEquals(e.fields.find((f) => f.name === "Join code")?.value, "`AB12`");
   assertEquals(e.footer.text, "Table 1 · Sign-ups open");
   const buttons = eventComponents(card)[0].components;
