@@ -79,6 +79,16 @@ final class LimitedHomeTests: XCTestCase {
         for s in f.symbols { XCTAssertNotNil(UIImage(named: "mana-\(s)"), "mana-\(s) is bundled") }
     }
 
+    func testPairPips() {
+        XCTAssertEqual(Insights.pairPips("WU"), "{W}{U}")
+        XCTAssertEqual(Insights.pairPips("RG"), "{R}{G}")
+        XCTAssertEqual(Insights.pairPips("B"), "{B}")
+        XCTAssertEqual(Insights.pairPips("C"), "{C}")
+        XCTAssertNil(Insights.pairPips("3C"))
+        XCTAssertNil(Insights.pairPips(""))
+        for p in Insights.pairNames.keys { if let c = Insights.pairPips(p) { XCTAssertEqual(ManaSymbols.parse(c).count, p.count) } }
+    }
+
     func testJoinCodeSharedCases() throws {
         struct Want: Decodable { let kind: String; let code: String; var secret: String? }
         struct Case: Decodable { let text: String; let want: Want? }

@@ -181,6 +181,10 @@ export const PAIR_NAMES: Record<string, string> = {
   WU: "Azorius", WB: "Orzhov", WR: "Boros", WG: "Selesnya", UB: "Dimir", UR: "Izzet", UG: "Simic", BR: "Rakdos", BG: "Golgari", RG: "Gruul",
   W: "Mono-White", U: "Mono-Blue", B: "Mono-Black", R: "Mono-Red", G: "Mono-Green", "3C": "Three or more", C: "Colorless",
 };
+/** A color pair's mana symbols as a cost ("WU" → "{W}{U}", "C" → "{C}"); none for "Three or more". */
+export function pairPips(p: string): string | null {
+  return /^[WUBRGC]+$/.test(p) ? [...p].map((c) => `{${c}}`).join("") : null;
+}
 
 const SHARDS: Record<string, string> = { WUB: "Esper", UBR: "Grixis", BRG: "Jund", WRG: "Naya", WUG: "Bant", WBG: "Abzan", WUR: "Jeskai", UBG: "Sultai", WBR: "Mardu", URG: "Temur" };
 /** "Dimir UB + r", "Esper WUB", "Four-color WUBR": a deck's colors as 17Lands' deck color table names them. */

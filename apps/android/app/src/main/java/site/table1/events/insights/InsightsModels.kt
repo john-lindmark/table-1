@@ -132,6 +132,8 @@ object Insights {
     val pairNames = mapOf("WU" to "Azorius", "WB" to "Orzhov", "WR" to "Boros", "WG" to "Selesnya", "UB" to "Dimir", "UR" to "Izzet", "UG" to "Simic",
         "BR" to "Rakdos", "BG" to "Golgari", "RG" to "Gruul", "W" to "Mono-White", "U" to "Mono-Blue", "B" to "Mono-Black", "R" to "Mono-Red",
         "G" to "Mono-Green", "3C" to "Three or more", "C" to "Colorless")
+    /** A color pair's mana symbols as a cost ("WU" → "{W}{U}", "C" → "{C}"); none for "Three or more". */
+    fun pairPips(p: String): String? = if (p.isNotEmpty() && p.all { it in "WUBRGC" }) p.map { "{$it}" }.joinToString("") else null
     private val shards = mapOf("WUB" to "Esper", "UBR" to "Grixis", "BRG" to "Jund", "WRG" to "Naya", "WUG" to "Bant", "WBG" to "Abzan", "WUR" to "Jeskai",
         "UBG" to "Sultai", "WBR" to "Mardu", "URG" to "Temur")
 

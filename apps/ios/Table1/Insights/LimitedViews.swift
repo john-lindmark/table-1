@@ -146,9 +146,10 @@ struct LimitedHomeSection: View {
         let lo = max(0.4, (shown.map(\.wr).min() ?? 0.5) - 0.02), hi = min(0.7, (shown.map(\.wr).max() ?? 0.6) + 0.01)
         ForEach(shown) { p in
             Button { path.append(.pair(pack.set_code, ev, grp, p.p)) } label: {
-                InsightBar(label: "\(Insights.pairNames[p.p] ?? p.p) \(p.p == "3C" ? "" : p.p)", value: p.wr, maxValue: hi,
+                InsightBar(label: Insights.pairNames[p.p] ?? p.p, value: p.wr, maxValue: hi,
                            detail: "\(InsightCharts.pct(p.share)) of games · splash \(InsightCharts.pct(p.splash))",
-                           highlighted: p.id == shown.first?.id, format: InsightCharts.pct1, reference: v.wr, minValue: lo)
+                           highlighted: p.id == shown.first?.id, format: InsightCharts.pct1, reference: v.wr, minValue: lo,
+                           pips: Insights.pairPips(p.p))
             }.buttonStyle(.plain)
         }
         if let colors = v.colors, !colors.isEmpty {

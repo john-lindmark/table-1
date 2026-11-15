@@ -7,7 +7,7 @@ import { EDIT_VALUE, FilterRow, ManaCost, type FilterCell } from "../components/
 import { LIMITED_COLORS, LIMITED_RARITIES, LIMITED_SORTS, LIMITED_TOP, MIN_QUERY, colorLabel, limitedCards, rarityLabel, togglePick, limitedSearch, limitedValue, overall, searchNorm } from "../lib/limitedCards";
 import { delta, months, pct, pct1, rates, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
 import {
-  EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, canHide, exampleFinish, formatParts, place, setHidden, sourcesCredit, visibleKeys, type Finish, type PartKey, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
+  EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, pairPips, canHide, exampleFinish, formatParts, place, setHidden, sourcesCredit, visibleKeys, type Finish, type PartKey, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
   gridFor, gridShare, type ShareRow, loadInsights, loadInsightsDemo, loadInsightsExtras, matchup, matchupRows, mineFor, pick, setInsightsAlerts, yoursFirst, type Mine, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack, type Matchups,
   type LCard, type LimitedPack, type LView, type Tier,
   archetypeBar, archetypeDetail, cardMarkers, finishDetail, finishTitle, hitDetail, searchCards, type CardFinish, type CardHit,
@@ -938,7 +938,7 @@ function LimitedHome() {
       <Notice tone="info">GIH WR: win rate with the card in hand · OH: in the opening hand · IWD: improvement when drawn · ATA: average pick taken · under it: points above or below the average</Notice>
       <Section title="Color pairs · game win rate" />
       {shown.map((p) => (
-        <ShareBar key={p.p} label={`${PAIR_NAMES[p.p] ?? p.p} ${p.p === "3C" ? "" : p.p}`} value={p.wr} max={hi} min={lo} reference={view.wr} format={pct1}
+        <ShareBar key={p.p} label={PAIR_NAMES[p.p] ?? p.p} pips={pairPips(p.p)} value={p.wr} max={hi} min={lo} reference={view.wr} format={pct1}
                   highlighted={p.p === shown[0]?.p} detail={`${pct(p.share)} of games · splash ${pct(p.splash)}`} onClick={() => nav(`${base}/pair/${p.p}`)} />
       ))}
       {(view.colors?.length ?? 0) > 0 && (() => {

@@ -94,11 +94,14 @@ struct InsightBar: View {
     /// A reference line (e.g. the set's average win rate) drawn across the bar.
     var reference: Double?
     var minValue: Double = 0
+    /// Mana symbols after the label, as a cost ("{W}{U}" for a color pair).
+    var pips: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Text(label).font(T1.mono(13)).lineLimit(1)
+                if let pips { ManaCostView(cost: pips) }
                 Spacer(minLength: 4)
                 if let change, abs(change) >= 0.0005 {
                     Text("\(change > 0 ? "▲" : "▼") \(InsightCharts.delta(change).dropFirst())")

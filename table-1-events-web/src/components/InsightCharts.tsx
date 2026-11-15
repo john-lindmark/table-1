@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ManaCost } from "./FilterRow";
 import { fit, heat, pct, pct1, segments, spread, ticks, type Heat } from "../lib/insightCharts";
 
 /* Insights charts in the Table 1 look: hairline axes on the surface, mono labels, no fills or shadows, grey for context
@@ -67,16 +68,23 @@ export function LineChart({ series, count, markers = [], xLabels = [], height = 
 }
 
 /** One horizontal bar with its value and change. */
-export function Bar({ label, value, max, min = 0, detail, change, highlighted, format = pct, reference, onClick }: {
+export function Bar({ label, value, max, min = 0, detail, change, highlighted, format = pct, reference, onClick, pips }: {
   label: string; value: number; max: number; min?: number; detail?: string | null; change?: number | null; highlighted?: boolean;
   format?: (x: number) => string; reference?: number | null; onClick?: () => void;
+  /** Mana symbols after the label, as a cost ("{W}{U}" for a color pair). */
+  pips?: string | null;
 }) {
   const span = Math.max(1e-9, max - min);
   const frac = Math.max(0, Math.min(1, (value - min) / span));
   const body = (
     <>
       <span className="flex items-center gap-2 w-full">
-        <span className="text-[13px] truncate flex-1 text-left">{label}</span>
+        {pips ? (
+          <span className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-[13px] truncate text-left">{label}</span>
+            <ManaCost cost={pips} />
+          </span>
+        ) : <span className="text-[13px] truncate flex-1 text-left">{label}</span>}
         {change != null && Math.abs(change) >= 0.0005 && (
           <span className={`text-[11px] tabular-nums ${change > 0 ? "text-t1-text" : "text-t1-muted"}`}>
             {change > 0 ? "▲" : "▼"} {Math.abs(change * 100) >= 10 ? Math.round(Math.abs(change * 100)) : Math.abs(change * 100).toFixed(1)}

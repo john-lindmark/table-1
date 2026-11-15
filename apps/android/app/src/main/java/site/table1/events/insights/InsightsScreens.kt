@@ -804,8 +804,9 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     val lo = maxOf(0.4, (shown.minOfOrNull { it.wr } ?: 0.5) - 0.02)
     val hi = minOf(0.7, (shown.maxOfOrNull { it.wr } ?: 0.6) + 0.01)
     shown.forEach { p ->
-        InsightBar("${Insights.pairNames[p.p] ?: p.p} ${if (p.p == "3C") "" else p.p}", p.wr, hi, lo, "${InsightCharts.pct(p.share)} of games · splash ${InsightCharts.pct(p.splash)}",
-            highlighted = p.p == shown.firstOrNull()?.p, format = InsightCharts::pct1, reference = v.wr, onClick = { navigate(InsightsRoutes.pair(pack.set_code, ev, grp, p.p)) })
+        InsightBar(Insights.pairNames[p.p] ?: p.p, p.wr, hi, lo, "${InsightCharts.pct(p.share)} of games · splash ${InsightCharts.pct(p.splash)}",
+            highlighted = p.p == shown.firstOrNull()?.p, format = InsightCharts::pct1, reference = v.wr, onClick = { navigate(InsightsRoutes.pair(pack.set_code, ev, grp, p.p)) },
+            pips = Insights.pairPips(p.p))
     }
     if (v.colors.isNotEmpty()) {
         Section("Deck colors · with splashes, most played first")

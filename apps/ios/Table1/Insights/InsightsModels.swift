@@ -471,4 +471,9 @@ enum Insights {
     static let pairNames = ["WU": "Azorius", "WB": "Orzhov", "WR": "Boros", "WG": "Selesnya", "UB": "Dimir", "UR": "Izzet", "UG": "Simic",
                             "BR": "Rakdos", "BG": "Golgari", "RG": "Gruul", "W": "Mono-White", "U": "Mono-Blue", "B": "Mono-Black",
                             "R": "Mono-Red", "G": "Mono-Green", "3C": "Three or more", "C": "Colorless"]
+    /// A color pair's mana symbols as a cost ("WU" → "{W}{U}", "C" → "{C}"); none for "Three or more".
+    static func pairPips(_ p: String) -> String? {
+        guard !p.isEmpty, p.allSatisfy({ "WUBRGC".contains($0) }) else { return nil }
+        return p.map { "{\($0)}" }.joined()
+    }
 }

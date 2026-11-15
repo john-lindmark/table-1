@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { screenName } from "./analytics";
 import { navKeyFor } from "./desktop";
+import { pairPips, PAIR_NAMES } from "./insights";
+import { manaSymbols } from "./limitedCards";
 import { afterWindow, archetypeName, bansTitle, canHide, changeWords, colorsName, exampleFinish, formatParts, FORMATS, CLOSE, DECK_MIN, deckInsight, type DeckInsight, type DeckInsightAnswer, gridFor, isBan, yoursFirst, type Mine, matchup, matchupRows, place, sourcesCredit, visibleKeys, readWirePicks, writeWirePicks, type BanStudy, type ConstructedPack, type LimitedPack,
   archetypeBar, archetypeDetail, cardMarkers, finishDetail, finishTitle, hitDetail, type CardArchetype, type CardFinish, type CardHit, type Change } from "./insights";
 
@@ -189,5 +191,16 @@ describe("insights picks on the account (testdata/insights-picks/cases.json)", (
   });
   it("reads only the keys it knows, of the right type", () => {
     for (const c of cases.read) expect(readWirePicks(c.stored), c.name).toEqual(c.want);
+  });
+});
+
+describe("color pair pips", () => {
+  it("writes a pair as its mana symbols, none for three or more", () => {
+    expect(pairPips("WU")).toBe("{W}{U}");
+    expect(pairPips("B")).toBe("{B}");
+    expect(pairPips("C")).toBe("{C}");
+    expect(pairPips("3C")).toBeNull();
+    expect(pairPips("")).toBeNull();
+    for (const p of Object.keys(PAIR_NAMES)) { const c = pairPips(p); if (c) expect(manaSymbols(c)).toHaveLength(p.length); }
   });
 });

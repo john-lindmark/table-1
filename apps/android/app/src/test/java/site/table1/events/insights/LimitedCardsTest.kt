@@ -11,6 +11,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -27,6 +28,15 @@ class LimitedCardsTest {
 
     private fun card(o: JsonObject, rated: Boolean = true) = LCard(n = str(o, "n")!!, r = if (rated) str(o, "r") else null, col = str(o, "col"),
         gih = dbl(o, "gih"), gih_n = o["gih_n"]!!.jsonPrimitive.int, oh = dbl(o, "oh"), iwd = dbl(o, "iwd"), ata = dbl(o, "ata"), deck = 0.0)
+
+    @Test fun pairPips() {
+        assertEquals("{W}{U}", Insights.pairPips("WU"))
+        assertEquals("{B}", Insights.pairPips("B"))
+        assertEquals("{C}", Insights.pairPips("C"))
+        assertNull(Insights.pairPips("3C"))
+        assertNull(Insights.pairPips(""))
+        Insights.pairNames.keys.forEach { p -> Insights.pairPips(p)?.let { assertEquals(p.length, ManaSymbols.parse(it).size) } }
+    }
 
     @Test fun limitedCardsSharedCases() {
         val f = read("insights/limited-home.json")

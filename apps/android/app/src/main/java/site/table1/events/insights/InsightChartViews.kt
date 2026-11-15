@@ -117,11 +117,17 @@ fun InsightLineChart(series: List<LineSeries>, count: Int, markers: List<ChartMa
 /** One horizontal bar with its value and change. */
 @Composable
 fun InsightBar(label: String, value: Double, max: Double, min: Double = 0.0, detail: String? = null, change: Double? = null, highlighted: Boolean = false,
-               format: (Double) -> String = InsightCharts::pct, reference: Double? = null, onClick: (() -> Unit)? = null) {
+               format: (Double) -> String = InsightCharts::pct, reference: Double? = null, onClick: (() -> Unit)? = null,
+               pips: String? = null) {
     Column(Modifier.fillMaxWidth().background(T1.surface).let { if (onClick != null) it.clickable(onClick = onClick) else it }
         .padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(label, Modifier.weight(1f), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (pips != null) {
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(label, Modifier.weight(1f, fill = false), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    ManaCost(pips)
+                }
+            } else Text(label, Modifier.weight(1f), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (change != null && abs(change) >= 0.0005) {
                 Text("${if (change > 0) "▲" else "▼"} ${InsightCharts.delta(change).drop(1)}", color = if (change > 0) T1.text else T1.muted, fontFamily = T1.mono, fontSize = 11.sp)
             }
