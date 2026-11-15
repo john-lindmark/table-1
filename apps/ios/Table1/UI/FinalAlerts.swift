@@ -43,7 +43,7 @@ struct QualifiedPanel: View {
 
     var body: some View {
         VStack(spacing: 1) {
-            Bar(title: "Qualified", subtitle: status.line, back: { T1Overlays.shared.dismissPanel() })
+            Bar(title: "Qualified", back: { T1Overlays.shared.dismissPanel() })
             if let error { Notice(error, error: true) }
             ScrollView {
                 LazyVStack(spacing: 1) {

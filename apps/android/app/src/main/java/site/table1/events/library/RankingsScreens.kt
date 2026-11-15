@@ -144,8 +144,7 @@ fun RankingsScreen(listId: String?, onBack: (() -> Unit)?, onOpen: (String) -> U
     /** A set's screen says "set"; a popular cube's or an Arena cube version's says "cube". */
     val noun = RankSubject.noun(cube?.kind)
     T1Screen {
-        Bar("Rankings", if (listId == null) null else cube?.let { if (it.mine || isSet) it.name else "${it.name} · ${it.owner?.displayName ?: ""}" },
-            onBack = onBack)
+        Bar("Rankings", onBack = onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             error?.let { Notice(it, error = true) }
             val d = data
@@ -243,9 +242,9 @@ private fun rememberOthers(m: RankingModel): List<RankingRow> {
 }
 
 @Composable
-private fun Frame(title: String, m: RankingModel, onBack: () -> Unit, subtitle: String? = null, content: @Composable ColumnScope.(RankingState) -> Unit) {
+private fun Frame(title: String, m: RankingModel, onBack: () -> Unit, content: @Composable ColumnScope.(RankingState) -> Unit) {
     T1Screen {
-        Bar(title, subtitle ?: m.row?.title, onBack = onBack)
+        Bar(title, onBack = onBack)
         m.error?.let { Notice(it, error = true) }
         m.notice?.let { Notice(it) }
         val st = m.state
@@ -328,7 +327,7 @@ fun RankingScreen(id: String, onBack: () -> Unit, go: (String) -> Unit) {
     var newName by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val row = m.row
-    Frame(row?.title ?: "Ranking", m, onBack, m.cube?.name) { st ->
+    Frame(row?.title ?: "Ranking", m, onBack) { st ->
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (m.cubeGone) Notice("This cube isn't shared with you any more, so only its lists show.")
             if (row != null) CubeChanged(m, row, go)
@@ -689,7 +688,7 @@ fun RankingCompareScreen(id: String, otherId: String, job: RankJob, onBack: () -
     fun label(r: RankingRow?) = if (r?.mine == true) "You" else r?.by?.displayName ?: "Someone"
     fun named(r: RankingRow?) = listOfNotNull(label(r), r?.label).joinToString(" · ")
     T1Screen {
-        Bar("Compare", listTitle(tab, ma.row?.top ?: 100), onBack = onBack)
+        Bar("Compare", onBack = onBack)
         (ma.error ?: mb.error)?.let { Notice(it, error = true) }
         val sa = ma.state; val sb = mb.state
         if (sa == null || sb == null) { Notice("Loading both rankings…"); return@T1Screen }
@@ -961,7 +960,7 @@ private fun RankingImageScreen(m: RankingModel, onClose: () -> Unit) {
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
-                Bar("Top ${m.row?.top ?: 100} image", name, onBack = onClose)
+                Bar("Top ${m.row?.top ?: 100} image", onBack = onClose)
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     error?.let { Notice(it, error = true) }
                     note?.let { Notice(it) }

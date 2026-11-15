@@ -235,7 +235,7 @@ private struct OrganizerSetupView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: event.name, subtitle: "\(event.shortCode) · Setup · \(playersText(participants.count)) · \(event.label)", back: { dismiss() }) {
+            Bar(title: event.name, back: { dismiss() }) {
                 BarButton("More") { showMore() }
             }
             PhaseTabs(tabs: tabs, selection: $tab)
@@ -539,7 +539,7 @@ private struct OrganizerSetupView: View {
 private func presentJoinQR(eventId: String, name: String) {
     T1Overlays.shared.present {
         VStack(spacing: 1) {
-            Bar(title: "Join QR", subtitle: name) {
+            Bar(title: "Join QR") {
                 BarButton("Done") { T1Overlays.shared.dismissPanel() }
             }
             ShareQR(eventId: eventId)
@@ -996,7 +996,7 @@ private struct OrganizerLiveView: View {
                     VStack(spacing: 1) { column(groups, hero: false) }
                 } else {
                     VStack(spacing: 1) {
-                        Bar(title: "Standings", subtitle: round.map { $0.name(of: event.numberOfRounds) })
+                        Bar(title: "Standings")
                         standingsTab(groups)
                     }
                 }
@@ -1021,7 +1021,7 @@ private struct OrganizerLiveView: View {
     @ViewBuilder
     private func column(_ groups: MatchGroups, hero: Bool) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            Bar(title: event.name, subtitle: subtitle(at: context.date), back: { dismiss() }) {
+            Bar(title: event.name, back: { dismiss() }) {
                 BarButton("More") { showMore() }
             }
         }
@@ -1062,23 +1062,6 @@ private struct OrganizerLiveView: View {
                    ? "Tap a match to correct its result. Standings and records update."
                    : "Tap a match to correct its result. If that changes who should have played whom, re-pair \(repairName).")
         }
-    }
-
-    /// "Round 2 of 3 · 41:07 left · Modern" (or "paused", or "time").
-    private func subtitle(at date: Date) -> String {
-        guard let round else {
-            let last = b.rounds.max(by: { $0.number < $1.number })
-            return "\(last?.name(of: event.numberOfRounds) ?? "Round \(event.currentRound) of \(event.numberOfRounds)") · \(event.label)"
-        }
-        guard event.showClock else { return "\(round.name(of: event.numberOfRounds)) · \(event.label)" }
-        let clock: String
-        if round.clockPaused {
-            clock = "paused"
-        } else {
-            let left = round.secondsLeft(at: date)
-            clock = left == 0 ? "time" : "\(clockText(left)) left"
-        }
-        return "\(round.name(of: event.numberOfRounds)) · \(clock) · \(event.label)"
     }
 
     // MARK: round
@@ -1507,7 +1490,7 @@ private struct OrganizerResultsView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: event.name, subtitle: subtitle, back: { dismiss() }) {
+            Bar(title: event.name, back: { dismiss() }) {
                 // Live's More carried Deck photos; finishing the event mustn't take it away.
                 if !event.isCancelled { BarButton("More") { showMore() } }
             }
@@ -1529,17 +1512,6 @@ private struct OrganizerResultsView: View {
         let raw = event.isCancelled ? (event.cancelledAt ?? event.startsAt ?? event.createdAt) : (event.startsAt ?? event.createdAt)
         guard let raw, let date = T1Date.parse(raw) else { return "" }
         return date.formatted(.dateTime.month(.abbreviated).day())
-    }
-
-    /// "Final · Oct 12 · 8 players · Modern"; cancelled: "Cancelled · Oct 12 · after round 2 of 3".
-    private var subtitle: String {
-        let parts: [String]
-        if event.isCancelled {
-            parts = ["Cancelled", dateText, lastRound == 0 ? "before round 1" : "after round \(lastRound) of \(event.numberOfRounds)"]
-        } else {
-            parts = ["Final", dateText, playersText(b.participants.count), event.label]
-        }
-        return parts.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     // MARK: standings

@@ -143,7 +143,7 @@ fun ZoomImageScreen(image: Bitmap, title: String, subtitle: String?, actions: Ma
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
-                Bar(title, subtitle, onBack = onClose)
+                Bar(title, onBack = onClose)
                 Box(
                     Modifier.weight(1f).fillMaxWidth().background(T1.bg)
                         .onSizeChanged {

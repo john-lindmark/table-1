@@ -152,7 +152,7 @@ struct ScanPrintingView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Printing", subtitle: card.oracle.name, back: onClose)
+            Bar(title: "Printing", back: onClose)
             HairlineList {
                 ForEach(printings, id: \.cardId) { p in row(p) }
             }

@@ -69,9 +69,7 @@ struct RankingsView: View {
     var body: some View {
         let cube = data?.cube
         T1Screen {
-            Bar(title: "Rankings", subtitle: listId == nil ? nil
-                    : cube.map { $0.mine || $0.isSet ? $0.name : "\($0.name) · \($0.owner?.displayName ?? "")" },
-                back: root ? nil : { dismiss() })
+            Bar(title: "Rankings", back: root ? nil : { dismiss() })
             HairlineList {
                 if let error { Notice(error, error: true) }
                 if data == nil && error == nil { Notice("Loading rankings…") }
@@ -237,7 +235,7 @@ struct RankingView: View {
     var body: some View {
         let m = model
         T1Screen {
-            Bar(title: m.row?.title ?? "Ranking", subtitle: m.cube?.name, back: { dismiss() })
+            Bar(title: m.row?.title ?? "Ranking", back: { dismiss() })
             HairlineList {
                 if let e = m.error { Notice(e, error: true) }
                 if let n = m.notice { Notice(n) }
@@ -452,7 +450,7 @@ struct RankingPickView: View {
     var body: some View {
         let m = model
         T1Screen {
-            Bar(title: job == .final ? "Final" : job.title, subtitle: m.row?.title, back: { dismiss() })
+            Bar(title: job == .final ? "Final" : job.title, back: { dismiss() })
             if let st = m.state, let row = m.row, let q = m.question(job) {
                 if let n = m.notice { Notice(n) }
                 if let e = m.error { Notice(e, error: true) }
@@ -678,7 +676,7 @@ struct RankingListsView: View {
         let m = model
         let shown = tab ?? job
         T1Screen {
-            Bar(title: shown == .final ? "Top \(m.row?.top ?? 100)" : shown.title, subtitle: m.row?.title, back: { dismiss() })
+            Bar(title: shown == .final ? "Top \(m.row?.top ?? 100)" : shown.title, back: { dismiss() })
             if let st = m.state {
                 rankingTabs(st, shown) { tab = $0 ?? .final }
                 HairlineList {
@@ -786,7 +784,7 @@ struct RankingCardView: View {
         let m = model
         let c = m.card(oracleId)
         T1Screen {
-            Bar(title: c?.name ?? "Card", subtitle: m.row?.title, back: { dismiss() })
+            Bar(title: c?.name ?? "Card", back: { dismiss() })
             if let st = m.state, let x = st.knowledge.index[oracleId.lowercased()] {
                 let s = st.session(job)
                 HairlineList {
@@ -937,7 +935,7 @@ struct RankingCompareView: View {
         let ma = RankingsStore.shared.model(ida), mb = RankingsStore.shared.model(idb)
         let shown = tab ?? job
         T1Screen {
-            Bar(title: "Compare", subtitle: shown == .final ? "Top \(ma.row?.top ?? 100)" : shown.title, back: { dismiss() })
+            Bar(title: "Compare", back: { dismiss() })
             if let sa = ma.state, let sb = mb.state, let ra = ma.row, let rb = mb.row {
                 rankingTabs(sa, shown) { tab = $0 ?? .final }
                 HairlineList {
@@ -1150,7 +1148,7 @@ struct RankingImagePanel: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Top \(model.row?.top ?? 100) image", subtitle: model.row?.title, back: { T1Overlays.shared.dismissPanel() })
+            Bar(title: "Top \(model.row?.top ?? 100) image", back: { T1Overlays.shared.dismissPanel() })
             HairlineList {
                 if let error { Notice(error, error: true) }
                 if let note { Notice(note) }
@@ -1282,7 +1280,7 @@ struct RankingPackView: View {
     var body: some View {
         let m = model
         T1Screen {
-            Bar(title: m.mine ? "P1P1" : "Pick history", subtitle: m.row?.title, back: { dismiss() })
+            Bar(title: m.mine ? "P1P1" : "Pick history", back: { dismiss() })
             if m.state != nil, let row = m.row, !row.mine {
                 HairlineList {
                     if m.picks.isEmpty { Notice("No P1P1 picks yet.") }
@@ -1436,7 +1434,7 @@ struct RankingChangesView: View {
     var body: some View {
         let m = model
         T1Screen {
-            Bar(title: "Changes", subtitle: m.row?.title, back: { dismiss() })
+            Bar(title: "Changes", back: { dismiss() })
             if let st = m.state {
                 rankingTabs(st, filter ?? .final, all: filter == nil) { filter = $0 }
                 HairlineList {

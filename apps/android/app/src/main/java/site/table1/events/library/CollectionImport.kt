@@ -482,17 +482,11 @@ fun CollectionImportScreen(onBack: () -> Unit, onAllCards: () -> Unit) {
         return
     }
 
-    val subtitle = when (model.phase) {
-        CollectionImportModel.Phase.Start -> col.summary?.let { "${count(it.totalQty)} cards in collection" }
-        CollectionImportModel.Phase.Reading -> "Reading…"
-        CollectionImportModel.Phase.Preview, CollectionImportModel.Phase.Writing -> model.format.label
-        CollectionImportModel.Phase.Done -> if (model.undone) "Import undone" else "Imported"
-    }
     val ready = cat.phase == "ready" && CatalogStore.db != null
     val copies = model.copies
 
     T1Screen {
-        Bar("Import and export", subtitle = subtitle, onBack = onBack)
+        Bar("Import and export", onBack = onBack)
         CatalogStatus(cat)
         model.error?.let { Notice(it, error = true) }
         Hairlines(Modifier.weight(1f)) {
@@ -672,7 +666,7 @@ private fun ImportFixScreen(row: ImportRow, onBack: () -> Unit, onPick: (Catalog
         covers = found.second
     }
     T1Screen {
-        Bar("Line ${row.line}", subtitle = listOf(row.name, row.setLabel).filter { it.isNotEmpty() }.joinToString(" · "), onBack = onBack)
+        Bar("Line ${row.line}", onBack = onBack)
         Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp).focusRequester(focus)) {
             T1TextField(query, { query = it }, label = "Card name")
         }

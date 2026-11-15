@@ -106,8 +106,7 @@ fun FriendsScreen(onBack: () -> Unit, onProfile: (String) -> Unit, onAdd: () -> 
     }
     val l = s.list
     T1Screen {
-        Bar("Friends", l?.let { listOfNotNull(plural(it.friends.size, "friend"), if (it.incoming.isNotEmpty()) "${it.incoming.size} waiting" else null).joinToString(" · ") },
-            onBack = onBack) { BarAction("Add", onAdd) }
+        Bar("Friends", onBack = onBack) { BarAction("Add", onAdd) }
         (error ?: s.error)?.let { Notice(it, error = true) }
         Hairlines(Modifier.weight(1f)) {
             item { ListRow("Add a friend", "Played with you, a name or an email", onClick = onAdd) }
@@ -178,7 +177,7 @@ fun FriendAddScreen(onBack: () -> Unit) {
     }
     val emailValid = email.trim().let { it.length > 5 && '@' in it && it.substringAfterLast('@').contains('.') }
     T1Screen {
-        Bar("Add a friend", "They accept to become friends", onBack = onBack)
+        Bar("Add a friend", onBack = onBack)
         Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
             T1TextField(query, { query = it }, placeholder = "Name or handle")
         }
@@ -302,8 +301,7 @@ fun ProfileUserScreen(userId: String, onBack: (() -> Unit)?, onSection: (kind: S
         }
     }
     T1Screen {
-        Bar(p?.displayName ?: "Profile", if (own?.relation == "self" && viewAs < 2) "As ${if (viewAs == 1) "a friend" else "anyone"} sees it" else sub,
-            onBack = onBack) { if (p != null && own?.relation != "self") BarAction("More") { menu = true } }
+        Bar(p?.displayName ?: "Profile", onBack = onBack) { if (p != null && own?.relation != "self") BarAction("More") { menu = true } }
         error?.let { Notice(it, error = true) }
         if (own?.relation == "self") T1Segmented(listOf("You", "A friend", "Anyone"), 2 - viewAs) { i ->
             viewAs = 2 - i
@@ -440,7 +438,7 @@ fun ProfileFriendsScreen(userId: String, onBack: () -> Unit, onProfile: (String)
         if (name == null) name = runCatching { FriendsStore.profile(userId).displayName }.getOrNull()
     }
     T1Screen {
-        Bar("Friends", name, onBack = onBack)
+        Bar("Friends", onBack = onBack)
         error?.let { Notice(it, error = true) }
         Hairlines(Modifier.weight(1f)) {
             val l = people
@@ -615,7 +613,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     }
 
     T1Screen {
-        Bar(if (link != null || preset != null) name else profile?.let { "${it.displayName} · $name" } ?: "Cards", rows?.let { plural(SharedList.count(it, kind), "card") }, onBack = onBack) {
+        Bar(if (link != null || preset != null) name else profile?.let { "${it.displayName} · $name" } ?: "Cards", onBack = onBack) {
             BarAction("View") { viewMenu = true }
         }
         error?.let { Notice(it, error = true) }
@@ -736,7 +734,7 @@ fun SharingScreen(onBack: () -> Unit) {
     }
     val s = st.sharing
     T1Screen {
-        Bar("Sharing", s?.let(SharingRules::summary), onBack = onBack)
+        Bar("Sharing", onBack = onBack)
         st.error?.let { Notice(it, error = true) }
         Hairlines(Modifier.weight(1f)) {
             if (s == null) { item { Notice("Loading…") }; return@Hairlines }
@@ -797,7 +795,7 @@ fun TradeMatchesScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onFriends: 
     }
     val m = st.matches
     T1Screen {
-        Bar("Trade matches", m?.let { plural(it.size, "person", "people") }, onBack = onBack)
+        Bar("Trade matches", onBack = onBack)
         st.error?.let { Notice(it, error = true) }
         Hairlines(Modifier.weight(1f)) {
             item { Notice("Your wants against friends' for-trade cards, and theirs against yours. People you've played with count when they share with anyone.") }
@@ -855,7 +853,7 @@ fun TradeMatchScreen(userId: String, onBack: () -> Unit, onProfile: () -> Unit, 
         PriceBook.load(ids)
     }
     T1Screen {
-        Bar(match?.displayName ?: "Trade match", match?.let { if (it.friend) "Friend" else "Played with you" }, onBack = onBack) {
+        Bar(match?.displayName ?: "Trade match", onBack = onBack) {
             BarAction("Profile", onProfile)
             if (match != null) BarAction("More") { more = true }
         }

@@ -463,7 +463,7 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
     }
     if (p != null && p.available && p.showsResults) {
         T1Screen {
-            Bar(p.name ?: "Event", p.resultsTitle, onBack = onBack)
+            Bar(p.name ?: "Event", onBack = onBack)
             if (p.me == "waitlisted") Notice("Sign-ups are closed: you didn't get in this time.")
             EventAboutRows(eventId, go) { about = it }
             PrizePoolRow(money, about?.league?.name)
@@ -507,7 +507,7 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
             if (p.me == "organizer" || p.me == "player") BigAction("Open event", accent = true) { onOpenEvent(eventId) }
         }
     } else T1Screen {
-        Bar(p?.name ?: "Event", p?.shortCode?.let { "Event $it" }, onBack = onBack)
+        Bar(p?.name ?: "Event", onBack = onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (p != null && p.available) {
                 Column(Modifier.fillMaxWidth().background(T1.surface).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

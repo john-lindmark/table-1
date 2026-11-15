@@ -155,7 +155,7 @@ fun LeagueScreen(league: String, from: String, foregrounds: Int, onBack: () -> U
                     // A tap toggles; a long press has Notifications on or off (the details screen too).
                     Label(if (p.me.following) "Following" else "Follow",
                         Modifier.combinedClickable(onLongClickLabel = "Notifications", onLongClick = { if (p.me.following) followMenu = true else setFollow(true, null) },
-                            onClick = { setFollow(!p.me.following, null) }).padding(vertical = 12.dp, horizontal = 4.dp),
+                            onClick = { setFollow(!p.me.following, null) }).padding(vertical = 17.dp, horizontal = 16.dp),
                         color = if (p.me.following) T1.accent else T1.text)
                 }
                 BarGlyph("Details", { go("league/$id/details") }) { ListGlyph() }

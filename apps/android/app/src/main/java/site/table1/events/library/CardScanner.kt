@@ -267,7 +267,7 @@ fun CardScanOverlay(
             // The camera is off while the picker is open, like `fixing`, so nothing is taken behind it.
             val close = { languageFor = null; steady = ScanSteadiness(); frames.clear() }
             Box(Modifier.fillMaxSize().background(T1.bg))
-            LanguagePicker(langCard.lang, langCard.oracle.name, onClose = close) { lang ->
+            LanguagePicker(langCard.lang, onClose = close) { lang ->
                 val at = cards.indexOfFirst { it.id == langCard.id }
                 if (at >= 0) cards[at] = langCard.copy(lang = lang)
             }
@@ -283,9 +283,7 @@ fun CardScanOverlay(
             }, onClose = close)
         } else Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
-                Bar(title, subtitle = if (cards.isEmpty()) (if (owned == null) "Hold a card flat in the frame" else "Matching cards you own")
-                    else ScanBatch.total(cards.map { PriceBook.usd(it.printing.cardId, it.finish, it.condition) })
-                        .also { pricesVersion }?.let { "${cards.size} scanned · ${PriceBook.text(it)}" } ?: "${cards.size} scanned", onBack = back)
+                Bar(title, onBack = back)
                 when {
                     !granted -> {
                         Notice(if (asked) "Camera access is off. Allow it for Table 1 in Settings, or search by name instead."

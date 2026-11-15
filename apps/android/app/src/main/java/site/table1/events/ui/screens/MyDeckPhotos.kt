@@ -114,7 +114,7 @@ fun MyDeckPhotosScreen(onBack: () -> Unit, onOpenEvent: (String) -> Unit, onOpen
     }
 
     T1Screen {
-        Bar("Deck photos", if (loaded) MyDeckPhotoRules.summary(mine.total, mine.events) else null, onBack = onBack)
+        Bar("Deck photos", onBack = onBack)
         LazyColumn {
             error?.let { item { Notice(it, error = true) } }
             when {

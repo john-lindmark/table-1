@@ -13,7 +13,6 @@ import {
   loadMyDeckPhotos,
   myDeckPhotoDetail,
   myDeckPhotoGroups,
-  myDeckPhotoSummary,
   readDeckPhoto,
   setDeckPhotoNote,
   turnDeckPhoto,
@@ -227,7 +226,7 @@ export function DeckPhotosScreen({ eventId, organizer, onBack, onOpenList, start
 
   return (
     <Screen>
-      <Bar title="Deck photos" subtitle={event?.name} onBack={onBack} />
+      <Bar title="Deck photos" onBack={onBack} />
       {canAdd && (
         <div className="flex gap-px">
           <button
@@ -415,7 +414,7 @@ export function MyDeckPhotosScreen({ onBack, onOpenEvent, onOpenEventPhotos, onO
 
   return (
     <Screen>
-      <Bar title="Deck photos" subtitle={loaded ? myDeckPhotoSummary(mine.total, mine.events) : undefined} onBack={onBack} />
+      <Bar title="Deck photos" onBack={onBack} />
       {error && <Notice tone="error">{error}</Notice>}
       {!loaded ? (
         <Notice tone="info">Loading…</Notice>

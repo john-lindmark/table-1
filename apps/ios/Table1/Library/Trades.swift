@@ -167,7 +167,7 @@ struct TradesView: View {
         let drafts = store.trades.filter { !$0.confirmed }
         let done = store.trades.filter(\.confirmed)
         T1Screen {
-            Bar(title: "Trades", subtitle: store.loaded ? "\(drafts.count) open" : nil, back: root ? nil : { dismiss() })
+            Bar(title: "Trades", back: root ? nil : { dismiss() })
             if let error = store.error { Notice(error, error: true) }
             ScrollView {
                 HairlineList {
@@ -243,7 +243,7 @@ struct TradeView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: partner.isEmpty ? "Trade" : partner, subtitle: confirmed ? "Confirmed" : "Draft", back: { dismiss() }) {
+            Bar(title: partner.isEmpty ? "Trade" : partner, back: { dismiss() }) {
                 if trade != nil && !confirmed {
                     BarButton("Delete") {
                         T1Overlays.shared.showMenu("Delete this trade?", [
@@ -608,7 +608,7 @@ struct TradePickView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: give ? "Add what you give" : "Add what you get", subtitle: added, back: { T1Overlays.shared.dismissPanel() })
+            Bar(title: give ? "Add what you give" : "Add what you get", back: { T1Overlays.shared.dismissPanel() })
             CatalogStatusRow(catalog: catalog)
             T1SearchField(text: $query, prompt: give ? "Search your collection" : "Lightning Bolt").focused($focused)
             ScrollView {

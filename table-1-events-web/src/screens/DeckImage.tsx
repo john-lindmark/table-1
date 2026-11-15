@@ -160,7 +160,7 @@ export function DeckImageScreen({ name, format, entries, catalog, owner, from, o
 
   return (
     <div className="fixed inset-0 z-50 bg-t1-bg text-t1-text flex flex-col gap-px" role="dialog" aria-modal="true" aria-label={`Deck image of ${name}`}>
-      <Bar title="Deck image" subtitle={name} onBack={onClose} />
+      <Bar title="Deck image" onBack={onClose} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <Segmented options={[{ value: "grid", label: "Cards" }, { value: "stacks", label: "Stacks" }]} value={layout}
                    onChange={(v) => setLayout(v as DeckImageLayout)} />
@@ -171,7 +171,7 @@ export function DeckImageScreen({ name, format, entries, catalog, owner, from, o
         {!owner && <SwitchRow label="Your name" detail={me ?? "Not set"} on={showName} onChange={setShowName} />}
         {fail && <Notice tone="error">{fail}</Notice>}
         {note && <Notice tone="info">{note}</Notice>}
-        {url ? <ZoomablePreview src={url} alt={`Deck image of ${name}`} title="Deck image" subtitle={name} screen="deck_image" />
+        {url ? <ZoomablePreview src={url} alt={`Deck image of ${name}`} title="Deck image" screen="deck_image" />
           : <Notice tone="info">{art ? "Laying out the cards…" : `Getting card images… ${progress[0]} of ${progress[1]}`}</Notice>}
       </div>
       <div className="shrink-0 flex gap-px pb-px">

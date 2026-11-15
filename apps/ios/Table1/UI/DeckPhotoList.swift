@@ -277,8 +277,8 @@ struct DeckPhotoListView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Decklist", subtitle: subtitle, back: { dismiss() }) {
-                if saved { LabelText("Saved", color: T1.accent) }
+            Bar(title: "Decklist", back: { dismiss() }) {
+                if saved { LabelText("Saved", color: T1.accent).padding(.horizontal, 16) }
             }
             HairlineList {
                 photo
@@ -330,11 +330,6 @@ struct DeckPhotoListView: View {
         .task(id: data?.reading) { await poll() }
         .task(id: dirty) { await save() }
         .task(id: entries.compactMap(\.cardId)) { await art() }
-    }
-
-    private var subtitle: String? {
-        guard let d = data else { return nil }
-        return [d.player, d.event?.name].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     @ViewBuilder private var photo: some View {

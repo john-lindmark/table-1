@@ -25,7 +25,7 @@ struct ListExportPanel: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Export", subtitle: name, back: { T1Overlays.shared.dismissPanel() })
+            Bar(title: "Export", back: { T1Overlays.shared.dismissPanel() })
             T1Segmented(options: formats.map { ($0, $0.short) }, selection: $format)
             Notice(format.detail)
             ScrollView([.vertical]) {

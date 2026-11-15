@@ -39,7 +39,7 @@ export function TuneIcon() {
 export function IconButton({ label, onClick, children, on }: { label: string; onClick: () => void; children: ReactNode; on?: boolean }) {
   return (
     <button type="button" aria-label={label} title={label} onClick={onClick} aria-pressed={on}
-            className={`shrink-0 w-[50px] h-[50px] -my-3 flex items-center justify-center hover:text-t1-accent ${on ? "outline outline-1 -outline-offset-[10px] outline-t1-accent" : ""}`}>
+            className={`t1-icon-btn shrink-0 w-[50px] h-[50px] flex items-center justify-center hover:text-t1-accent ${on ? "outline outline-1 -outline-offset-[10px] outline-t1-accent" : ""}`}>
       {children}
     </button>
   );

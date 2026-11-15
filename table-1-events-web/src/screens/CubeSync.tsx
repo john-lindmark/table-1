@@ -146,7 +146,7 @@ export function CubeSyncScreen({ id, onBack, onCard }: { id: string; onBack: () 
   const r = checked?.result;
   return (
     <LibScreen>
-      <Bar title="Sync with Cube Cobra" subtitle={list?.name} onBack={onBack} />
+      <Bar title="Sync with Cube Cobra" onBack={onBack} />
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {!catalog && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}

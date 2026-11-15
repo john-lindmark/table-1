@@ -69,31 +69,30 @@ export function BackArrow({ className = "" }: { className?: string }) {
   );
 }
 
+/** Every screen's bar, drawn like the Collection home's and card detail's (Figma 325:10820, 318:10810; design guidance
+ *  § 2 "Bar"): 50 px on the background, the back arrow in a 50 × 50 cell at the leading edge on pushed screens, the
+ *  title in 12 px (uppercase, tracking 2, on a screen with no back arrow; as written on pushed screens), actions at the
+ *  trailing edge (icon buttons flush, text actions 16 px in: `.t1-bar-actions` in globals.css). No subtitle line. */
 export function Bar({
   title,
-  subtitle,
   right,
   onBack,
 }: {
   title: string;
-  subtitle?: string;
   right?: ReactNode;
   /** Screens pushed above a tab's main view lead with the back arrow. */
   onBack?: () => void;
 }) {
   return (
-    <div className={`shrink-0 bg-t1-surface ${onBack ? "pr-4" : "px-4"} py-3 flex items-center justify-between gap-3`}>
+    <div className="shrink-0 h-[50px] bg-t1-bg flex items-center">
       {onBack && (
         <button type="button" onClick={onBack} aria-label="Back"
-                className="shrink-0 w-[50px] h-[50px] -my-3 -mr-3 flex items-center justify-center hover:text-t1-accent">
+                className="shrink-0 w-[50px] h-[50px] flex items-center justify-center hover:text-t1-accent">
           <BackArrow />
         </button>
       )}
-      <div className="min-w-0 flex-1">
-        <p className="text-[13px] tracking-[0.5px] truncate">{title}</p>
-        {subtitle && <p className="t1-label truncate">{subtitle}</p>}
-      </div>
-      {right}
+      <p className={`min-w-0 flex-1 pr-2 text-[12px] truncate ${onBack ? "pl-1" : "pl-4 uppercase tracking-[2px]"}`}>{title}</p>
+      {right != null && right !== false && <div className="t1-bar-actions shrink-0 h-[50px] flex items-center gap-px">{right}</div>}
     </div>
   );
 }

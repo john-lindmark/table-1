@@ -63,7 +63,7 @@ export function ListToCollectionScreen({ list, catalog, owned, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 bg-t1-bg text-t1-text flex flex-col gap-px" role="dialog" aria-modal="true" aria-label={`Add ${list.name} to your collection`}>
-      <Bar title="Add to collection" subtitle={list.name} onBack={onClose} />
+      <Bar title="Add to collection" onBack={onClose} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px lg:w-[960px] lg:max-w-full lg:mx-auto">
         {error && <Notice tone="error">{error}</Notice>}
         {done && <>

@@ -146,7 +146,7 @@ fun DeckImageScreen(name: String, format: String, entries: List<ListEntry>, owne
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(site.table1.events.ui.theme.T1.bg)) {
             T1Screen {
-                Bar("Deck image", name, onBack = onClose)
+                Bar("Deck image", onBack = onClose)
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     T1Segmented(listOf("Cards", "Stacks"), if (layout == DeckImage.Layout.Grid) 0 else 1) {
                         layout = if (it == 0) DeckImage.Layout.Grid else DeckImage.Layout.Stacks

@@ -813,7 +813,7 @@ struct ListsView: View {
         let lists = store.lists(kind)
         let owned = Holdings.current(listing: lists.flatMap { $0.entries.map(\.cardId) })
         T1Screen {
-            Bar(title: kind == .deck ? "Decks" : "Cubes", subtitle: "\(lists.count)", back: { dismiss() })
+            Bar(title: kind == .deck ? "Decks" : "Cubes", back: { dismiss() })
             HairlineList {
                 Button {
                     T1Overlays.shared.present {
@@ -1058,8 +1058,8 @@ struct ListDetailView: View {
         let issues = list.map { ListLine.issues(rows, list: $0) } ?? [:]
         let shown = query.isEmpty ? rows : rows.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
         T1Screen {
-            Bar(title: list?.name ?? "List", subtitle: list.map(subtitle), back: { dismiss() }) {
-                HStack(spacing: 20) {
+            Bar(title: list?.name ?? "List", back: { dismiss() }) {
+                HStack(spacing: 0) {
                     BarButton(editing ? "Done" : "Edit") { editing.toggle() }
                     if !editing {
                         BarButton("View") {
@@ -1329,11 +1329,6 @@ struct ListDetailView: View {
         if list.entries.isEmpty { ListRow(title: "No cards yet", detail: "Add cards to start this list") }
     }
 
-    private func subtitle(_ l: CardList) -> String {
-        if let event = l.eventName { return "From \(event) · v\(l.current?.number ?? 1)" }
-        return "\(formatName(l.format)) \(l.kind == .deck ? "deck" : "cube") · v\(l.current?.number ?? 1)"
-    }
-
     /// Every line's own count, so nothing reads as missing.
     private func historyRow(_ list: CardList) -> some View {
         Button { path.append(.versions(list.id)) } label: {
@@ -1524,7 +1519,7 @@ struct ListVersionsView: View {
     var body: some View {
         let list = ListsStore.shared.list(id: listId)
         T1Screen {
-            Bar(title: "Version history", subtitle: list?.name, back: { dismiss() })
+            Bar(title: "Version history", back: { dismiss() })
             if let list {
                 HairlineList {
                     ForEach(Array(list.versions.enumerated().reversed()), id: \.element.number) { i, v in
@@ -1559,7 +1554,7 @@ struct ListVersionView: View {
         let previous = index > 0 ? list?.versions[index - 1] : nil
         let changes = version.map { CardList.diff(previous, $0) } ?? []
         T1Screen {
-            Bar(title: "v\(number) · \(version?.note ?? "")", subtitle: list?.name, back: { dismiss() })
+            Bar(title: "v\(number) · \(version?.note ?? "")", back: { dismiss() })
             if let restored { Notice("Restored as v\(restored). Every earlier version is still here.") }
             if let list, let version {
                 HairlineList {
@@ -1764,7 +1759,7 @@ struct ListAddCardsView: View {
         let list = ListsStore.shared.list(id: listId)
         let sections = list?.kind == .cube ? ["main", "maybe"] : ["main", "side", "maybe"]
         T1Screen {
-            Bar(title: "Edit \(list?.name ?? "list")", subtitle: list.map { "v\($0.current?.number ?? 1)" }) { BarButton("Done") { dismiss() } }
+            Bar(title: "Edit \(list?.name ?? "list")") { BarButton("Done") { dismiss() } }
             CatalogStatusRow(catalog: catalog)
             if let list {
                 if let note { Notice(note) }
@@ -2057,7 +2052,7 @@ struct DeckFinderView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Find a deck", subtitle: "Recent tournament lists", back: { dismiss() })
+            Bar(title: "Find a deck", back: { dismiss() })
             CatalogStatusRow(catalog: catalog)
             HairlineList {
                 Field(label: "Describe the deck", text: $query).focused($focused)
@@ -2307,7 +2302,7 @@ struct ListImportView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: kind == .deck ? "Import deck" : "Import cube", subtitle: "From a link or a pasted list", back: { dismiss() })
+            Bar(title: kind == .deck ? "Import deck" : "Import cube", back: { dismiss() })
             CatalogStatusRow(catalog: catalog)
             if let error { Notice(error, error: true) }
             HairlineList {

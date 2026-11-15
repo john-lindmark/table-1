@@ -491,7 +491,7 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
         return listOfNotNull(price, "${g.printings} printing${if (g.printings == 1) "" else "s"}", g.type).joinToString(" · ")
     }
     T1Screen {
-        Bar("All cards", subtitle = col.summary?.let { "${count(it.totalQty)} cards" }, onBack = onBack) {
+        Bar("All cards", onBack = onBack) {
             BarAction("Share") {
                 Telemetry.capture("share_opened", mapOf("part" to "all_cards", "from" to "all_cards"))
                 sharing = true

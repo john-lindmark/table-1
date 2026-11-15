@@ -43,7 +43,7 @@ struct NoticesView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "From Table 1", subtitle: "Changes to your content", back: { dismiss() })
+            Bar(title: "From Table 1", back: { dismiss() })
             HairlineList {
                 if let error = store.error { Notice(error, error: true) }
                 Notice("Content other players see is checked automatically. When something breaks the rules, Table 1 makes the smallest change it can and tells you here. You can appeal each change once; a person reviews it.")
@@ -94,7 +94,7 @@ struct AppealPanel: View {
 
     var body: some View {
         VStack(spacing: 1) {
-            Bar(title: "Appeal", subtitle: notice.label) { BarButton("Cancel") { T1Overlays.shared.dismissPanel() } }
+            Bar(title: "Appeal") { BarButton("Cancel") { T1Overlays.shared.dismissPanel() } }
             if let error { Notice(error, error: true) }
             Notice("Say why this should come back (optional). A person reads it. You can appeal once.")
             TextField("", text: $note, prompt: Text("E.g. it's a card name").foregroundStyle(T1.muted), axis: .vertical)
@@ -132,7 +132,7 @@ struct ReviewView: View {
     var body: some View {
         let q = store.queue
         T1Screen {
-            Bar(title: "Review", subtitle: q.map { "\($0.waiting) waiting" }, back: { dismiss() })
+            Bar(title: "Review", back: { dismiss() })
             HairlineList {
                 if let error = store.error { Notice(error, error: true) }
                 if let q {

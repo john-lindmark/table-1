@@ -55,7 +55,7 @@ struct InsightsHomeView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Insights", subtitle: store.section == "limited" ? "Arena draft" : "Constructed metagame") {
+            Bar(title: "Insights") {
                 if store.section != "limited" {
                     T1IconButton(icon: .search, label: "Search cards") {
                         Telemetry.capture("insights_card_search_opened", ["format": store.format])
@@ -420,9 +420,8 @@ struct ConstructedPartView: View {
         let title = pack.flatMap { p in Insights.formatParts(p, tier: tier, days: store.days).first { $0.key == part }?.title }
             ?? ["meta": "Meta now", "cards": "Cards rising and falling", "new_set": "New set", "changes": "Bans and unbans",
                 "events": tier == .big ? "Big events" : "Events"][part] ?? "Insights"
-        let scope = "\(tier == .big ? "Big events" : "All events"), last \(store.days) days"
         T1Screen {
-            Bar(title: title, subtitle: (pack?.name ?? format) + (part == "meta" || part == "cards" ? " · \(scope)" : "")) { path.removeLast() }
+            Bar(title: title) { path.removeLast() }
             InsightsPage {
                 VStack(spacing: 1) {
                     if let pack { content(pack, tier) } else { Notice("Loading the metagame…") }
@@ -550,7 +549,7 @@ struct ArchetypeInsightView: View {
     var body: some View {
         let pack = store.constructed[format]
         T1Screen {
-            Bar(title: pack?.name(id) ?? "Archetype", subtitle: "\(pack?.name ?? format) · all events, last \(store.days) days") { path.removeLast() }
+            Bar(title: pack?.name(id) ?? "Archetype") { path.removeLast() }
             InsightsPage {
                 VStack(spacing: 1) {
                     if let page, let pack { content(page, pack) }
@@ -717,7 +716,7 @@ struct FinishView: View {
                                  path: InsightsRoute.library($path))
             } else {
                 T1Screen {
-                    Bar(title: title, subtitle: f.map { "\($0.event) · \(InsightCharts.shortDay($0.on))" }) { path.removeLast() }
+                    Bar(title: title) { path.removeLast() }
                     CatalogStatusRow(catalog: catalog)
                     InsightsPage { Notice("Loading…") }
                 }
@@ -912,7 +911,7 @@ struct BanStudyView: View {
         let b = pack?.bans.first { $0.change == changeId }
         let ch = pack?.change(changeId)
         T1Screen {
-            Bar(title: ch?.words ?? "Format change", subtitle: ch.map { "\(pack?.name ?? "") · \(InsightCharts.shortDay($0.on))" }) { path.removeLast() }
+            Bar(title: ch?.words ?? "Format change") { path.removeLast() }
             InsightsPage {
                 VStack(spacing: 1) {
                     if let b, let pack {
@@ -962,7 +961,7 @@ struct MatchupsView: View {
         let tier = pack.map { store.tier(for: $0) } ?? .all
         let grid = pack?.grid(tier, days: store.days)
         T1Screen {
-            Bar(title: "Matchups", subtitle: "\(pack?.name ?? format) · \(grid?.scope ?? "last 90 days")") { path.removeLast() }
+            Bar(title: "Matchups") { path.removeLast() }
             InsightsPage {
                 VStack(spacing: 1) {
                     if let pack, let grid {

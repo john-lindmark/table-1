@@ -216,7 +216,7 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     }
 
     T1Screen {
-        Bar("New event", typedName.ifEmpty { preview }) { BarAction("Cancel", onCancel) }
+        Bar("New event") { BarAction("Cancel", onCancel) }
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(1.dp),

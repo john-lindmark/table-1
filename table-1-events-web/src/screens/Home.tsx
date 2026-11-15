@@ -280,12 +280,11 @@ export function Home({
       <TabNav />
       <Bar
         title="Events"
-        subtitle={live.length ? `${live.length} live` : undefined}
         right={
           <div className="flex items-center gap-5 shrink-0">
             {/* Find (events, leagues, boards): the sidebar has it on a desktop. */}
             <Link to={demoPath("/find")} aria-label="Find" title="Find"
-                  className="lg:hidden w-[50px] h-[50px] -my-3 -mx-4 flex items-center justify-center hover:text-t1-accent">
+                  className="t1-icon-btn lg:hidden w-[50px] h-[50px] flex items-center justify-center hover:text-t1-accent">
               <Icon d={BAR_ICON.search} />
             </Link>
             <button onClick={() => onOpenLife()} className="t1-label">
@@ -711,7 +710,6 @@ export function NewEvent({
     <Screen>
       <Bar
         title="New event"
-        subtitle={typedName || preview}
         right={
           <button onClick={onCancel} className="t1-label shrink-0">
             Cancel

@@ -538,10 +538,7 @@ private fun PlayerView(
     }
 
     T1Screen {
-        Bar(b.event.name, listOfNotNull(me?.displayName ?: "Spectating", myTeam, b.event.label,
-            (active ?: b.rounds.maxByOrNull { it.number })?.name(b.event.numberOfRounds)
-                ?: if (b.event.beforeRoundOne) EventRules.whenText(b.event.startsAt) ?: "Before round 1" else "Round ${b.event.currentRound} of ${b.event.numberOfRounds}",
-        ).joinToString(" · "), onBack = onBack)
+        Bar(b.event.name, onBack = onBack)
         if (b.event.isCancelled) CancelledBanner(b.event.cancelReason)
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             val photos = myPhotos

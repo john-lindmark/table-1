@@ -314,7 +314,7 @@ struct DeckImagePanel: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Deck image", subtitle: name, back: { T1Overlays.shared.dismissPanel() })
+            Bar(title: "Deck image", back: { T1Overlays.shared.dismissPanel() })
             HairlineList {
                 T1Segmented(options: [(DeckImage.Layout.grid.rawValue, "Cards"), (DeckImage.Layout.stacks.rawValue, "Stacks")], selection: $layoutRaw)
                 T1Segmented(options: [(CardGrouping.type.rawValue, "Type"), (CardGrouping.manaValue.rawValue, "Mana value"),

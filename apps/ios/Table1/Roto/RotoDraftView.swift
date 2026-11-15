@@ -52,7 +52,7 @@ struct RotoDraftView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: title, subtitle: subtitle, back: back) {
+            Bar(title: title, back: back) {
                 if isOrganizer && !readOnly && store.phase == .drafting { BarButton("More") { showMore() } }
             }
             RotoSummary(store: store, isOrganizer: isOrganizer && !readOnly) { tab = .cube }
@@ -97,14 +97,6 @@ struct RotoDraftView: View {
             await ListsStore.shared.sync()
             deck = RotoDeckID(id: id)
         }
-    }
-
-    /// "Draft · 8 players · 45 picks each · Snake"
-    private var subtitle: String {
-        var parts = ["Draft", "\(store.players) players", "\(store.draft.picksPerPlayer) picks each"]
-        parts.append(store.draft.snake ? "Snake" : "Same order")
-        if readOnly, let pairing { parts[0] = pairing == "round_robin" ? "Round robin" : "Swiss" }
-        return parts.joined(separator: " · ")
     }
 
     @MainActor
@@ -750,7 +742,7 @@ struct RotoCardPanel: View {
             && (store.isMyTurn || (isOrganizer && clock != nil))
         let forWhom = clock.flatMap { $0.participantId == store.me?.participantId ? nil : store.name(seat: $0.seat) }
         VStack(spacing: 1) {
-            Bar(title: card?.name ?? "Card", subtitle: card.map { $0.typeLine }) {
+            Bar(title: card?.name ?? "Card") {
                 BarButton("Close") { T1Overlays.shared.dismissPanel() }
             }
             HStack {

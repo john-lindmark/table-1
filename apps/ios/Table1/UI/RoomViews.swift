@@ -25,7 +25,7 @@ struct DisplayPanel: View {
 
     var body: some View {
         VStack(spacing: 1) {
-            Bar(title: "Display", subtitle: nil, back: { T1Overlays.shared.dismissPanel() })
+            Bar(title: "Display", back: { T1Overlays.shared.dismissPanel() })
             ScrollView {
                 VStack(spacing: 1) {
                     VStack(spacing: 12) {

@@ -127,7 +127,7 @@ struct EditResultSheet: View {
     var body: some View {
         let valid = s0 + s1 + draws <= 3 && !(playoff && s0 == s1)
         VStack(spacing: 1) {
-            Bar(title: "Table \(m.tableNumber.map(String.init) ?? "")", subtitle: "Set the result") {
+            Bar(title: "Table \(m.tableNumber.map(String.init) ?? "")") {
                 BarButton("Cancel") { T1Overlays.shared.dismissPanel() }
             }
             T1Stepper(label: b.name(m.side(0)?.participantId), value: $s0, range: 0...2)
@@ -216,7 +216,7 @@ struct PlayerView: View {
         let seating = engine.seating ?? []
 
         T1Screen {
-            Bar(title: b.event.name, subtitle: subtitle(me: me, active: active), back: { dismiss() })
+            Bar(title: b.event.name, back: { dismiss() })
             if b.event.isCancelled { CancelledBanner(reason: b.event.cancelReason) }
             HairlineList {
                 if let doneWhy, let photos = myPhotos { deckPhotoPrompt(doneWhy, photos: photos) }
@@ -379,23 +379,10 @@ struct PlayerView: View {
         let b = b
         T1Overlays.shared.present(full: true) {
             T1Screen {
-                Bar(title: "Schedule", subtitle: b.event.name, back: { T1Overlays.shared.dismissPanel() })
+                Bar(title: "Schedule", back: { T1Overlays.shared.dismissPanel() })
                 RotoScheduleView(b: b)
             }
         }
-    }
-
-    /// "Team Lotus · seat B · Round 2 of 3" for team events; otherwise name · format · round.
-    private func subtitle(me: ParticipantRow?, active: RoundRow?) -> String {
-        let round = (active ?? b.rounds.max(by: { $0.number < $1.number }))?.name(of: b.event.numberOfRounds)
-            ?? (b.event.isBeforeRound1 ? EventRules.when(b.event.startsAt) ?? "Before round 1" : "Round \(b.event.currentRound) of \(b.event.numberOfRounds)")
-        guard let me else { return "Spectating · \(b.event.label) · \(round)" }
-        if b.event.isTeamEvent, let team = engine.teamOf(me.id) {
-            let slot: Int? = me.teamSlot ?? team.members.first(where: { $0.participantId == me.id })?.slot
-            let teamName = team.name.lowercased().hasPrefix("team") ? team.name : "Team \(team.name)"
-            return "\(teamName) · seat \(TeamRules.seatLabel(slot: slot, seatFormats: b.event.seatFormats)) · \(round)"
-        }
-        return "\(me.displayName) · \(b.event.label) · \(round)"
     }
 
     private var trackerToggle: some View {

@@ -440,8 +440,7 @@ struct CardScanView: View {
 
     private var scanner: some View {
         T1Screen {
-            Bar(title: title, subtitle: cards.isEmpty ? (owned == nil ? "Hold a card flat in the frame" : "Matching cards you own")
-                                                      : scannedLine, back: back)
+            Bar(title: title, back: back)
             if !CardTextScanner.isAvailable {
                 Notice("The camera isn't available. Allow camera access for Table 1 in Settings, or search by name instead.", error: true)
                 Spacer(minLength: 0)

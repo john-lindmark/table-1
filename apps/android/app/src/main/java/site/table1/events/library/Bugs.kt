@@ -228,7 +228,7 @@ fun BugsScreen(onBack: () -> Unit, onBug: (Long) -> Unit) {
     LaunchedEffect(Unit) { Telemetry.screen("bugs"); BugsStore.loadInbox() }
     val inbox = s.inbox
     T1Screen {
-        Bar("Bugs", inbox?.let { "${it.needsYou.size} need you · ${it.open.size} open" }, onBack = onBack)
+        Bar("Bugs", onBack = onBack)
         Hairlines(Modifier.weight(1f)) {
             s.error?.let { item { Notice(it, error = true) } }
             if (inbox == null) { item { Notice("Loading…") }; return@Hairlines }
@@ -299,7 +299,7 @@ fun BugScreen(id: Long, onBack: () -> Unit) {
             color = if (muted) T1.muted else T1.text, fontFamily = T1.mono, fontSize = 12.sp)
     }
     T1Screen {
-        Bar("Bug #$id" + (b?.severity?.let { " · $it" } ?: ""), b?.let { BugWords.status(it.status) }, onBack = onBack) {
+        Bar("Bug #$id" + (b?.severity?.let { " · $it" } ?: ""), onBack = onBack) {
             b?.sentryUrl?.let { url -> BarAction("Sentry") { runCatching { uri.openUri(url) } } }
         }
         Hairlines(Modifier.weight(1f)) {

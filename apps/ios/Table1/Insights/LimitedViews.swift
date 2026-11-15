@@ -367,7 +367,7 @@ struct PairInsightView: View {
         let v = pack?.events[event]?.groups[group]
         let p = v?.pairs.first { $0.p == pair }
         T1Screen {
-            Bar(title: "\(Insights.pairNames[pair] ?? pair) \(pair)", subtitle: "\(LimitedPicker.label(set, store.limited[set]?.name)) \(Insights.eventLabels[event] ?? event)") { path.removeLast() }
+            Bar(title: "\(Insights.pairNames[pair] ?? pair) \(pair)") { path.removeLast() }
             InsightsPage {
                 VStack(spacing: 1) {
                     if let p, let v, let pack {
@@ -423,7 +423,7 @@ struct LimitedCardView: View {
         let v = pack?.events[event]?.groups[group]
         let c = v?.cards.first { $0.n == name }
         T1Screen {
-            Bar(title: name, subtitle: "\(LimitedPicker.label(set, store.limited[set]?.name)) \(Insights.eventLabels[event] ?? event)") { path.removeLast() }
+            Bar(title: name) { path.removeLast() }
             InsightsPage {
                 VStack(spacing: 1) {
                     if let c, let v, let pack {

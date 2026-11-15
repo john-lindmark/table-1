@@ -293,7 +293,7 @@ struct SpiceView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Spice", subtitle: title, back: { dismiss() })
+            Bar(title: "Spice", back: { dismiss() })
             HairlineList {
                 SpiceSection(listId: listId, kind: kind, format: format, logScreen: false) { path.append(.cardIn($0, .search)) }
             }

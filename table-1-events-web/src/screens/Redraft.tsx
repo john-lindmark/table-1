@@ -42,7 +42,7 @@ export function RedraftScreen({ eventId, setCode, onBack }: { eventId: string; s
   const p = pile;
   return (
     <Screen>
-      <Bar title="Redraft" subtitle={p && p.count > 0 ? `${p.count} ${p.count === 1 ? "card" : "cards"} · ${usdText(p.total_usd) ?? ""}` : undefined} onBack={onBack}
+      <Bar title="Redraft" onBack={onBack}
            right={<button type="button" onClick={() => setAdding(true)} className="t1-label hover:text-t1-text px-2 py-1 -my-1">Add</button>} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {error && <Notice tone="error">{error}</Notice>}
@@ -82,7 +82,7 @@ function RedraftAdd({ setCode, onAdd, onClose }: { setCode: string | null; onAdd
   };
   return (
     <div className="fixed inset-0 z-50 bg-t1-bg flex flex-col gap-px" role="dialog" aria-modal="true" aria-label="Add to the redraft">
-      <Bar title="Add to the redraft" subtitle={setCode ? `${setCode.toUpperCase()} printings first` : undefined}
+      <Bar title="Add to the redraft"
            right={<button type="button" className="t1-label hover:text-t1-text" onClick={onClose}>Done</button>} />
       <CardSearchBar label="Card" value={q} onChange={setQ} autoFocus onSubmit={() => { if (hits[0] != null) pick(hits[0]); }} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px w-full max-w-[720px] mx-auto">

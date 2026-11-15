@@ -104,7 +104,7 @@ fun ListExportScreen(name: String, kind: ListKind, entries: List<ListEntry>, fro
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
-                Bar("Export", name, onBack = onClose)
+                Bar("Export", onBack = onClose)
                 T1Segmented(formats.map { it.short }, formats.indexOf(format)) { format = formats[it]; note = null }
                 Notice(format.detail)
                 SelectionContainer(Modifier.weight(1f).fillMaxWidth().background(T1.surface)) {

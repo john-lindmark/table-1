@@ -188,7 +188,7 @@ fun ScanPrintingScreen(card: ScannedCard, owned: Map<String, Set<String>>?, onPi
     }
     Box(Modifier.fillMaxSize().background(T1.bg)) {
         T1Screen {
-            Bar("Printing", subtitle = card.oracle.name, onBack = onClose)
+            Bar("Printing", onBack = onClose)
             Hairlines(Modifier.weight(1f)) {
                 items(printings, key = { it.cardId }) { p ->
                     val current = p.cardId == card.printing.cardId

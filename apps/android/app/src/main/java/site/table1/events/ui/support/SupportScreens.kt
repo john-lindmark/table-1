@@ -243,7 +243,7 @@ fun SupportGuideScreen(section: String, entry: String?, from: String, nav: Suppo
         if (i > 0) state.scrollToItem((i - 1).coerceAtLeast(0))
     }
     T1Screen {
-        Bar(content?.sectionTitle(section) ?: "Support", "Guide", onBack = nav.back)
+        Bar(content?.sectionTitle(section) ?: "Support", onBack = nav.back)
         LazyColumn(Modifier.fillMaxWidth().weight(1f), state = state, verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (rows.isEmpty()) item { Notice("This isn't available.") }
             items(rows.size) { i ->

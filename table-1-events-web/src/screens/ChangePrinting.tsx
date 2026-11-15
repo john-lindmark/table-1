@@ -155,7 +155,7 @@ export function ChangePrintingScreen({ target, onClose, onChanged, screenName }:
 
   return (
     <LibScreen>
-      <Bar title="Change printing" subtitle={name} onBack={onClose} />
+      <Bar title="Change printing" onBack={onClose} />
       {error && <Notice tone="error">{error}</Notice>}
       {have === 0 ? <Notice tone="info">This line has no copies left.</Notice> : (
         <>
@@ -212,7 +212,7 @@ export function ChangePrintingScreen({ target, onClose, onChanged, screenName }:
         </>
       )}
       {pickingLang && live && (
-        <LanguagePicker current={live.lang} subtitle={name ?? undefined} onClose={() => setPickingLang(false)} onPick={(l) => void changeLanguage(l)} />
+        <LanguagePicker current={live.lang} onClose={() => setPickingLang(false)} onPick={(l) => void changeLanguage(l)} />
       )}
     </LibScreen>
   );

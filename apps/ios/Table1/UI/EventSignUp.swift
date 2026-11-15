@@ -267,9 +267,7 @@ struct EventPageView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: page?.name ?? "Event",
-                subtitle: page.map { $0.available && $0.showsResults ? $0.resultsTitle : $0.shortCode.map { "Event \($0)" } } ?? nil,
-                back: { dismiss() })
+            Bar(title: page?.name ?? "Event", back: { dismiss() })
             if let page, page.available, page.showsResults {
                 results(page)
             } else {
@@ -575,7 +573,7 @@ struct DecklistPanel: View {
 
     var body: some View {
         VStack(spacing: 1) {
-            Bar(title: "Decklist", subtitle: "\(playerName) · \(event.label)") {
+            Bar(title: "Decklist") {
                 BarButton("Done") { done() }
             }
             ScrollView {

@@ -136,7 +136,7 @@ fun BindersScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onCard: (String)
     }
     val (by, unsorted) = remember(col.version, b.version) { b.totals(col.items) }
     T1Screen {
-        Bar("Binders", subtitle = "${b.binders.size} · ${b.binders.count { it.forTrade }} for trade", onBack = onBack)
+        Bar("Binders", onBack = onBack)
         (b.error ?: col.error)?.let { Notice(it, error = true) }
         if (col.items.isNotEmpty()) SearchBand(query, "Find a card in your binders") { query = it }
         if (CardName.norm(query).isNotEmpty()) Hairlines(Modifier.weight(1f)) {
@@ -251,9 +251,7 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
     val copies = items.sumOf { it.qty }
     val v = remember(items, pricesVersion) { value(items) }
     T1Screen {
-        Bar(if (unsorted) "Unsorted" else binder?.name ?: "Binder",
-            subtitle = listOfNotNull("${count(copies)} cards", if (binder?.forTrade == true) "For trade" else null, PriceBook.text(v)).joinToString(" · "),
-            onBack = onBack) {
+        Bar(if (unsorted) "Unsorted" else binder?.name ?: "Binder", onBack = onBack) {
             BarAction("View") { viewMenu = true }
             if (binder != null) BarAction("Edit") { menu = true }
         }
@@ -584,7 +582,7 @@ fun WantsScreen(onBack: (() -> Unit)?, onCard: (String) -> Unit, onBuy: ((String
     val shownWants = if (searching) rows.filter { CardSearch.matches(query, it.name, it.type) } else rows
     val shownMissing = if (searching) missing.filter { CardSearch.matches(query, it.name, it.type) } else missing
     T1Screen {
-        Bar("Wants", subtitle = "$wanted wanted · $short missing", onBack = onBack)
+        Bar("Wants", onBack = onBack)
         (error ?: b.error)?.let { Notice(it, error = true) }
         CatalogStatus(cat)
         if (rows.isNotEmpty() || missing.isNotEmpty()) SearchBand(query, "Name or type") { query = it }
@@ -696,7 +694,7 @@ private fun WantPickOverlay(onClose: () -> Unit, onScanned: (List<ScannedCard>) 
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
-                Bar("Add a want", subtitle = added, onBack = onClose)
+                Bar("Add a want", onBack = onClose)
                 CardSearchBar(query, { query = it }, placeholder = "Lightning Bolt, or Scryfall syntax", onScan = { scanning = true })
                 CardSearchStatus(query, result)
                 Hairlines(Modifier.weight(1f)) {
@@ -781,7 +779,7 @@ fun WantPrintingOverlay(oracleId: String, replacing: Want? = null, from: String 
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
-                Bar(if (replacing == null) "Want which printing" else "Change printing", subtitle = name, onBack = onClose)
+                Bar(if (replacing == null) "Want which printing" else "Change printing", onBack = onClose)
                 if (printings.size > 8) SearchBand(query, "Set, number or year") { query = it }
                 Hairlines(Modifier.weight(1f)) {
                     item {

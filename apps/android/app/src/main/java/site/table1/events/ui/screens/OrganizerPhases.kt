@@ -348,31 +348,11 @@ internal fun OrganizerScreen(
     val repairName = repairable?.let { RepairRound.label(it.stage, it.number) } ?: ""
 
     val roundsPlayed = b.rounds.maxOfOrNull { it.number } ?: 0
-    val subtitle = when (phase) {
-        OrganizerPhase.Setup -> "${event.shortCode} · Setup · ${plural(b.participants.size, "player")} · ${event.label}"
-        OrganizerPhase.Live -> listOfNotNull(
-            (active ?: b.rounds.maxByOrNull { it.number })?.name(event.numberOfRounds) ?: "Round ${event.currentRound} of ${event.numberOfRounds}",
-            when {
-                active == null || secondsLeft == null || !event.showClock -> null
-                paused -> "paused"
-                secondsLeft == 0 -> "time"
-                else -> "${clockText(secondsLeft ?: 0)} left"
-            },
-            event.label,
-        ).joinToString(" · ")
-        OrganizerPhase.Results -> if (event.isCancelled) {
-            listOfNotNull("Cancelled", shortDate(event.cancelledAt ?: event.updatedAt),
-                "after round $roundsPlayed of ${event.numberOfRounds}").joinToString(" · ")
-        } else {
-            val ended = b.rounds.lastOrNull()?.recordedAt ?: event.updatedAt ?: event.createdAt
-            listOfNotNull("Final", shortDate(ended), plural(b.participants.size, "player"), event.label).joinToString(" · ")
-        }
-    }
 
     /** The organizer screen; `hero` false leaves the round clock to a tabletop fold's upright half. */
     @Composable
     fun ColumnScope.Screen(hero: Boolean) {
-        Bar(event.name, subtitle, onBack = onBack) {
+        Bar(event.name, onBack = onBack) {
             if (!event.isCancelled) BarAction("More") { moreMenu = true }
         }
         T1Segmented(tabs.map { it.second }, tabs.indexOfFirst { it.first == selected }) { tab = tabs[it].first }
@@ -510,7 +490,7 @@ internal fun OrganizerScreen(
                 if (layout.mode == FoldMode.Tabletop) {
                     Screen(hero = false)
                 } else {
-                    Bar("Standings", active?.name(event.numberOfRounds))
+                    Bar("Standings")
                     Box(Modifier.weight(1f)) {
                         StandingsList(standings.standings, standings.teams, tags, highlight = null, userIds = b.userIds,
                             bracket = standings.bracket, seating = standings.seating)

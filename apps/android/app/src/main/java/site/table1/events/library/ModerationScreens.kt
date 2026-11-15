@@ -83,7 +83,7 @@ fun NoticesScreen(onBack: () -> Unit) {
         ModerationStore.markSeen()
     }
     T1Screen {
-        Bar("From Table 1", "Changes to your content", onBack = onBack)
+        Bar("From Table 1", onBack = onBack)
         Hairlines(Modifier.weight(1f)) {
             s.error?.let { item { Notice(it, error = true) } }
             item {
@@ -172,7 +172,7 @@ fun ReviewScreen(onBack: () -> Unit) {
     }
     val q = s.queue
     T1Screen {
-        Bar("Review", q?.let { "${it.waiting} waiting" }, onBack = onBack)
+        Bar("Review", onBack = onBack)
         Hairlines(Modifier.weight(1f)) {
             (error ?: s.error)?.let { item { Notice(it, error = true) } }
             if (q == null) { item { Notice("Loading…") }; return@Hairlines }

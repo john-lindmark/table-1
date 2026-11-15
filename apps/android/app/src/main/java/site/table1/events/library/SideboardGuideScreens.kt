@@ -88,7 +88,7 @@ private fun editMatchup(list: CardList, id: String, change: (Matchup) -> Matchup
 
 @Composable
 private fun IconAction(icon: T1Icon, label: String, onClick: () -> Unit) {
-    Box(Modifier.size(width = 50.dp, height = 40.dp).clickable(onClick = onClick).semantics { contentDescription = label },
+    Box(Modifier.size(50.dp).clickable(onClick = onClick).semantics { contentDescription = label },
         contentAlignment = Alignment.Center) { IconGlyph(icon) }
 }
 

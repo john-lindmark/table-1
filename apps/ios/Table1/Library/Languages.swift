@@ -74,7 +74,7 @@ struct LanguagePicker: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Language", subtitle: subtitle, back: cancel)
+            Bar(title: "Language", back: cancel)
             HairlineList {
                 ForEach(Array(Languages.all.enumerated()), id: \.element.code) { i, l in
                     if i == Languages.common { Section1("Other") }

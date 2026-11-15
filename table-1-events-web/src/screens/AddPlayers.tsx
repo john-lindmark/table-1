@@ -103,7 +103,6 @@ export function AddPlayers({ eventId, onDone }: { eventId: string; onDone: () =>
     <Screen>
       <Bar
         title="Add players"
-        subtitle="Invitations — they accept to take a seat"
         right={
           <button onClick={onDone} className="t1-label shrink-0">
             Done

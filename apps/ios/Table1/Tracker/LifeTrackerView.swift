@@ -882,7 +882,7 @@ private struct TrackerHistoryPanel: View {
 
     var body: some View {
         VStack(spacing: 1) {
-            Bar(title: "History", subtitle: model.isSynced ? model.eventName : "Life") {
+            Bar(title: "History") {
                 if !model.readOnly && model.canUndo {
                     BarButton("Undo last") { model.undoLast() }
                 }

@@ -89,7 +89,7 @@ fun RedraftScreen(eventId: String, onBack: () -> Unit) {
     }
     val p = pile
     T1Screen {
-        Bar("Redraft", p?.takeIf { it.count > 0 }?.let { "${it.count} ${if (it.count == 1) "card" else "cards"} · ${PriceBook.text(it.totalUsd) ?: ""}" }, onBack = onBack)
+        Bar("Redraft", onBack = onBack)
         Hairlines(Modifier.weight(1f)) {
             item { Row { Ghost(if (busy) "Adding…" else "Scan cards", enabled = !busy, accent = true) { scanning = true } } }
             error?.let { item { Notice(it, error = true) } }

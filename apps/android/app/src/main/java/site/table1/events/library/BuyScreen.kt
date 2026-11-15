@@ -182,7 +182,7 @@ fun BuyScreen(source: String, onBack: () -> Unit, onCard: (String) -> Unit) {
     }
 
     T1Screen {
-        Bar("Buy", subtitle = list?.name, onBack = onBack)
+        Bar("Buy", onBack = onBack)
         CatalogStatus(cat)
         error?.let { Notice(it, error = true) }
         Hairlines(Modifier.weight(1f)) {

@@ -28,7 +28,7 @@ struct AccountView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: part == .records ? "Records" : "Settings", subtitle: overview?.label)
+            Bar(title: part == .records ? "Records" : "Settings")
             HairlineList {
                 if let error { Notice(error, error: true) }
                 if let notice { Notice(notice) }

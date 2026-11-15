@@ -101,8 +101,7 @@ struct MyDeckPhotosView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Deck photos", subtitle: loaded ? MyDeckPhotoRules.summary(total: mine.total, events: mine.events) : nil,
-                back: { dismiss() })
+            Bar(title: "Deck photos", back: { dismiss() })
             HairlineList {
                 if let error { Notice(error, error: true) }
                 if !loaded {

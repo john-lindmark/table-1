@@ -375,12 +375,10 @@ export function CollectionImportScreen({ onBack, onAllCards }: { onBack: () => v
     capture("collection_exported", { layout, cards: cards.reduce((n, c) => n + c.qty, 0) });
   };
 
-  const subtitle = done ? (done.undone ? "Import undone" : "Imported") : preview ? FORMAT_LABEL[preview.format]
-    : reading ? "Reading…" : col.summary ? `${col.summary.total_qty.toLocaleString()} cards in collection` : undefined;
 
   return (
     <LibScreen>
-      <Bar title="Import and export" subtitle={subtitle} onBack={onBack} />
+      <Bar title="Import and export" onBack={onBack} />
       {(error || catalogError) && <Notice tone="error">{error ?? catalogError}</Notice>}
       {!catalog && !catalogError && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
       <input ref={fileInput} type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" className="hidden"
@@ -504,7 +502,7 @@ function FixPanel({ c, row, onPick, onClose }: { c: Catalog; row: ImportRow; onP
   }, [c, q]);
   return (
     <div className="fixed inset-0 z-50 bg-t1-bg flex flex-col gap-px" role="dialog" aria-modal="true" aria-label={`Fix line ${row.line}`}>
-      <Bar title={`Line ${row.line}`} subtitle={[row.name, rowSetLabel(row)].filter(Boolean).join(" · ")} onBack={onClose} />
+      <Bar title={`Line ${row.line}`} onBack={onClose} />
       <Field label="Card name" value={q} onChange={setQ} autoFocus />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {q.trim().length >= 2 && hits.length === 0 && <div className="bg-t1-surface px-4 py-4 t1-label">No card by that name</div>}

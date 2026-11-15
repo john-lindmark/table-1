@@ -22,7 +22,7 @@ import { TeamStandingsTable } from "../components/TeamStandingsTable";
 import { SeatingPanel } from "../components/SeatingPanel";
 import { GetTheApp } from "../components/GetTheApp";
 import { Bracket, DecklistPanel, decklistOf } from "../components/EventExtras";
-import { countsText, roundName, when } from "../lib/scheduledEvents";
+import { countsText, when } from "../lib/scheduledEvents";
 import {
   Bar,
   BigAction,
@@ -37,7 +37,7 @@ import {
   SwitchRow,
   TimerProgress,
 } from "../components/kit";
-import { isDraftFormat, isTeamFormat, slotLetter } from "../lib/formats";
+import { isDraftFormat, isTeamFormat } from "../lib/formats";
 import { useTrackerMode } from "../lib/settings";
 import { RotoDraftGate, RotoDraftOverlay, RotoSchedule } from "./roto/lazy";
 import { participantsKey, toTeams, useEventTeams, useSeating } from "../lib/useEventExtras";
@@ -47,8 +47,6 @@ import { JudgeCallRow } from "../components/RoomTools";
 import { TeamSignupBlock, TeamsList, useTeamMine } from "../components/TeamSignup";
 import { extensionText, leaguesDemoOn, seatLabel } from "../lib/leagues";
 import { useEventRoom } from "../lib/room";
-
-const teamTitle = (name: string) => (/^team\b/i.test(name) ? name : `Team ${name}`);
 
 /** What a player sees: their match, their result buttons, the standings. */
 export function PlayerView({
@@ -217,7 +215,7 @@ export function PlayerView({
       : null;
     return (
       <Screen>
-        <Bar title={preview?.name ?? bundle?.event.name ?? "Join event"} subtitle={code ? code.toUpperCase() : undefined} onBack={onBack} />
+        <Bar title={preview?.name ?? bundle?.event.name ?? "Join event"} onBack={onBack} />
         {facts && <Notice tone="info">{facts}</Notice>}
         <Notice tone="info">Enter the name your opponents will see at the table.</Notice>
         <Notice tone="info">{JOIN_NOTICE}</Notice>
@@ -306,12 +304,7 @@ export function PlayerView({
   }
 
   const me_ = participants.get(viewer.participantId);
-  const myTeam = me_?.teamId ? teamNames.get(me_.teamId) : null;
   const seatFormats = event.seatFormats;
-  const mySeat = me_?.teamId ? (seatFormats ? seatLabel(me_.teamSlot, seatFormats) : `seat ${slotLetter(me_.teamSlot)}`) : null;
-  const where = myTeam
-    ? `${teamTitle(myTeam)} · ${mySeat}`
-    : `Seat ${me_?.seat ?? "–"}`;
   // The shared tracker needs an account on both ends; guests keep score elsewhere.
   const signedInPlayer = (!!userId || leaguesDemoOn()) && !viewer.token;
   // Extra time for this player's table (contract/room-tools-2026-11-13.md § 2): their time runs that much past the round's.
@@ -378,9 +371,6 @@ export function PlayerView({
     <Screen width="wide">
       <Bar
         title={event.name}
-        subtitle={`${viewer.displayName} · ${where} · ${event.formatLabel} · ${
-          activeRound ? roundName(activeRound.stage, activeRound.number, event.numberOfRounds)
-            : beforeRound1 ? when(event.startsAt) ?? "Before round 1" : `Round ${event.currentRound} of ${event.numberOfRounds}`}`}
         onBack={onBack}
       />
       <EventAboutRows about={about} eventName={event.name} />
@@ -575,11 +565,11 @@ export function PlayerView({
         />
       )}
       {rotoPanel === "draft" && (
-        <RotoDraftOverlay eventId={event.id} title={event.name} isOrganizer={false} pairing={event.pairing} onClose={() => setRotoPanel(null)} />
+        <RotoDraftOverlay eventId={event.id} title={event.name} isOrganizer={false} onClose={() => setRotoPanel(null)} />
       )}
       {rotoPanel === "schedule" && (
         <div className="fixed inset-0 z-40 bg-t1-bg overflow-y-auto flex flex-col gap-px">
-          <Bar title="Schedule" subtitle={event.name} onBack={() => setRotoPanel(null)} />
+          <Bar title="Schedule" onBack={() => setRotoPanel(null)} />
           <RotoSchedule bundle={bundle} meId={viewer.participantId} />
         </div>
       )}

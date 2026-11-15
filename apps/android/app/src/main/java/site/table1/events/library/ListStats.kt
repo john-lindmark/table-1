@@ -100,10 +100,10 @@ private fun List<StatCard>.qty() = sumOf { it.qty }
 
 /** The frame every stats page shares: bar, then loading or the content. */
 @Composable
-private fun StatsFrame(title: String, subtitle: String?, onBack: () -> Unit, list: CardList?, lines: List<StatLine>?,
+private fun StatsFrame(title: String, onBack: () -> Unit, list: CardList?, lines: List<StatLine>?,
                        content: @Composable ColumnScope.(CardList, List<StatLine>) -> Unit) {
     T1Screen {
-        Bar(title, subtitle = subtitle ?: list?.name, onBack = onBack)
+        Bar(title, onBack = onBack)
         when {
             list == null -> Notice("That list isn't here anymore.")
             lines == null -> Notice("Loading card data…")
@@ -239,7 +239,7 @@ fun ListStatsScreen(listId: String, onBack: () -> Unit, onHand: () -> Unit, onOd
     val (list, lines) = rememberStatLines(listId)
     LoadSpice(list)
     LaunchedEffect(list?.kind) { list?.let { Telemetry.screen(if (it.kind == ListKind.Cube) "cube_stats" else "deck_stats") } }
-    StatsFrame("Stats", null, onBack, list, lines) { l, ls ->
+    StatsFrame("Stats", onBack, list, lines) { l, ls ->
         val cards = ls.map { it.card }
         LazyColumn(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (l.kind == ListKind.Deck) deckStats(l, cards, onHand, onOdds, onCard)
@@ -420,11 +420,7 @@ fun SampleHandScreen(listId: String, onBack: () -> Unit) {
         onDispose { if (counts[0] > 0) Telemetry.capture("sample_hand_used", mapOf("hands" to counts[0], "mulligans" to counts[1], "draws" to counts[2])) }
     }
     val h = hand
-    val subtitle = h?.let {
-        listOfNotNull("${it.hand.size} in hand", "library ${it.library.size}", if (it.mulligans > 0) "${it.mulligans} mulligan${if (it.mulligans == 1) "" else "s"}" else null,
-            if (it.drawn > 0) "drew ${it.drawn}" else null).joinToString(" · ")
-    }
-    StatsFrame("Sample hand", subtitle, onBack, list, lines) { _, _ ->
+    StatsFrame("Sample hand", onBack, list, lines) { _, _ ->
         if (main == null || h == null) return@StatsFrame
         if (library.isEmpty()) { Notice("The main deck is empty."); return@StatsFrame }
         if (h.toBottom > 0) Notice("Mulligan to ${7 - h.mulligans}: tap ${if (h.toBottom == 1) "a card" else "${h.toBottom} cards"} to put on the bottom.")
@@ -453,7 +449,7 @@ fun DrawOddsScreen(listId: String, onBack: () -> Unit) {
     val latest by rememberUpdatedState(mapOf<String, Any>("group" to if (group.startsWith("card:")) "card" else group.removePrefix("type:").lowercase(),
         "turn" to turn, "on_play" to onPlay, "at_least" to atLeast))
     DisposableEffect(Unit) { onDispose { if (touched[0]) Telemetry.capture("draw_odds_used", latest) } }
-    StatsFrame("Draw odds", null, onBack, list, lines) { _, ls ->
+    StatsFrame("Draw odds", onBack, list, lines) { _, ls ->
         val main = ls.map { it.card }.filter { it.board == "main" }
         val n = main.qty()
         if (n == 0) { Notice("The main deck is empty."); return@StatsFrame }
@@ -513,7 +509,7 @@ fun SamplePackScreen(listId: String, onBack: () -> Unit) {
     LaunchedEffect(Unit) { Telemetry.screen("sample_pack") }
     LaunchedEffect(pool.size) { if (pool.isNotEmpty()) open() }
     DisposableEffect(Unit) { onDispose { if (packs[0] > 0) Telemetry.capture("sample_pack_used", mapOf("packs" to packs[0], "size" to packSize)) } }
-    StatsFrame("Sample pack", "${pack.size} cards", onBack, list, lines) { _, _ ->
+    StatsFrame("Sample pack", onBack, list, lines) { _, _ ->
         if (main == null) return@StatsFrame
         if (pool.isEmpty()) { Notice("The cube is empty."); return@StatsFrame }
         CardsGrid(Modifier.weight(1f), pack.map { main[pool[it]] to null }) {}

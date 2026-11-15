@@ -345,7 +345,7 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit, startAdding: Boolean =
     val canAdd = event != null && !event.isCancelled && (me != null || organizer)
 
     T1Screen {
-        Bar("Deck photos", event?.name, onBack = onBack)
+        Bar("Deck photos", onBack = onBack)
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (canAdd) item {
                 BigAction(if (busy) "Uploading…" else "Add a deck photo", busy = busy, accent = true) {

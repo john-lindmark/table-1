@@ -200,7 +200,7 @@ fun CommandZonePicker(role: CommandZone.Role, onDismiss: () -> Unit, deck: List<
     }
     T1Overlay(onDismiss) {
         Column(Modifier.fillMaxSize().background(T1.bg).safeDrawingPadding(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Bar(role.title, subtitle = hint) { BarAction("Cancel", onDismiss) }
+            Bar(role.title) { BarAction("Cancel", onDismiss) }
             CatalogStatus(cat)
             CardSearchBar(query, { query = it }, placeholder = role.hint, label = "Card", onSubmit = { hits.firstOrNull()?.let(::pick) })
             LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(1.dp)) {

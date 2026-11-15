@@ -28,7 +28,7 @@ function editMatchup(list: CardList, id: string, change: (m: Matchup) => Matchup
   edit(list, (g) => ({ matchups: g.matchups.map((m) => (m.id === id ? change(m) : m)) }));
 }
 
-const iconButton = "w-[50px] h-[50px] -my-3 flex items-center justify-center hover:text-t1-accent";
+const iconButton = "t1-icon-btn w-[50px] h-[50px] flex items-center justify-center hover:text-t1-accent";
 
 export function SideboardGuideScreen({ id, at, go, onBack }: { id: string; at: GuidePage; go: (path: string, replace?: boolean) => void; onBack: () => void }) {
   const { lists: { lists, error } } = useListsData();

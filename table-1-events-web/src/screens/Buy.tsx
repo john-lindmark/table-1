@@ -151,7 +151,7 @@ export function BuyScreen({ source, onBack, onCard }: { source: BuySource; onBac
 
   return (
     <LibScreen>
-      <Bar title="Buy" subtitle={list?.name} onBack={onBack} />
+      <Bar title="Buy" onBack={onBack} />
       {(catalogError || fail) && <Notice tone="error">{catalogError ?? fail}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {!catalog ? <Row title="Loading the cards…" /> : <>

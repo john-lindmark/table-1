@@ -521,8 +521,7 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
                     onClose={() => setMatching(false)} onDone={(label, u) => { setMatching(false); report(label, u); }} />
       )}
       {zoom != null && (
-        <ZoomImage src={cardImageUrl(catalog, zoom, "large", back && catalog.pFaces[zoom] > 1)} alt={name} title={name}
-                   subtitle={setLabel(catalog.pId[zoom])} onClose={() => setZoom(null)} />
+        <ZoomImage src={cardImageUrl(catalog, zoom, "large", back && catalog.pFaces[zoom] > 1)} alt={name} title={name} onClose={() => setZoom(null)} />
       )}
     </LibScreen>
   );

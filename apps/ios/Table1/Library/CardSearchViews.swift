@@ -70,7 +70,7 @@ struct AdvancedSearchPanel: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Advanced search", subtitle: "Scryfall syntax", back: { T1Overlays.shared.dismissPanel() }) {
+            Bar(title: "Advanced search", back: { T1Overlays.shared.dismissPanel() }) {
                 BarButton("Clear") { f = AdvancedSearchFields() }
             }
             ScrollView {

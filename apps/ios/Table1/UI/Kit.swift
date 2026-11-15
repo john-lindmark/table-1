@@ -55,33 +55,47 @@ struct LabelText: View {
     }
 }
 
+/// Every screen's bar, drawn like the Collection home's and card detail's (Figma 325:10820, 318:10810; design guidance
+/// § 2 "Bar"): 50 pt on the background, the back arrow in a 50 × 50 cell at the leading edge on pushed screens, the
+/// title in 12 pt (uppercase, tracking 2, on a screen with no back arrow; as written on pushed screens), actions at the
+/// trailing edge (icon buttons 50 × 50 flush to it, text buttons 16 pt in). No subtitle line.
 struct Bar<Actions: View>: View {
     let title: String
-    var subtitle: String?
     /// Shown as the left arrow (Figma Bar, node 95:11022) on screens pushed above a tab's root.
     var back: (() -> Void)?
     @ViewBuilder var actions: Actions
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 0) {
             if let back { BackArrowButton(action: back) }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(T1.mono(13)).lineLimit(1)
-                if let subtitle { LabelText(subtitle) }
-            }
-            Spacer(minLength: 0)
-            actions
+            BarTitle(title: title, root: back == nil)
+                .padding(.leading, back == nil ? 16 : 4).padding(.trailing, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 1) { actions }.environment(\.inBar, true)
         }
-        .padding(.leading, back == nil ? 16 : 0).padding(.trailing, 16).padding(.vertical, 12)
-        .background(T1.surface)
+        .frame(height: 50)
+        .background(T1.bg)
     }
 }
 
 extension Bar where Actions == EmptyView {
-    init(title: String, subtitle: String? = nil, back: (() -> Void)? = nil) {
+    init(title: String, back: (() -> Void)? = nil) {
         self.title = title
-        self.subtitle = subtitle
         self.back = back
         self.actions = EmptyView()
+    }
+}
+
+extension EnvironmentValues {
+    /// True inside a Bar's actions (BarButton pads itself to the bar's cell).
+    @Entry var inBar = false
+}
+
+/// A bar's title: `COLLECTION` on a root, `Ragavan, Nimble Pilferer` on a pushed screen.
+struct BarTitle: View {
+    let title: String
+    let root: Bool
+    var body: some View {
+        Text(root ? title.uppercased() : title).font(T1.mono(12)).tracking(root ? 2 : 0).lineLimit(1)
     }
 }
 
@@ -108,7 +122,6 @@ struct BackArrowButton: View {
                 .frame(width: 50, height: 50).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.vertical, -12).padding(.trailing, -16)
         .accessibilityLabel("Back")
     }
 }
@@ -117,7 +130,16 @@ struct BarButton: View {
     let text: String
     let action: () -> Void
     init(_ text: String, action: @escaping () -> Void) { self.text = text; self.action = action }
-    var body: some View { Button(action: action) { LabelText(text, color: T1.text) }.buttonStyle(.plain) }
+    @Environment(\.inBar) private var inBar
+    /// In a bar: 16 pt either side and the bar's full height, so the label sits 16 pt from the edge and the whole cell
+    /// takes the tap. Elsewhere (a row's Undo) just the label.
+    var body: some View {
+        Button(action: action) {
+            LabelText(text, color: T1.text)
+                .padding(.horizontal, inBar ? 16 : 0).frame(maxHeight: inBar ? .infinity : nil).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 /// The one giant full-width action bar.

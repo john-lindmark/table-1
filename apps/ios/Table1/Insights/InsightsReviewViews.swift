@@ -23,7 +23,7 @@ struct InsightsReviewView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Review", subtitle: "Archetypes and bans") { path.removeLast() }
+            Bar(title: "Review") { path.removeLast() }
             InsightsPage {
                 VStack(spacing: 1) {
                     if let error { Notice(error, error: true) }

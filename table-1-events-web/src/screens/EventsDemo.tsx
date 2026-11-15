@@ -272,7 +272,7 @@ export function EventsDemo() {
   });
   return (
     <Screen width={screen === "live" || screen === "team" || screen === "podslive" ? "wide" : "column"}>
-      {bare ? <Bar title={screen === "team" ? "Team draft · Duskmourn · Fri 24 Oct" : "Draft · Duskmourn · Fri 24 Oct"} subtitle="Organizer · Round 2 of 3" onBack={() => {}} /> : <Segmented
+      {bare ? <Bar title={screen === "team" ? "Team draft · Duskmourn · Fri 24 Oct" : "Draft · Duskmourn · Fri 24 Oct"} onBack={() => {}} /> : <Segmented
         label="Demo"
         value={screen}
         onChange={setScreen}

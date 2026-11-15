@@ -194,20 +194,34 @@ fun Label(text: String, modifier: Modifier = Modifier, color: Color = T1.muted) 
     )
 }
 
+/** True inside a [Bar]'s actions: [BarAction] then pads itself to the bar's cell. */
+val LocalInBar = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/**
+ * Every screen's bar, drawn like the Collection home's and card detail's (Figma 325:10820, 318:10810; design guidance
+ * § 2 "Bar"): 50 dp on the background, the back arrow in a 50 × 50 cell at the leading edge on pushed screens, the
+ * title in 12 sp (uppercase, tracking 2, on a screen with no back arrow; as written on pushed screens), actions at the
+ * trailing edge (icon buttons 50 × 50 flush to it, text actions 16 dp in). No subtitle line.
+ */
 @Composable
-fun Bar(title: String, subtitle: String? = null, onBack: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
+fun Bar(title: String, onBack: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
+    val root = onBack == null
     Row(
-        modifier = Modifier.fillMaxWidth().background(T1.surface)
-            .padding(start = if (onBack == null) 16.dp else 0.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+        modifier = Modifier.fillMaxWidth().height(50.dp).background(T1.bg),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         if (onBack != null) BackArrowButton(onBack)
-        Column(Modifier.weight(1f)) {
-            Text(title, color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (subtitle != null) Label(subtitle)
+        Text(
+            if (root) title.uppercase() else title,
+            Modifier.weight(1f).padding(start = if (root) 16.dp else 4.dp, end = 8.dp),
+            color = T1.text, fontFamily = T1.mono, fontSize = 12.sp, letterSpacing = if (root) 2.sp else 0.sp,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+        androidx.compose.runtime.CompositionLocalProvider(LocalInBar provides true) {
+            Row(Modifier.fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.CenterVertically) {
+                actions()
+            }
         }
-        actions()
     }
 }
 
@@ -222,8 +236,8 @@ private val BackArrowPath: androidx.compose.ui.graphics.Path by lazy {
 @Composable
 fun BackArrowButton(onClick: () -> Unit) {
     Box(
-        // 50 dp wide like the Figma bar; kept to the bar's text height so the bar doesn't grow.
-        Modifier.size(width = 50.dp, height = 40.dp)
+        // The Figma bar's 50 × 50 cell.
+        Modifier.size(50.dp)
             .clickable(onClickLabel = "Back", onClick = onClick)
             .semantics { contentDescription = "Back" },
         contentAlignment = Alignment.Center,
@@ -237,7 +251,15 @@ fun BackArrowButton(onClick: () -> Unit) {
 
 @Composable
 fun BarAction(text: String, onClick: () -> Unit) {
-    Label(text, Modifier.clickable(onClick = onClick).padding(4.dp), color = T1.text)
+    // In a bar: 16 dp either side and the bar's full height, so the label sits 16 dp from the edge and the whole cell
+    // takes the tap. Elsewhere (a row's Undo) just the label with a little room.
+    if (LocalInBar.current) {
+        Box(Modifier.fillMaxHeight().clickable(onClick = onClick).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+            Label(text, color = T1.text)
+        }
+    } else {
+        Label(text, Modifier.clickable(onClick = onClick).padding(4.dp), color = T1.text)
+    }
 }
 
 /** The one giant full-width action bar. */

@@ -102,7 +102,7 @@ struct ListToCollectionPanel: View {
         let copies = ListToCollection.copies(ops)
         let side = entries.filter { $0.board == "side" }.reduce(0) { $0 + $1.qty }
         T1Screen {
-            Bar(title: "Add to collection", subtitle: list?.name, back: { T1Overlays.shared.dismissPanel() })
+            Bar(title: "Add to collection", back: { T1Overlays.shared.dismissPanel() })
             HairlineList {
                 if let error { Notice(error, error: true) }
                 if let done {

@@ -172,7 +172,7 @@ export function DiscordPage({ onBack }: { onBack: () => void }) {
   const install = installUrl(CLIENT_ID);
   return (
     <Screen>
-      <Bar title="Table 1 for Discord" subtitle="Events, sign-ups and results in your server" onBack={onBack} />
+      <Bar title="Table 1 for Discord" onBack={onBack} />
       <div className="bg-t1-surface px-4 py-3 text-[13px] leading-5">
         Add the bot to a Discord server and people there can make Table 1 events, sign up and drop with a button, see
         who's in, and post the results with a link to the event. The bot acts as each person's own Table 1 account,
@@ -267,7 +267,7 @@ export function DiscordLinkPage() {
 
   return (
     <Screen>
-      <Bar title="Link Discord" subtitle="Table 1 for Discord" />
+      <Bar title="Link Discord" />
       {state === "waiting" && <Notice tone="info">One moment…</Notice>}
       {state === "no_token" && (
         <>

@@ -73,7 +73,7 @@ export function QrJoin({
   if (session) {
     return (
       <Screen>
-        <Bar title="Join event" subtitle={code.toUpperCase()} />
+        <Bar title="Join event" />
         {error && <Notice tone="error">{error}</Notice>}
       </Screen>
     );
@@ -81,7 +81,7 @@ export function QrJoin({
 
   return (
     <Screen>
-      <Bar title="Join event" subtitle={code.toUpperCase()} />
+      <Bar title="Join event" />
       <JoinBanner code={code} />
       <SignInButtons />
       <div className="bg-t1-surface px-4 py-2 t1-label">Or join as a guest</div>

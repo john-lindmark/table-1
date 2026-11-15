@@ -663,6 +663,7 @@ struct PrizeSplitPanel: View {
         VStack(spacing: 1) {
             Bar(title: "Split", back: { T1Overlays.shared.dismissPanel() }) {
                 LabelText("\(total.map(Money.text) ?? "–") / \(Money.text(poolCents))", color: (total ?? .max) <= poolCents ? T1.text : T1.danger)
+                    .padding(.horizontal, 16)
             }
             ScrollView {
                 VStack(spacing: 1) {

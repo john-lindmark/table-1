@@ -107,8 +107,7 @@ struct FriendsView: View {
     var body: some View {
         let l = store.list
         T1Screen {
-            Bar(title: "Friends", subtitle: l.map { [plural($0.friends.count, "friend"), $0.incoming.isEmpty ? nil : "\($0.incoming.count) waiting"].compactMap { $0 }.joined(separator: " · ") },
-                back: { dismiss() }) {
+            Bar(title: "Friends", back: { dismiss() }) {
                 BarButton("Add") { add() }
             }
             HairlineList {
@@ -219,7 +218,7 @@ struct FriendAddPanel: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Add a friend", subtitle: "They accept to become friends") {
+            Bar(title: "Add a friend") {
                 BarButton("Done") { T1Overlays.shared.dismissPanel() }
             }
             T1SearchField(text: $query, prompt: "Name or handle")
@@ -349,7 +348,7 @@ struct ProfileScreen: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: data?.displayName ?? "Profile", subtitle: subtitle, back: root ? nil : { dismiss() }) {
+            Bar(title: data?.displayName ?? "Profile", back: root ? nil : { dismiss() }) {
                 if let data, data.relation != .me { BarButton("More") { menu(data) } }
             }
             HairlineList {
@@ -414,18 +413,6 @@ struct ProfileScreen: View {
 
     /// Viewing your own profile as someone else.
     private var asOther: Bool { data?.relation == .me && viewAs < 3 }
-
-    private var subtitle: String? {
-        guard let data else { return nil }
-        switch data.relation {
-        case .me: return "You"
-        case .friend: return "Friend"
-        case .requested: return "Requested"
-        case .incoming: return "Wants to be friends"
-        case .blocked: return "Blocked"
-        case .none: return data.handle.map { "@\($0)" } ?? "Profile"
-        }
-    }
 
     private var person: Person? { data?.person }
 
@@ -593,7 +580,7 @@ struct ProfileFriendsView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Friends", subtitle: name, back: { dismiss() })
+            Bar(title: name.isEmpty ? "Friends" : "Friends · \(name)", back: { dismiss() })
             HairlineList {
                 if let error { Notice(error, error: true) }
                 if let people {
@@ -696,10 +683,8 @@ struct ProfileCardsView: View {
     }
 
     var body: some View {
-        // A deck's count leaves out Considering, like the profile's.
-        let copies = rows?.filter { kind != .deck || $0.board != "maybe" }.reduce(0) { $0 + $1.qty } ?? 0
         T1Screen {
-            Bar(title: title, subtitle: rows == nil ? nil : plural(copies, "card"), back: { dismiss() }) {
+            Bar(title: title, back: { dismiss() }) {
                 BarButton("View") {
                     CardLayout.menu($layout, screen: "profile_\(section.kind)", printings: $printings, grouping: groupingBinding, list: kind != nil,
                                     sort: sortBinding, sorts: kind == nil ? .shared : .list)
@@ -937,7 +922,7 @@ struct SharingView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Sharing", subtitle: store.sharing.map(SharingRules.summary), back: { dismiss() })
+            Bar(title: "Sharing", back: { dismiss() })
             HairlineList {
                 if let error = store.error { Notice(error, error: true) }
                 if let s = store.sharing {
@@ -1070,7 +1055,7 @@ struct SharingItemsView: View {
     var body: some View {
         let group: SharePart = kind == "binder" ? .binders : kind == "cube" ? .cubes : .decks
         T1Screen {
-            Bar(title: group.label, subtitle: "Sharing", back: { dismiss() })
+            Bar(title: group.label, back: { dismiss() })
             HairlineList {
                 if let error = store.error { Notice(error, error: true) }
                 if let s = store.sharing {
@@ -1101,7 +1086,7 @@ struct TradeMatchesView: View {
     var body: some View {
         let m = store.matches
         T1Screen {
-            Bar(title: "Trade matches", subtitle: m.map { plural($0.count, "person", "people") }, back: { dismiss() })
+            Bar(title: "Trade matches", back: { dismiss() })
             HairlineList {
                 if let error = store.error { Notice(error, error: true) }
                 Notice("Your wants against friends' for-trade cards, and theirs against yours. People you've played with count when they share publicly.")
@@ -1175,8 +1160,8 @@ struct TradeMatchView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: match?.displayName ?? "Trade match", subtitle: match.map { $0.friend ? "Friend" : "Played with you" }, back: { dismiss() }) {
-                HStack(spacing: 20) {
+            Bar(title: match?.displayName ?? "Trade match", back: { dismiss() }) {
+                HStack(spacing: 0) {
                     BarButton("Profile") { path.append(.social(.profile(userId))) }
                     if let m = match {
                         BarButton("More") {
@@ -1351,7 +1336,7 @@ struct ReportPanel: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Report \(person.displayName)", subtitle: item?.name ?? "They won't know you reported them") {
+            Bar(title: "Report \(person.displayName)") {
                 BarButton(sent ? "Done" : "Cancel") { T1Overlays.shared.dismissPanel() }
             }
             HairlineList {
@@ -1489,7 +1474,7 @@ struct ShareView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Share", subtitle: target.title, back: { dismiss() })
+            Bar(title: "Share", back: { dismiss() })
             HairlineList {
                 if let error { Notice(error, error: true) }
                 Section1("Anyone with the link")

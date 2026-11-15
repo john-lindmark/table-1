@@ -36,7 +36,7 @@ struct CubeSyncView: View {
     var body: some View {
         let list = ListsStore.shared.list(id: listId)
         T1Screen {
-            Bar(title: "Sync with Cube Cobra", subtitle: list?.name, back: { dismiss() })
+            Bar(title: "Sync with Cube Cobra", back: { dismiss() })
             CatalogStatusRow(catalog: catalog)
             if let error { Notice(error, error: true) }
             HairlineList {

@@ -316,7 +316,7 @@ struct RotoClockPanel: View {
 
     var body: some View {
         VStack(spacing: 1) {
-            Bar(title: "Pick clock", subtitle: store.draft.clockPaused ? "Paused" : nil) {
+            Bar(title: "Pick clock") {
                 BarButton("Done") { T1Overlays.shared.dismissPanel() }
             }
             ScrollView {

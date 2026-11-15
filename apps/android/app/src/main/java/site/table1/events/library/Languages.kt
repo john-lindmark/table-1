@@ -93,12 +93,12 @@ object LanguageChange {
 
 /** Every language, current one marked; picking closes it (picking the current one changes nothing). */
 @Composable
-fun LanguagePicker(current: String, subtitle: String? = null, onClose: () -> Unit, onPick: (String) -> Unit) {
+fun LanguagePicker(current: String, onClose: () -> Unit, onPick: (String) -> Unit) {
     LaunchedEffect(Unit) { Telemetry.screen("language_picker") }
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
-                Bar("Language", subtitle = subtitle, onBack = onClose)
+                Bar("Language", onBack = onClose)
                 Hairlines(Modifier.weight(1f)) {
                     itemsIndexed(Languages.all, key = { _, l -> l.first }) { i, (code, name) ->
                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -126,7 +126,7 @@ fun NewCopiesLanguageRow(onChange: (String) -> Unit = {}) {
     var lang by remember { mutableStateOf(Languages.addLang) }
     var picking by remember { mutableStateOf(false) }
     LanguageRow(lang, "New copies in") { picking = true }
-    if (picking) LanguagePicker(lang, "For new copies", onClose = { picking = false }) { lang = it; Languages.addLang = it; onChange(it) }
+    if (picking) LanguagePicker(lang, onClose = { picking = false }) { lang = it; Languages.addLang = it; onChange(it) }
 }
 
 /**
@@ -150,7 +150,7 @@ fun OwnedLanguageRow(item: CollectionItem, label: String, binders: BindersState,
         }
     }
     LanguageRow(item.lang) { picking = true }
-    if (picking) LanguagePicker(item.lang, label, onClose = { picking = false }) { lang -> if (item.qty <= 1) run(lang, 1) else asking = lang }
+    if (picking) LanguagePicker(item.lang, onClose = { picking = false }) { lang -> if (item.qty <= 1) run(lang, 1) else asking = lang }
     asking?.let { lang ->
         T1Menu("Mark as ${Languages.name(lang)}", listOf(
             T1MenuItem("One copy") { run(lang, 1) },

@@ -187,7 +187,7 @@ fun TradesScreen(onBack: (() -> Unit)?, onOpen: (String?) -> Unit, onMatch: (Str
     val drafts = s.trades.filter { !it.confirmed }
     val done = s.trades.filter { it.confirmed }
     T1Screen {
-        Bar("Trades", subtitle = if (s.loaded) "${drafts.size} open" else null, onBack = onBack)
+        Bar("Trades", onBack = onBack)
         s.error?.let { Notice(it, error = true) }
         Hairlines(Modifier.weight(1f)) {
             item { ListRow("New trade", "What you give, what you get", onClick = { onOpen(null) }) }
@@ -377,7 +377,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
     }
 
     T1Screen {
-        Bar(partner.trim().ifEmpty { "Trade" }, subtitle = if (confirmed) "Confirmed" else "Draft", onBack = onBack) {
+        Bar(partner.trim().ifEmpty { "Trade" }, onBack = onBack) {
             if (trade != null && !confirmed) BarAction("Delete") { askDelete = true }
         }
         error?.let { Notice(it, error = true) }
@@ -443,7 +443,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
         T1Menu(p?.let { names[it.oracleIdx] }, items) { editing = null }
     }
     pickingLang?.let { l ->
-        LanguagePicker(l.lang, meta[l.cardId]?.let { names[it.oracleIdx] }, onClose = { pickingLang = null }) { lang ->
+        LanguagePicker(l.lang, onClose = { pickingLang = null }) { lang ->
             update(false, l.key, l.copy(lang = lang))
             Telemetry.capture("language_changed", mapOf("where" to "trade", "copies" to l.qty))
         }
@@ -550,7 +550,7 @@ private fun TradePickOverlay(give: Boolean, onPick: (TradeLine) -> Unit, onClose
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
-                Bar(if (give) "Add what you give" else "Add what you get", subtitle = added, onBack = onClose)
+                Bar(if (give) "Add what you give" else "Add what you get", onBack = onClose)
                 Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
                     T1TextField(query, { query = it }, placeholder = if (give) "Search your collection" else "Lightning Bolt")
                 }

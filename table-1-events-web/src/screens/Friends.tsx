@@ -13,7 +13,7 @@ import {
   cancelSent, profileValue, removeFriend, requestFriend, requestFriendByEmail, respondFriend, searchPeople, sectionCount, sentLabel,
   setItem, setPart, sharingSummary, setAll, answerOffer, reachOf, seesLine, viewAs, widening, withItem, withPart, offerAnswered,
   fetchProfileFriends, friendsDetail, friendsOwnDetail, friendRowDetail, profileRankingDetail,
-  startTradeFromMatch, useFriends, friendsNow, wantTier, copyNote, sharedCardCount, sharedEntries, sharedListKind, type MatchLine, type Person, type ProfileCard, type ProfileData, type SectionKind,
+  startTradeFromMatch, useFriends, friendsNow, wantTier, copyNote, sharedEntries, sharedListKind, type MatchLine, type Person, type ProfileCard, type ProfileData, type SectionKind,
   type SharePart, type ShareItem, type Sharing, type TradeMatch, type Visibility,
 } from "../lib/friends";
 import { startFriendsDemo } from "../lib/friendsDemo";
@@ -165,7 +165,6 @@ function FriendsBody({ onBack, onProfile, onAdd }: { onBack: () => void; onProfi
   return (
     <Screen>
       <Bar title="Friends" onBack={onBack}
-           subtitle={l ? [plural(l.friends.length, "friend"), l.incoming.length ? `${l.incoming.length} waiting` : null].filter(Boolean).join(" · ") : undefined}
            right={<button type="button" onClick={onAdd} className="t1-label hover:text-t1-text px-2 py-1 -my-1">Add</button>} />
       {(s.error || fail) && <Notice tone="error">{fail ?? s.error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
@@ -245,7 +244,7 @@ function FriendAddBody({ onBack }: { onBack: () => void }) {
   };
   return (
     <Screen>
-      <Bar title="Add a friend" subtitle="They accept to become friends" onBack={onBack} />
+      <Bar title="Add a friend" onBack={onBack} />
       <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name or handle"
              className="bg-t1-surface px-4 py-4 outline-0 border-0 text-[15px] placeholder:text-t1-muted/60" />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
@@ -342,15 +341,13 @@ function ProfileBody({ userId, onBack, onFriendsList, onSection, onMatch, onShar
   };
   const s = d?.sections;
   const rec = s?.record;
-  const sub = own?.relation === "self" && as < 2 ? `As ${as === 1 ? "a friend" : "anyone"} sees it` : d ? ({ self: "You", friend: "Friend", requested: "Requested", incoming: "Wants to be friends", blocked: "Blocked",
-                    none: d.handle ? `@${d.handle}` : "Profile" } as const)[d.relation] : undefined;
   const open = (title: string, detail: string, kind: SectionKind, id: string | null = null) => (
     <Row key={`${kind}-${id ?? ""}`} title={title} detail={detail} onClick={() => { captureSection(kind); onSection(kind, id); }} />
   );
   return (
     <Screen>
       {!onBack && <TabNav />}
-      <Bar title={d?.display_name ?? "Profile"} subtitle={sub} onBack={onBack}
+      <Bar title={d?.display_name ?? "Profile"} onBack={onBack}
            right={d && d.relation !== "self" ? <button type="button" onClick={() => setMenu(true)} className="t1-label hover:text-t1-text px-2 py-1 -my-1">More</button> : undefined} />
       {own?.relation === "self" && (
         <Segmented options={[{ value: "2", label: "You" }, { value: "1", label: "A friend" }, { value: "0", label: "Anyone" }]} value={String(as)}
@@ -470,7 +467,7 @@ function ProfileFriendsBody({ userId, onBack, onProfile }: { userId: string; onB
   }, [userId]);
   return (
     <Screen>
-      <Bar title="Friends" subtitle={name ?? undefined} onBack={onBack} />
+      <Bar title={name ? `Friends · ${name}` : "Friends"} onBack={onBack} />
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {!people && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
@@ -731,7 +728,7 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
 
   return (
     <LibScreen width={layout === "list" ? "column" : "wide"}>
-      <Bar title={link || preset ? name : profile ? `${profile.display_name} · ${name}` : "Cards"} subtitle={rows ? plural(sharedCardCount(rows, kind), "card") : undefined} onBack={onBack}
+      <Bar title={link || preset ? name : profile ? `${profile.display_name} · ${name}` : "Cards"} onBack={onBack}
            right={<ViewButton layout={layout} onChange={setLayout} screen={`profile_${section}`} printings={printings} onPrintings={setPrintings}
                               grouping={grouping} onGrouping={setGrouping} list={!!kind}
                               sort={sort} onSort={setSort} sorts={kind ? "list" : "shared"} />} />
@@ -844,7 +841,7 @@ function SharingBody({ onBack }: { onBack: () => void }) {
   };
   return (
     <Screen>
-      <Bar title="Sharing" subtitle={s ? sharingSummary(s) : undefined} onBack={onBack} />
+      <Bar title="Sharing" onBack={onBack} />
       {st.error && <Notice tone="error">{st.error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {!s && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
@@ -902,7 +899,7 @@ function TradeMatchesBody({ onBack, onOpen, onFriends, onSharing }: { onBack: ()
   const offer = !offered && !!sh && reachOf(sh, "for_trade") === "private" && reachOf(sh, "wants") === "private";
   return (
     <Screen>
-      <Bar title="Trade matches" subtitle={m ? plural(m.length, "person", "people") : undefined} onBack={onBack} />
+      <Bar title="Trade matches" onBack={onBack} />
       {st.error && <Notice tone="error">{st.error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <Notice tone="info">Your wants against friends' for-trade cards, and theirs against yours. People you've played with count when they share with anyone.</Notice>
@@ -981,7 +978,7 @@ function TradeMatchBody({ userId, onBack, onProfile, onCard, onTrade }: {
   );
   return (
     <LibScreen>
-      <Bar title={match?.display_name ?? "Trade match"} subtitle={match ? (match.friend ? "Friend" : "Played with you") : undefined} onBack={onBack}
+      <Bar title={match?.display_name ?? "Trade match"} onBack={onBack}
            right={<button type="button" onClick={() => setMore(true)} className="t1-label hover:text-t1-text px-2 py-1 -my-1">More</button>} />
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">

@@ -186,7 +186,7 @@ fun EventsHomeScreen(
     }
 
     T1Screen {
-        Bar("Events", if (live.isEmpty()) null else "${live.size} live") {
+        Bar("Events") {
             BarAction("Life", onLife)
             BarAction("+ New") { newMenu = true }
             BarIcon(site.table1.events.library.T1Icon.Search, "Find events, leagues and boards") { go("find") }

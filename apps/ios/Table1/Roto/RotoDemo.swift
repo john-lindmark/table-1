@@ -206,7 +206,7 @@ struct RotoDemoRoot: View {
             T1Segmented(options: [(value: "draft", label: "Draft"), (value: "schedule", label: "Schedule")], selection: $screen)
             if screen == "schedule" {
                 T1Screen {
-                    Bar(title: "Roto · Vintage Cube", subtitle: "Round robin · round 3 of 7")
+                    Bar(title: "Roto · Vintage Cube")
                     RotoScheduleView(b: RotoDemoSchedule.bundle)
                 }
             } else {

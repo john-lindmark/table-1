@@ -91,17 +91,17 @@ import site.table1.events.widgets.UpcomingPlace
  * LeagueScreens.kt. The server part may not be live: a missing function hides its section.
  */
 
-/** An icon in a bar: a 50 dp wide tap target around the 18 dp glyph, kept to the bar's text height. */
+/** An icon in a bar: a 50 × 50 dp tap target around the 18 dp glyph, flush to the bar's edge. */
 @Composable
 internal fun BarIcon(icon: T1Icon, label: String, onClick: () -> Unit) {
-    Box(Modifier.size(width = 50.dp, height = 40.dp).clickable(onClickLabel = label, onClick = onClick).semantics { contentDescription = label },
+    Box(Modifier.size(50.dp).clickable(onClickLabel = label, onClick = onClick).semantics { contentDescription = label },
         contentAlignment = Alignment.Center) { IconGlyph(icon) }
 }
 
 /** A glyph that isn't in T1Icon (the card page's list and tune) in the same bar slot. */
 @Composable
 internal fun BarGlyph(label: String, onClick: () -> Unit, glyph: @Composable () -> Unit) {
-    Box(Modifier.size(width = 50.dp, height = 40.dp).clickable(onClickLabel = label, onClick = onClick).semantics { contentDescription = label },
+    Box(Modifier.size(50.dp).clickable(onClickLabel = label, onClick = onClick).semantics { contentDescription = label },
         contentAlignment = Alignment.Center) { glyph() }
 }
 

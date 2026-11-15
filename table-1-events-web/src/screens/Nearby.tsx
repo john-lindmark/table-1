@@ -58,7 +58,7 @@ function NearbyBody({ onBack, onOpen }: { onBack: () => void; onOpen: (eventId: 
   };
   return (
     <Screen>
-      <Bar title="Nearby" subtitle="Events within 150 m" onBack={onBack}
+      <Bar title="Nearby" onBack={onBack}
            right={<button type="button" onClick={() => void search()} className="t1-label hover:text-t1-text px-2 py-1 -my-1">Refresh</button>} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {error && <Notice tone="error">{error}</Notice>}

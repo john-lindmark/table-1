@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Bar, Menu, Notice, Row, Section, type MenuItem } from "../components/kit";
 import { errorMessage } from "../lib/api";
 import {
-  MINUS, fetchFollowChanges, followDetail, followHome, followHref, followSections, followSubtitle, followTitle, loadFollowState, loadFollows,
+  MINUS, fetchFollowChanges, followDetail, followHref, followSections, followSubtitle, followTitle, loadFollowState, loadFollows,
   setFollow, since, useFollows, type Follow, type FollowChanges, type FollowKind, type FollowRow,
 } from "../lib/follows";
 import { capture } from "../lib/telemetry";
@@ -79,7 +79,7 @@ export function FollowingScreen({ onBack, onOpen }: { onBack: () => void; onOpen
   const now = new Date();
   return (
     <LibScreen>
-      <Bar title="Following" subtitle={s.items ? followHome(s.items) : undefined} onBack={onBack} />
+      <Bar title="Following" onBack={onBack} />
       {(s.error || fail) && <Notice tone="error">{fail ?? s.error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {!s.items && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
@@ -125,7 +125,7 @@ export function FollowChangesScreen({ kind, id, onBack, onCard }: { kind: Follow
   const now = new Date();
   return (
     <LibScreen>
-      <Bar title={changes?.name ?? "Changes"} subtitle="Changes" onBack={onBack} />
+      <Bar title={changes?.name ?? "Changes"} onBack={onBack} />
       {(error || catError) && <Notice tone="error">{error ?? catError}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {(!changes || !catalog) && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}

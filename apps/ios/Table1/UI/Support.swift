@@ -374,7 +374,7 @@ struct SupportGuideView: View {
     var body: some View {
         let groups = Support.groups(section)
         T1Screen {
-            Bar(title: Support.sectionTitle(section), subtitle: "Guide", back: { dismiss() })
+            Bar(title: Support.sectionTitle(section), back: { dismiss() })
             ScrollViewReader { reader in
                 ScrollView {
                     LazyVStack(spacing: 1) {

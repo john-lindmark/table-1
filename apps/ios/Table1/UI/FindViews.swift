@@ -261,7 +261,6 @@ struct FindView: View {
                             LeagueEditPanel(league: nil) { made in path.append(.league(made.slug)) }.screen("league_new")
                         }
                     }
-                    .padding(.vertical, -16).padding(.trailing, -16)
                 }
             }
             T1Segmented(options: [(value: "events", label: "Events"), (value: "leagues", label: "Leagues"), (value: "boards", label: "Boards")],

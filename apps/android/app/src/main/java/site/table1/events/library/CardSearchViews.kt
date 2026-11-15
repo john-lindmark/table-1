@@ -109,7 +109,7 @@ fun AdvancedSearchPanel(start: String, onClose: () -> Unit, onApply: (String) ->
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
-                Bar("Advanced search", subtitle = "Scryfall syntax", onBack = onClose) { BarAction("Clear") { f = AdvancedSearchFields() } }
+                Bar("Advanced search", onBack = onClose) { BarAction("Clear") { f = AdvancedSearchFields() } }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     Field("Card name", f.name) { f = f.copy(name = it) }
                     Field("Text · needs a connection", f.text) { f = f.copy(text = it) }

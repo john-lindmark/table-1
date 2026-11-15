@@ -210,7 +210,7 @@ export function DeckPhotoListScreen({ photoId, from, onBack, onOpenDeck }: {
 
   return (
     <LibScreen>
-      <Bar title="Decklist" subtitle={data ? [data.player, data.event.name].filter(Boolean).join(" · ") : undefined} onBack={onBack}
+      <Bar title="Decklist" onBack={onBack}
            right={saved ? <span className="t1-label !text-t1-accent">Saved</span> : undefined} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <div className="shrink-0 w-full aspect-[4/3] bg-t1-bg overflow-hidden flex items-center justify-center relative">
@@ -295,7 +295,7 @@ export function DeckPhotoListScreen({ photoId, from, onBack, onOpenDeck }: {
                    onPick={(card) => { const pick = picking.onPick; setPicking(null); pick(card); }} />
       )}
       {zoomed && shown && (
-        <ZoomImage src={shown} alt={alt} title="Deck photo" subtitle={data?.player || undefined} screen="deck_photo_list" onClose={() => setZoomed(false)} />
+        <ZoomImage src={shown} alt={alt} title="Deck photo" screen="deck_photo_list" onClose={() => setZoomed(false)} />
       )}
     </LibScreen>
   );

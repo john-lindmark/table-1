@@ -197,7 +197,7 @@ fun ChangePrintingScreen(target: PrintingTarget, onClose: () -> Unit, onChanged:
             busy = false
         }
     }
-    if (pickingLang && live != null) LanguagePicker(live.lang, name.ifEmpty { null }, onClose = { pickingLang = false }) { changeLanguage(it) }
+    if (pickingLang && live != null) LanguagePicker(live.lang, onClose = { pickingLang = false }) { changeLanguage(it) }
 
     fun pick(p: CatalogPrinting, toFinish: String) {
         val props = mapOf("where" to target.telemetryWhere, "copies" to n, "finish_only" to (p.cardId == target.cardId))
@@ -234,7 +234,7 @@ fun ChangePrintingScreen(target: PrintingTarget, onClose: () -> Unit, onChanged:
     }
 
     T1Screen {
-        Bar("Change printing", subtitle = name, onBack = onClose)
+        Bar("Change printing", onBack = onClose)
         error?.let { Notice(it, error = true) }
         CatalogStatus(cat)
         if (have == 0) { Notice("This line has no copies left."); return@T1Screen }

@@ -142,7 +142,7 @@ fun InsightsHomeScreen(navigate: (String) -> Unit, moderator: Boolean) {
     LaunchedEffect(Unit) { s.load() }
     LaunchedEffect(s.section) { Telemetry.screen(if (s.section == "limited") "insights_limited" else "insights_constructed") }
     T1Screen {
-        Bar("Insights", if (s.section == "limited") "Arena draft" else "Constructed metagame") {
+        Bar("Insights") {
             if (s.section != "limited") {
                 Box(Modifier.size(50.dp).clickable {
                     Telemetry.capture("insights_card_search_opened", mapOf("format" to s.format))
@@ -267,7 +267,7 @@ fun ConstructedPartScreen(format: String, part: String, navigate: (String) -> Un
             "events" to if (tier == "big") "Big events" else "Events")[part] ?: "Insights"
     val scope = "${if (tier == "big") "Big events" else "All events"}, last ${s.days} days"
     T1Screen {
-        Bar(title, (pack?.name ?: format) + if (part == "meta" || part == "cards") " · $scope" else "", onBack = onBack)
+        Bar(title, onBack = onBack)
         if (pack == null) { Notice("Loading the metagame…"); return@T1Screen }
         val view = pack.tiers[tier]
         val w = view?.windows?.get(s.days.toString())
@@ -351,7 +351,7 @@ private fun FinishList(format: String, fin: ArchetypePage.Finish?, title: String
     val resolved = remember(fin, db, cat.generation) { if (fin != null && db != null) finishRows(fin, db) else null }
     if (fin == null || resolved == null) {
         T1Screen {
-            Bar(title, fin?.let { "${it.event} · ${InsightCharts.shortDay(it.on)}" }, onBack = onBack)
+            Bar(title, onBack = onBack)
             CatalogStatus(cat)
             Notice(error ?: "Loading…", error = error != null)
         }
@@ -390,7 +390,7 @@ fun ArchetypeInsightScreen(format: String, id: Int, finish: Int?, navigate: (Str
     }
     T1Screen {
         val p = page
-        Bar(name, "${pack?.name ?: format} · all events, last ${s.days} days", onBack = onBack)
+        Bar(name, onBack = onBack)
         if (p == null || pack == null) { Notice(error ?: "Loading…", error = error != null); return@T1Screen }
         Scroll {
             val share = pack.tiers["all"]?.windows?.get(s.days.toString())?.share?.firstOrNull { it.a == id }
@@ -596,7 +596,7 @@ fun BanStudyScreen(format: String, changeId: Int, navigate: (String) -> Unit, on
     val b = pack?.bans?.firstOrNull { it.change == changeId }
     val ch = pack?.change(changeId)
     T1Screen {
-        Bar(ch?.words ?: "Format change", ch?.let { "${pack.name} · ${InsightCharts.shortDay(it.on)}" }, onBack = onBack)
+        Bar(ch?.words ?: "Format change", onBack = onBack)
         if (b == null || pack == null) { Notice("This change isn't in the pack."); return@T1Screen }
         Scroll {
             Brief(b.brief, "what changed after", b.before.isEmpty() || b.afterWindow == null)
@@ -631,7 +631,7 @@ fun MatchupsScreen(format: String, onBack: () -> Unit) {
     T1Screen {
         val tier = pack?.let { InsightsStore.tier(it) } ?: "all"
         val grid = pack?.grid(tier, InsightsStore.days)
-        Bar("Matchups", "${pack?.name ?: format} · ${grid?.second ?: "last 90 days"}", onBack = onBack)
+        Bar("Matchups", onBack = onBack)
         if (pack == null || grid == null) return@T1Screen
         Scroll {
             WindowPickers(tier)
@@ -858,7 +858,7 @@ fun PairInsightScreen(set: String, event: String, group: String, pair: String, n
     val v = pack?.events?.get(event)?.groups?.get(group)
     val p = v?.pairs?.firstOrNull { it.p == pair }
     T1Screen {
-        Bar("${Insights.pairNames[pair] ?: pair} $pair", "${LimitedPicker.label(set, pack?.name)} ${Insights.eventLabels[event] ?: event}", onBack = onBack)
+        Bar("${Insights.pairNames[pair] ?: pair} $pair", onBack = onBack)
         if (p == null || pack == null) { Notice("This pair isn't in the pack."); return@T1Screen }
         Scroll {
             Credit(pack.credit.url)
@@ -891,7 +891,7 @@ fun LimitedCardScreen(set: String, event: String, group: String, name: String, n
     val v = pack?.events?.get(event)?.groups?.get(group)
     val c = v?.cards?.firstOrNull { it.n == name }
     T1Screen {
-        Bar(name, "${LimitedPicker.label(set, pack?.name)} ${Insights.eventLabels[event] ?: event}", onBack = onBack)
+        Bar(name, onBack = onBack)
         if (c == null || pack == null) { Notice("This card isn't in the pack."); return@T1Screen }
         val catalog by CatalogStore.state.collectAsState()
         var face by remember { mutableStateOf<CardFace?>(null) }
@@ -957,7 +957,7 @@ fun InsightsReviewScreen(onBack: () -> Unit) {
     }
     LaunchedEffect(Unit) { Telemetry.screen("insights_review"); load() }
     T1Screen {
-        Bar("Review", "Archetypes and bans", onBack = onBack)
+        Bar("Review", onBack = onBack)
         Scroll {
             error?.let { Notice(it, error = true) }
             val r = review ?: run { if (error == null) Notice("Loading…"); return@Scroll }

@@ -285,9 +285,8 @@ fun DeckPhotoListScreen(photoId: String, onBack: () -> Unit, onOpenDeck: (String
     }
 
     T1Screen {
-        Bar("Decklist", d?.let { listOfNotNull(it.player, it.event?.name).filter { s -> s.isNotEmpty() }.joinToString(" · ") }?.takeIf { it.isNotEmpty() },
-            onBack = onBack) {
-            if (saved) Label("Saved", color = T1.accent)
+        Bar("Decklist", onBack = onBack) {
+            if (saved) Label("Saved", Modifier.padding(horizontal = 16.dp), color = T1.accent)
         }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             // The photo, whole and upright: it's what you correct against. A tap zooms.

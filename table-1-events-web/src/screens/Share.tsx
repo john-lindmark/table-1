@@ -109,7 +109,7 @@ export function ShareScreen({ target, onClose, onExport, onImage }: {
   return (
     <div className="fixed inset-0 z-50 bg-t1-bg text-t1-text flex flex-col gap-px overflow-y-auto" role="dialog" aria-modal="true" aria-label={`Share ${title}`}>
       <div className="w-full max-w-[960px] mx-auto flex flex-col gap-px">
-        <Bar title="Share" subtitle={title} onBack={onClose} />
+        <Bar title="Share" onBack={onClose} />
         {error && <Notice tone="error">{error}</Notice>}
         <Section title="Anyone with the link" />
         {link ? (<>

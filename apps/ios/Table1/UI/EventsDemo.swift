@@ -234,7 +234,7 @@ struct EventsDemoRoot: View {
                 DeckPhotoDemo()
             case "seating":
                 T1Screen {
-                    Bar(title: "Seating", subtitle: "Sample pods")
+                    Bar(title: "Seating")
                     HairlineList {
                         SeatingTable(pods: [DemoData.pod(8)], highlight: "p3")
                         SeatingTable(pods: [DemoData.pod(7)])

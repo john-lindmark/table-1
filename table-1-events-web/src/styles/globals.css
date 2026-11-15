@@ -114,3 +114,28 @@
   flex-direction: row;
   gap: 1px;
 }
+
+/* A Bar's actions (components/kit.tsx Bar): each text action sits 16 px in and takes the bar's full height to tap;
+   icon buttons (`t1-icon-btn`, 50 × 50) sit flush; a wrapper around several actions adds no gap of its own.
+   Unlayered, so it wins over a call site's old padding, margins and gaps. */
+.t1-bar-actions > * {
+  height: 50px;
+  margin: 0;
+  gap: 0;
+  align-items: center;
+}
+.t1-bar-actions :is(button, a):not(.t1-icon-btn) {
+  height: 50px;
+  margin: 0;
+  padding-block: 0;
+  padding-inline: 16px;
+  align-items: center;
+}
+/* Display only where the call site doesn't hide it (`hidden`, `lg:hidden`). */
+.t1-bar-actions :is(button, a):not([class*="hidden"]),
+.t1-bar-actions > :not([class*="hidden"]) {
+  display: flex;
+}
+.t1-bar-actions > :not(button, a):not(:has(button, a)) {
+  padding-inline: 16px;
+}

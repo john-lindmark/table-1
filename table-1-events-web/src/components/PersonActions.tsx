@@ -79,7 +79,7 @@ export function PersonMenu({ person, from, item, onClose, changed }: {
       : p.relation !== "self" ? [{ title: "Block", detail: "They can't find you or ask you", onClick: () => setConfirm("block") }] : []),
     ...(p.relation !== "self" ? [{ title: "Report", detail: "They won't know", onClick: () => setReporting(true) }] : []),
   ];
-  if (reporting) return <ReportPanel person={p} context={{ from, ...(item ? { kind: item.kind, id: item.id } : {}) }} itemName={item?.name} onClose={done} changed={changed} />;
+  if (reporting) return <ReportPanel person={p} context={{ from, ...(item ? { kind: item.kind, id: item.id } : {}) }} onClose={done} changed={changed} />;
   if (confirm) {
     return (
       <Dialog title={confirm === "block" ? `Block ${p.displayName}?` : `Unfriend ${p.displayName}?`} tone="danger" cancelLabel="Cancel"
@@ -93,8 +93,8 @@ export function PersonMenu({ person, from, item, onClose, changed }: {
 }
 
 /** Report an account: a reason, an optional note, and Also block them (on for Harassment). */
-export function ReportPanel({ person, context, itemName, onClose, changed }: {
-  person: PersonRef; context: ReportContext; itemName?: string; onClose: () => void; changed?: () => void;
+export function ReportPanel({ person, context, onClose, changed }: {
+  person: PersonRef; context: ReportContext; onClose: () => void; changed?: () => void;
 }) {
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [note, setNote] = useState("");
@@ -120,7 +120,7 @@ export function ReportPanel({ person, context, itemName, onClose, changed }: {
   return (
     <div className="fixed inset-0 z-50 bg-t1-bg flex flex-col" role="dialog" aria-modal="true" aria-label={`Report ${person.displayName}`}>
       <div className="flex-1 min-h-0 flex flex-col w-full max-w-[640px] mx-auto">
-        <Bar title={`Report ${person.displayName}`} subtitle={itemName ?? "They won't know you reported them"}
+        <Bar title={`Report ${person.displayName}`}
              right={<button type="button" onClick={onClose} className="t1-label hover:text-t1-text px-2 py-1 -my-1">{sent ? "Done" : "Cancel"}</button>} />
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
           {error && <Notice tone="error">{error}</Notice>}

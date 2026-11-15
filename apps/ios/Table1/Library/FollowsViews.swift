@@ -80,7 +80,7 @@ struct FollowingView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Following", subtitle: store.items.map { Follows.home($0) }, back: { dismiss() })
+            Bar(title: "Following", back: { dismiss() })
             HairlineList {
                 if let e = store.error { Notice(e, error: true) }
                 if let items = store.items {
@@ -144,7 +144,7 @@ struct FollowChangesView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: changes?.name ?? "Changes", subtitle: "Changes", back: { dismiss() })
+            Bar(title: changes?.name ?? "Changes", back: { dismiss() })
             CatalogStatusRow(catalog: catalog)
             HairlineList {
                 if let error { Notice(error, error: true) }

@@ -65,7 +65,7 @@ struct ZoomImagePanel: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: title, subtitle: subtitle, back: { T1Overlays.shared.dismissPanel() })
+            Bar(title: title, back: { T1Overlays.shared.dismissPanel() })
             if let said { Notice(said) }
             if let actions {
                 zoomed.madeImageMenu(image, actions, screen: "\(screen)_zoom") { said = $0 }

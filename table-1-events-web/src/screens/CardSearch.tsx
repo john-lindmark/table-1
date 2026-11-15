@@ -111,7 +111,7 @@ export function AdvancedSearch({ start, onClose, onApply }: { start: string; onC
   );
   return (
     <div className="fixed inset-0 z-50 bg-t1-bg text-t1-text flex flex-col gap-px" role="dialog" aria-modal="true" aria-label="Advanced search">
-      <Bar title="Advanced search" subtitle="Scryfall syntax" onBack={onClose}
+      <Bar title="Advanced search" onBack={onClose}
            right={<button type="button" className="t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={() => setF(EMPTY_ADVANCED)}>Clear</button>} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px w-full max-w-[640px] mx-auto">
         <Field label="Card name" value={f.name} onChange={(name) => patch({ name })} autoFocus />

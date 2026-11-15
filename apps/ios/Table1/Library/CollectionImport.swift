@@ -418,7 +418,7 @@ struct CollectionImportView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Import and export", subtitle: subtitle, back: { dismiss() })
+            Bar(title: "Import and export", back: { dismiss() })
             CatalogStatusRow(catalog: catalog)
             if let error = model.error { Notice(error, error: true) }
             HairlineList {
@@ -458,15 +458,6 @@ struct CollectionImportView: View {
             }
         }
         #endif
-    }
-
-    private var subtitle: String? {
-        switch model.phase {
-        case .start: col.summary.map { "\($0.totalQty.formatted()) cards in collection" }
-        case .reading: "Reading…"
-        case .preview, .writing: model.format.label
-        case .done: model.undone ? "Import undone" : "Imported"
-        }
     }
 
     // MARK: start
@@ -634,8 +625,7 @@ private struct ImportFixPanel: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Line \(row.line)", subtitle: [row.name, row.setLabel].filter { !$0.isEmpty }.joined(separator: " · "),
-                back: { T1Overlays.shared.dismissPanel() })
+            Bar(title: "Line \(row.line)", back: { T1Overlays.shared.dismissPanel() })
             T1SearchField(text: $query, prompt: "Card name").focused($focused)
             HairlineList {
                 if CardName.norm(query).count >= 2 && hits.isEmpty { Notice("No card by that name") }

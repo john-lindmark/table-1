@@ -120,11 +120,6 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
       <Bar
         title={event.name}
         onBack={onBack}
-        subtitle={
-          event.status === "completed"
-            ? "Final standings"
-            : round ? roundName(round.stage, round.number, event.numberOfRounds) : `Round ${event.currentRound} of ${event.numberOfRounds}`
-        }
       />
       {event.me === "waitlisted" && <Notice tone="info">Sign-ups are closed: you didn't get in this time.</Notice>}
       <FollowRow event={event} />
@@ -304,7 +299,7 @@ export function SignUpPage({ event, reload, onBack, about = null, money = null, 
     .filter(Boolean).join(" · ");
   return (
     <Screen>
-      <Bar title={event.name} subtitle={event.shortCode ? `Event ${event.shortCode}` : undefined} onBack={onBack} />
+      <Bar title={event.name} onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <div className="bg-t1-surface px-5 py-5 flex flex-col gap-2">
           <p className="text-[22px] leading-7">{event.name}</p>

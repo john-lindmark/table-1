@@ -66,7 +66,7 @@ fun NearbyScreen(onJoined: (String) -> Unit, onOpen: (String) -> Unit, onBack: (
     }
 
     T1Screen {
-        Bar("Nearby", "Events within 150 m", onBack = onBack) {
+        Bar("Nearby", onBack = onBack) {
             BarAction("Refresh") { search() }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {

@@ -148,7 +148,7 @@ export function SupportGuideScreen({ section, entry, from, onBack }: { section: 
   }
   return (
     <Screen>
-      <Bar title={sectionTitle(section)} subtitle="Guide" onBack={onBack} />
+      <Bar title={sectionTitle(section)} onBack={onBack} />
       {groups.map((g, gi) => (
         <div key={gi} className="flex flex-col gap-px">
           {g.heading && <Section title={g.heading} />}

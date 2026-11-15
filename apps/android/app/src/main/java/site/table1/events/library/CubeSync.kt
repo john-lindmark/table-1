@@ -233,7 +233,7 @@ fun CubeSyncScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Unit)
     }
 
     T1Screen {
-        Bar("Sync with Cube Cobra", subtitle = list?.name, onBack = onBack)
+        Bar("Sync with Cube Cobra", onBack = onBack)
         error?.let { Notice(it, error = true) }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             val c = checked

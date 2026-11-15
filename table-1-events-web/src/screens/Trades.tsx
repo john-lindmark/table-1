@@ -45,7 +45,7 @@ export function TradesScreen({ onBack, onOpen, onNew, onMatch, onMatches }: {
   return (
     <Screen>
       {!onBack && <TabNav />}
-      <Bar title="Trades" subtitle={loaded ? `${drafts.length} open` : undefined} onBack={onBack} />
+      <Bar title="Trades" onBack={onBack} />
       {error && <Notice tone="error">{error}</Notice>}
       <Row title="New trade" detail="What you give, what you get" onClick={onNew} />
       <TradeMatchRows onOpen={onMatch} onNone={onMatches} />
@@ -323,7 +323,7 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
   const g = sum(gives), r = sum(gets);
   return (
     <LibScreen>
-      <Bar title={partner.trim() || "Trade"} subtitle={confirmed ? "Confirmed" : "Draft"} onBack={onBack}
+      <Bar title={partner.trim() || "Trade"} onBack={onBack}
            right={trade && !confirmed ? (
              <button type="button" className="t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={() => setConfirmDelete(true)}>Delete</button>
            ) : undefined} />

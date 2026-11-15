@@ -95,7 +95,7 @@ fun RotoDraftGate(eventId: String, title: String, isOrganizer: Boolean, onBack: 
     val store = remember(eventId) { RotoStore.of(eventId) }
     val v by store.view.collectAsState()
     LaunchedEffect(eventId) { store.load() }
-    if (!v.loaded && v.error == null) { T1Screen { Bar(title, "Loading draft…", onBack = onBack) }; return }
+    if (!v.loaded && v.error == null) { T1Screen { Bar(title, onBack = onBack) }; return }
     if (v.phase == "setup") { setup(); return }
     RotoDraftScreen(store, title, isOrganizer, readOnly = false, onBack = onBack, pairRound1 = pairRound1, onOpenDeck = onOpenDeck)
 }
@@ -125,8 +125,7 @@ fun RotoDraftScreen(store: RotoStore, title: String, isOrganizer: Boolean, readO
     val organizerLive = isOrganizer && !readOnly && v.phase == "drafting"
     val pickFor = organizerLive && v.onClock != null && v.onClock?.participantId != v.me?.participantId
     T1Screen {
-        Bar(title, listOf(if (readOnly && pairing != null) (if (pairing == "round_robin") "Round robin" else "Swiss") else "Draft", "${v.players} players",
-            "${v.draft.picksPerPlayer} picks each", if (v.draft.snake) "Snake" else "Same order").joinToString(" · "), onBack = onBack) {
+        Bar(title, onBack = onBack) {
             if (organizerLive) BarAction("More") { menu = true }
         }
         Summary(store, v, if (pickFor) ({ tab = "cube" }) else null)

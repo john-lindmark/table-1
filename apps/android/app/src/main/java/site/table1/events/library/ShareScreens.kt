@@ -88,7 +88,7 @@ fun ShareScreen(target: ShareTarget, onClose: () -> Unit, onExport: (() -> Unit)
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
-                Bar("Share", target.title, onBack = onClose)
+                Bar("Share", onBack = onClose)
                 Hairlines(Modifier.weight(1f)) {
                     item(key = "link") {
                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {

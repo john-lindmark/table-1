@@ -140,7 +140,7 @@ fun ListToCollectionScreen(list: CardList, owned: Map<String, Int>, onClose: () 
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
-                Bar("Add to collection", list.name, onBack = onClose)
+                Bar("Add to collection", onBack = onClose)
                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     error?.let { e -> item { Notice(e, error = true) } }
                     done?.let { (batch, n) ->

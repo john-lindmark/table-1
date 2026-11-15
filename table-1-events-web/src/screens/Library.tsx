@@ -922,7 +922,7 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
   if (!session) return <SignedOut title="All cards" />;
   return (
     <LibScreen width={layout === "list" ? "column" : "wide"}>
-      <Bar title="All cards" subtitle={col.summary ? `${col.summary.total_qty.toLocaleString()} cards` : undefined}
+      <Bar title="All cards"
            onBack={onBack} right={<span className="flex gap-4">
              <ShareButton target={{ part: "all_cards", id: null, name: null }} from="all_cards" />
              <ViewButton layout={layout} onChange={setLayout} screen="all_cards" printings={printings} onPrintings={setPrintings}

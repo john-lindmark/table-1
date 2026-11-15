@@ -104,7 +104,7 @@ fun FollowingScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
     }
     val now = System.currentTimeMillis()
     T1Screen {
-        Bar("Following", s.items?.let(Follows::home), onBack = onBack)
+        Bar("Following", onBack = onBack)
         (fail ?: s.error)?.let { Notice(it, error = true) }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (s.items == null) item { Notice("Loading…") }
@@ -158,7 +158,7 @@ fun FollowChangesScreen(kind: String, id: String, onBack: () -> Unit, onCard: (S
         }
     }
     T1Screen {
-        Bar(changes?.name ?: "Changes", "Changes", onBack = onBack)
+        Bar(changes?.name ?: "Changes", onBack = onBack)
         error?.let { Notice(it, error = true) }
         CatalogStatus(cat)
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(1.dp)) {

@@ -133,7 +133,7 @@ export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; on
 
   return (
     <LibScreen>
-      <Bar title="Find a deck" subtitle="Recent tournament lists" onBack={onBack} />
+      <Bar title="Find a deck" onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <Field label="Describe the deck" value={query} onChange={setQuery} autoFocus />
         <Segmented options={FORMATS.map((f) => ({ value: f, label: f }))} value={format} onChange={setFormat} columns={4} />

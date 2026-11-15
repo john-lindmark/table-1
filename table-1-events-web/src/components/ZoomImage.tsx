@@ -6,7 +6,7 @@ import { Bar } from "./kit";
 /** The preview of a made picture (deck image, top 100): a click opens it full screen to zoom. The picture is a plain
     image, not inside a button, so a long press on a phone or a right-click gets the browser's own image menu (copy,
     save, share; contract/deck-image-2026-10-20.md § Long press). */
-export function ZoomablePreview({ src, alt, title, subtitle, screen }: { src: string; alt: string; title: string; subtitle?: string; screen: string }) {
+export function ZoomablePreview({ src, alt, title, screen }: { src: string; alt: string; title: string; screen: string }) {
   const [open, setOpen] = useState(false);
   const zoom = () => { setOpen(true); capture("image_zoomed", { screen }); };
   return (
@@ -17,14 +17,14 @@ export function ZoomablePreview({ src, alt, title, subtitle, screen }: { src: st
         <button type="button" onClick={zoom} aria-label={`${alt}. Open to zoom`}
                 className="block w-full text-left t1-label bg-t1-surface px-4 py-2 mt-px">{previewHint()}</button>
       </div>
-      {open && <ZoomImage src={src} alt={alt} title={title} subtitle={subtitle} screen={screen} onClose={() => setOpen(false)} />}
+      {open && <ZoomImage src={src} alt={alt} title={title} screen={screen} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
 /** Full screen: wheel or pinch zooms around the pointer, drag pans, double-click toggles 3×, + − 0 on a keyboard,
     Esc closes this view only. */
-export function ZoomImage({ src, alt, title, subtitle, screen, onClose }: { src: string; alt: string; title: string; subtitle?: string; screen?: string; onClose: () => void }) {
+export function ZoomImage({ src, alt, title, screen, onClose }: { src: string; alt: string; title: string; screen?: string; onClose: () => void }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<Size>({ w: 0, h: 0 });
   const [img, setImg] = useState<Size>({ w: 0, h: 0 });
@@ -107,7 +107,7 @@ export function ZoomImage({ src, alt, title, subtitle, screen, onClose }: { src:
   const zoomed = view.s > 1.01;
   return (
     <div className="fixed inset-0 z-[60] bg-t1-bg text-t1-text flex flex-col gap-px" role="dialog" aria-modal="true" aria-label={`${title}, zoom`}>
-      <Bar title={title} subtitle={subtitle} onBack={onClose} right={
+      <Bar title={title} onBack={onClose} right={
         <div className="flex gap-4">
           <button type="button" className="t1-label text-t1-text hover:text-t1-accent" aria-label="Zoom out"
                   onClick={() => setView((v) => zoomTo(v, v.s / 1.5, box.w / 2, box.h / 2, box, fit))}>−</button>

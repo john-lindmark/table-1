@@ -78,13 +78,13 @@ const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 const qtyOf = (cards: StatCard[]) => cards.reduce((n, c) => n + c.qty, 0);
 
 /** The screen frame every stats page shares: bar, errors, loading. */
-function StatsFrame({ title, subtitle, onBack, state, children }: {
-  title: string; subtitle?: string; onBack: () => void; state: ReturnType<typeof useStatLines>; children: (lines: StatLine[], list: CardList, c: Catalog) => React.ReactNode;
+function StatsFrame({ title, onBack, state, children }: {
+  title: string; onBack: () => void; state: ReturnType<typeof useStatLines>; children: (lines: StatLine[], list: CardList, c: Catalog) => React.ReactNode;
 }) {
   const { ready, session, list, catalog, lines, error, listsReady } = state;
   return (
     <LibScreen>
-      <Bar title={title} subtitle={subtitle ?? list?.name} onBack={onBack} />
+      <Bar title={title} onBack={onBack} />
       {error && <Notice tone="error">{error}</Notice>}
       {!ready ? <div className="flex-1" />
         : !session ? <Notice tone="info">Sign in to keep decks and cubes.</Notice>
@@ -383,10 +383,8 @@ export function SampleHandScreen({ id, onBack }: { id: string; onBack: () => voi
   useEffect(() => () => {
     if (counts.current.hands > 0) capture("sample_hand_used", { ...counts.current });
   }, []);
-  const subtitle = hand ? [`${hand.hand.length} in hand`, `library ${hand.library.length}`,
-    hand.mulligans ? `${hand.mulligans} mulligan${hand.mulligans === 1 ? "" : "s"}` : null, hand.drawn ? `drew ${hand.drawn}` : null].filter(Boolean).join(" · ") : undefined;
   return (
-    <StatsFrame title="Sample hand" subtitle={subtitle} onBack={onBack} state={state}>
+    <StatsFrame title="Sample hand" onBack={onBack} state={state}>
       {(_, __, c) => !main || !hand ? null : library.length === 0 ? <Notice tone="info">The main deck is empty.</Notice> : (
         <>
           {hand.toBottom > 0 && (
@@ -485,7 +483,7 @@ export function SamplePackScreen({ id, onBack }: { id: string; onBack: () => voi
   useEffect(() => { if (pool.length) open(pool.length); }, [pool.length]);
   useEffect(() => () => { if (packs.current > 0) capture("sample_pack_used", { packs: packs.current, size: packSize }); }, []);
   return (
-    <StatsFrame title="Sample pack" subtitle={`${pack.length} cards`} onBack={onBack} state={state}>
+    <StatsFrame title="Sample pack" onBack={onBack} state={state}>
       {(_, __, c) => !main ? null : pool.length === 0 ? <Notice tone="info">The cube is empty.</Notice> : (
         <>
           <CardGrid c={c} items={pack.map((pos, i) => { const l = main[pool[pos]]; return { key: `${i}-${pos}`, p: l.p, name: l.card.name }; })} />

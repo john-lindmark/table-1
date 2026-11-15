@@ -116,7 +116,7 @@ struct ChangePrintingView: View {
         let shown = query.isEmpty ? printings : printings.filter { CardSearch.matches(query, set: $0.set, cn: $0.cn, releasedAt: $0.releasedAt) }
         let n = min(max(count, 1), max(have, 1))
         T1Screen {
-            Bar(title: "Change printing", subtitle: name, back: { finish() })
+            Bar(title: "Change printing", back: { finish() })
             if let error { Notice(error, error: true) }
             CatalogStatusRow(catalog: catalog)
             if have == 0 {

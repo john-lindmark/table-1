@@ -192,8 +192,9 @@ from it. In order of how much it changes the look:
 
 1. **Bar subtitles go.** `Events / 1 LIVE`, `Collection / YOUR CARDS, DECKS AND TRADES`, `Wants / 5 WANTED ·
    5 MISSING`, `annito / ACCOUNT`. The count, if it matters, moves into the content; the description is cut.
-   `Bar(title:subtitle:)` on iOS, `Bar` on web and Android keep the parameter for now, but new screens don't
-   pass it.
+   **Done 2026-11-15** (John: "have all the title bars match the style of the collection and card detail title
+   bars. Remove all the secondary labels that sit below the main title"): `Bar` on all three clients has no
+   subtitle any more and draws the § 2 bar (`contract/title-bars-2026-11-15.md`).
 2. **Row descriptions go.** `ListRow(detail:)` lines that explain the row (`SEARCH, SCRYFALL SYNTAX OR SCAN`,
    `TRADES MARKS IT WHEN YOU GET ONE`, `WHO SEES YOUR PROFILE AND LIBRARY`) are cut; lines that are data
    (`MH2 #138 · SHOWCASE`, `6 MATCHES · GAMES 9–5`, `MODERN`) stay.

@@ -253,7 +253,7 @@ struct CommandZonePicker: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: role.title, subtitle: hint) { BarButton("Cancel") { T1Overlays.shared.dismissPanel() } }
+            Bar(title: role.title) { BarButton("Cancel") { T1Overlays.shared.dismissPanel() } }
             CatalogStatusRow(catalog: catalog)
             CardSearchBar(query: $query, prompt: role == .signature ? "An instant or sorcery" : role == .oathbreaker ? "A planeswalker" : "A legendary creature",
                           focused: $focused) { if let o = hits.first, let p = covers[o.idx] { pick(o, p) } }

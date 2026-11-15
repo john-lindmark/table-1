@@ -49,7 +49,7 @@ export function RotoDemo() {
       <div className="flex-1 min-h-0 flex flex-col">
         {screen === "schedule" ? (
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
-            <Bar title="Roto · Vintage Cube" subtitle="Round robin · round 3 of 7" />
+            <Bar title="Roto · Vintage Cube" />
             <RotoSchedule bundle={scheduleBundle} meId="demo-p3" />
           </div>
         ) : store ? (

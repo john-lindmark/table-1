@@ -111,7 +111,7 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube, onPopular }: {
   return (
     <LibScreen>
       {!onBack && <TabNav />}
-      <Bar title="Rankings" subtitle={listId == null ? undefined : cube ? (cube.mine || isSet ? cube.name : `${cube.name} · ${cube.owner?.display_name ?? ""}`) : undefined}
+      <Bar title="Rankings"
            onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {error && <Notice tone="error">{error}</Notice>}
@@ -189,12 +189,12 @@ function useOthers(m: RankingModel) {
   return others;
 }
 
-function Frame({ title, subtitle, onBack, m, catalog, children }: {
-  title: string; subtitle?: string; onBack: () => void; m: RankingModel; catalog: Catalog | null; children: (st: RankingState, c: Catalog) => ReactNode;
+function Frame({ title, onBack, m, catalog, children }: {
+  title: string; onBack: () => void; m: RankingModel; catalog: Catalog | null; children: (st: RankingState, c: Catalog) => ReactNode;
 }) {
   return (
     <LibScreen>
-      <Bar title={title} subtitle={subtitle ?? (m.row ? rankingTitle(m.row) : undefined)} onBack={onBack} />
+      <Bar title={title} onBack={onBack} />
       {m.error && <Notice tone="error">{m.error}</Notice>}
       {m.notice && <Notice tone="info">{m.notice}</Notice>}
       {m.state && catalog ? children(m.state, catalog) : !m.error && <Notice tone="info">{catalog ? "Loading the ranking…" : "Loading card data…"}</Notice>}
@@ -257,7 +257,7 @@ export function RankingScreen({ id, onBack, go }: { id: string; onBack: () => vo
   const [newName, setNewName] = useState<string | null>(null);
   const row = m.row;
   return (
-    <Frame title={row ? rankingTitle(row) : "Ranking"} subtitle={m.cube?.name} onBack={onBack} m={m} catalog={catalog}>
+    <Frame title={row ? rankingTitle(row) : "Ranking"} onBack={onBack} m={m} catalog={catalog}>
       {(st, c) => (
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
           {m.cubeGone && <Notice tone="info">This cube isn't shared with you any more, so only its lists show.</Notice>}
@@ -677,7 +677,7 @@ export function RankingCompareScreen({ id, otherId, job, onBack, go }: { id: str
   const ready = ma.state && mb.state && catalog;
   return (
     <LibScreen>
-      <Bar title="Compare" subtitle={listTitle(tab, ma.row?.top ?? 100)} onBack={onBack} />
+      <Bar title="Compare" onBack={onBack} />
       {(ma.error || mb.error) && <Notice tone="error">{ma.error ?? mb.error}</Notice>}
       {!ready ? <Notice tone="info">Loading both rankings…</Notice> : (() => {
         const sa = ma.state!, sb = mb.state!, c = catalog!;
@@ -942,11 +942,11 @@ function RankingImage({ m, c, onClose }: { m: RankingModel; c: Catalog; onClose:
   };
   return (
     <div className="fixed inset-0 z-50 bg-t1-bg text-t1-text flex flex-col gap-px" role="dialog" aria-modal="true" aria-label={`Top ${m.row?.top ?? 100} image`}>
-      <Bar title={`Top ${m.row?.top ?? 100} image`} subtitle={name} onBack={onClose} />
+      <Bar title={`Top ${m.row?.top ?? 100} image`} onBack={onClose} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {note && <Notice tone="info">{note}</Notice>}
         {!cards.length ? <Notice tone="info">Nothing ranked in the final yet.</Notice>
-          : url ? <ZoomablePreview src={url} alt={`Top ${cards.length} of ${name}`} title={`Top ${m.row?.top ?? 100} image`} subtitle={name} screen="ranking_image" />
+          : url ? <ZoomablePreview src={url} alt={`Top ${cards.length} of ${name}`} title={`Top ${m.row?.top ?? 100} image`} screen="ranking_image" />
           : <Notice tone="info">Getting card images… {progress[0]} of {progress[1]}</Notice>}
       </div>
       <div className="shrink-0 flex gap-px pb-px">

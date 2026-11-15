@@ -250,7 +250,7 @@ struct ListStatsView: View {
     var body: some View {
         let list = ListsStore.shared.list(id: listId)
         T1Screen {
-            Bar(title: "Stats", subtitle: list?.name, back: { dismiss() })
+            Bar(title: "Stats", back: { dismiss() })
             CatalogStatusRow(catalog: CatalogStore.shared)
             if let list, let lines {
                 HairlineList {
@@ -481,7 +481,7 @@ struct SampleHandView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Sample hand", subtitle: subtitle, back: { dismiss() })
+            Bar(title: "Sample hand", back: { dismiss() })
             CatalogStatusRow(catalog: CatalogStore.shared)
             if let lines, let hand {
                 if library.isEmpty {
@@ -536,13 +536,6 @@ struct SampleHandView: View {
         }
     }
 
-    private var subtitle: String {
-        guard let hand else { return "" }
-        return ["\(hand.hand.count) in hand", "library \(hand.library.count)",
-                hand.mulligans > 0 ? "\(hand.mulligans) mulligan\(hand.mulligans == 1 ? "" : "s")" : nil,
-                hand.drawn > 0 ? "drew \(hand.drawn)" : nil].compactMap { $0 }.joined(separator: " · ")
-    }
-
     private func deal() {
         hand = SampleHand(size: library.count, seed: StatsRNG.randomSeed())
         hands += 1
@@ -576,7 +569,7 @@ struct DrawOddsView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Draw odds", subtitle: ListsStore.shared.list(id: listId)?.name, back: { dismiss() })
+            Bar(title: "Draw odds", back: { dismiss() })
             CatalogStatusRow(catalog: CatalogStore.shared)
             if let lines {
                 let main = lines.map(\.card).filter { $0.board == "main" }
@@ -644,7 +637,7 @@ struct SamplePackView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Sample pack", subtitle: "\(pack.count) cards", back: { dismiss() })
+            Bar(title: "Sample pack", back: { dismiss() })
             CatalogStatusRow(catalog: CatalogStore.shared)
             if let lines {
                 let pool = DeckStats.expand(lines.map(\.card))

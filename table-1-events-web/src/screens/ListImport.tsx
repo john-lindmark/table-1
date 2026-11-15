@@ -95,7 +95,7 @@ export function ListImportScreen({ kind, onBack, onCreated }: { kind: ListKind; 
   const count = (b: Board) => result?.entries.filter((e) => e.board === b).reduce((n, e) => n + e.qty, 0) ?? 0;
   return (
     <LibScreen>
-      <Bar title={title} subtitle="From a link or a pasted list" onBack={onBack} />
+      <Bar title={title} onBack={onBack} />
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {!result && (

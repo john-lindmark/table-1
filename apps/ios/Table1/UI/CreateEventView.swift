@@ -100,7 +100,7 @@ struct CreateEventView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "New event", subtitle: trimmedName.isEmpty ? previewName : trimmedName) { BarButton("Cancel") { dismiss() } }
+            Bar(title: "New event") { BarButton("Cancel") { dismiss() } }
             ScrollView {
                 VStack(spacing: 1) {
                     Section1("Name")
@@ -649,7 +649,7 @@ struct SetPickerScreen: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Set", subtitle: "Newest first", back: { dismiss() }) {
+            Bar(title: "Set", back: { dismiss() }) {
                 if selected != nil {
                     BarButton("Clear") {
                         selected = nil

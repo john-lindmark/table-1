@@ -10,8 +10,8 @@ import { errorMessage } from "../lib/api";
    opens it. */
 
 /** Every language, current one marked; picking closes it (picking the current one changes nothing). */
-export function LanguagePicker({ current, subtitle, onPick, onClose }: {
-  current: string; subtitle?: string; onPick: (code: string) => void; onClose: () => void;
+export function LanguagePicker({ current, onPick, onClose }: {
+  current: string; onPick: (code: string) => void; onClose: () => void;
 }) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -22,7 +22,7 @@ export function LanguagePicker({ current, subtitle, onPick, onClose }: {
   }, []);
   return (
     <div className="fixed inset-0 z-50 bg-t1-bg text-t1-text flex flex-col gap-px" role="dialog" aria-modal="true" aria-label="Language">
-      <Bar title="Language" subtitle={subtitle} onBack={onClose} />
+      <Bar title="Language" onBack={onClose} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px w-full max-w-[640px] mx-auto">
         {LANGUAGES.map((l, i) => (
           <div key={l.code} className="flex flex-col gap-px">
@@ -48,7 +48,7 @@ export function NewCopiesLanguageRow({ lang, onChange }: { lang: string; onChang
   return (
     <>
       <LanguageRow lang={lang} title="New copies in" onClick={() => setPicking(true)} />
-      {picking && <LanguagePicker current={lang} subtitle="For new copies" onClose={() => setPicking(false)} onPick={onChange} />}
+      {picking && <LanguagePicker current={lang} onClose={() => setPicking(false)} onPick={onChange} />}
     </>
   );
 }
@@ -77,7 +77,7 @@ export function OwnedLanguageRow({ item, label, onDone, onError }: {
     <>
       <LanguageRow lang={item.lang} onClick={() => setPicking(true)} />
       {picking && (
-        <LanguagePicker current={item.lang} subtitle={label} onClose={() => setPicking(false)}
+        <LanguagePicker current={item.lang} onClose={() => setPicking(false)}
                         onPick={(lang) => { if (item.qty <= 1) void run(lang, 1); else setAsking(lang); }} />
       )}
       {asking && (

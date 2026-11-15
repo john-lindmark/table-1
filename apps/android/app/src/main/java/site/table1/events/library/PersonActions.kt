@@ -120,7 +120,7 @@ fun ReportPanel(person: PersonRef, from: String, item: Triple<String, String, St
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
-                Bar("Report ${person.displayName}", item?.third ?: "They won't know you reported them") {
+                Bar("Report ${person.displayName}") {
                     BarAction(if (sent) "Done" else "Cancel", onClose)
                 }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {

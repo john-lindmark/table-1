@@ -756,8 +756,8 @@ struct AllCardsView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "All cards", subtitle: col.summary.map { "\($0.totalQty.formatted()) cards" }, back: { dismiss() }) {
-                HStack(spacing: 20) {
+            Bar(title: "All cards", back: { dismiss() }) {
+                HStack(spacing: 0) {
                     BarButton("Share") {
                         Telemetry.capture("share_opened", ["part": "all_cards", "from": "all_cards"])
                         path.append(.social(.share(.allCards)))

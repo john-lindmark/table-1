@@ -272,7 +272,7 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport, onRankings
 
   return (
     <LibScreen>
-      <Bar title={kind === "deck" ? "Decks" : "Cubes"} subtitle={`${mine.length}`} onBack={onBack} />
+      <Bar title={kind === "deck" ? "Decks" : "Cubes"} onBack={onBack} />
       {lists.error && <Notice tone="error">{lists.error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <Row title={kind === "deck" ? "New deck" : "New cube"} detail="Name it, then add cards" onClick={() => setCreating(true)} />
@@ -364,7 +364,7 @@ export function ExportScreen({ name, kind, entries, catalog, from, onClose }: {
   const accent = "flex-1 bg-t1-surface hover:bg-t1-surface-hover px-4 py-3 text-[11px] uppercase tracking-[1px] text-t1-accent";
   return (
     <div className="fixed inset-0 z-50 bg-t1-bg text-t1-text flex flex-col gap-px" role="dialog" aria-modal="true" aria-label={`Export ${name}`}>
-      <Bar title="Export" subtitle={name} onBack={onClose} />
+      <Bar title="Export" onBack={onClose} />
       <Segmented options={formats.map((f) => ({ value: f, label: EXPORT_SHORT[f] }))} value={format}
                  onChange={(f) => { setFormat(f); setNote(null); setFail(null); }} />
       <Notice tone="info">{EXPORT_DETAIL[format]}</Notice>
@@ -556,7 +556,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
 
   return (
     <LibScreen width="wide">
-      <Bar title={list.name} subtitle={list.eventId ? `From ${list.eventName ?? "an event"} · v${v.number}` : `${formatName(list.format)} ${list.kind} · v${v.number}`} onBack={onBack}
+      <Bar title={list.name} onBack={onBack}
            right={<span className="flex gap-4">
              <button type="button" className="t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={() => setEditing(!editing)}>{editing ? "Done" : "Edit"}</button>
              {!editing && <ViewButton layout={layout} onChange={setLayout} screen={list.kind === "cube" ? "cube" : "deck"} printings={printings} onPrintings={setPrintings}
@@ -845,7 +845,7 @@ export function ListAddScreen({ id, onDone }: { id: string; onDone: () => void; 
 
   return (
     <LibScreen>
-      <Bar title={`Edit ${list.name}`} subtitle={`v${current(list).number}`}
+      <Bar title={`Edit ${list.name}`}
            right={<button type="button" className="t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={onDone}>Done</button>} />
       {note && <Notice tone="info">{note}</Notice>}
       <Section title="Add to" />
@@ -923,7 +923,7 @@ export function VersionsScreen({ id, onBack, onOpen }: { id: string; onBack: () 
   const vs = list.versions;
   return (
     <LibScreen>
-      <Bar title="Version history" subtitle={list.name} onBack={onBack} />
+      <Bar title="Version history" onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {vs.map((v, i) => {
           const ch = diff(i > 0 ? vs[i - 1] : null, v);
@@ -950,7 +950,7 @@ export function VersionScreen({ id, number, onBack, onCard }: { id: string; numb
   const count = (b: Board) => v.entries.filter((e) => e.board === b).reduce((n, e) => n + e.qty, 0);
   return (
     <LibScreen>
-      <Bar title={`v${number} · ${v.note}`} subtitle={list.name} onBack={onBack} />
+      <Bar title={`v${number} · ${v.note}`} onBack={onBack} />
       {restored && <Notice tone="info">{restored}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <div className="bg-t1-surface py-4 flex">

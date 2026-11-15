@@ -11,7 +11,7 @@ struct NearbyView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Nearby", subtitle: "Events within 150 m", back: { dismiss() }) {
+            Bar(title: "Nearby", back: { dismiss() }) {
                 BarButton("Refresh") { Task { await search() } }
             }
             Ghost(text: alertsOn == true ? "Alerts on" : "Alert me when one starts", accent: alertsOn == true) {

@@ -71,7 +71,7 @@ fun AddPlayersScreen(eventId: String, onDone: () -> Unit) {
     val emailValid = email.trim().let { it.length > 5 && '@' in it && it.substringAfterLast('@').contains('.') }
 
     T1Screen {
-        Bar("Add players", "Invitations — they accept to take a seat") { BarAction("Done", onDone) }
+        Bar("Add players") { BarAction("Done", onDone) }
         SearchField(query, "Search friends and people you've played with") { query = it }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             error?.let { item { Notice(it, error = true) } }

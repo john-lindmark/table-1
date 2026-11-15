@@ -36,7 +36,6 @@ export function CommandZonePicker({ catalog, role, onPick, onClose, deck = [], o
   const hits = q.trim()
     ? (found?.result.hits ?? []).filter((i) => roleFits(role, catalog.oType[i]) && mates(catalog.oType[i], catalog.oPair[i], catalog.oName[i]))
     : [];
-  const hint = partnerOf ? zonePartnerHint(partnerOf) : ROLE_HINT[role];
   const pick = (i: number) => {
     const p = found?.result.covers.get(i) ?? coverPrinting(catalog, i);
     onClose();
@@ -44,7 +43,7 @@ export function CommandZonePicker({ catalog, role, onPick, onClose, deck = [], o
   };
   return (
     <div className="fixed inset-0 z-50 bg-t1-bg flex flex-col gap-px" role="dialog" aria-modal="true" aria-label={ROLE_TITLE[role]}>
-      <Bar title={ROLE_TITLE[role]} subtitle={hint}
+      <Bar title={ROLE_TITLE[role]}
            right={<button type="button" className="t1-label hover:text-t1-text" onClick={onClose}>Cancel</button>} />
       <CardSearchBar label="Card" value={q} onChange={setQ} placeholder={PROMPT[role]} autoFocus onSubmit={() => { if (hits[0] != null) pick(hits[0]); }} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px w-full max-w-[720px] mx-auto">

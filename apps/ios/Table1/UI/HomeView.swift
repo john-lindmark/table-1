@@ -33,10 +33,9 @@ struct EventsHomeView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Events", subtitle: live.isEmpty ? nil : "\(live.count) live") {
+            Bar(title: "Events") {
                 // Find: every event you can find, leagues and boards (contract/public-events-leagues-2026-11-13.md § 1).
                 T1IconButton(icon: .search, label: "Find") { path.append(.find("events")) }
-                    .padding(.vertical, -16).padding(.horizontal, -8)
                 BarButton("Life") { session.openTracker(matchId: liveMatchId, source: "home_life") }
                 BarButton("+ New") { new() }
             }
@@ -561,7 +560,7 @@ struct ScanView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Scan to join", subtitle: "Point at the organizer's QR", back: { dismiss() })
+            Bar(title: "Scan to join", back: { dismiss() })
             if QRScanner.isAvailable {
                 QRScanner { raw in
                     if let link = JoinLink(raw) {

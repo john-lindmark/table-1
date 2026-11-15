@@ -8,17 +8,14 @@ import {
   TAB_LABELS,
   activeRoundOf,
   derivePhase,
-  liveSubtitle,
   phaseTabs,
   resolveTab,
-  resultsSubtitle,
-  setupSubtitle,
   type OrganizerTab,
   type Phase,
 } from "../lib/organizer";
 import { participantsKey, useEventTeams } from "../lib/useEventExtras";
 import type { Match } from "../lib/types";
-import { Bar, Dialog, GhostAction, Notice, Screen, TabBar, useNow } from "../components/kit";
+import { Bar, Dialog, GhostAction, Notice, Screen, TabBar } from "../components/kit";
 import { SetupView } from "./organizer/SetupView";
 import { LiveView } from "./organizer/LiveView";
 import { ResultsView } from "./organizer/ResultsView";
@@ -88,8 +85,6 @@ export function Organizer({
 
   const phase: Phase | null = bundle ? derivePhase(bundle.event.status, bundle.rounds.length) : null;
   const activeRound = bundle ? activeRoundOf(bundle.rounds) : null;
-  // The Live subtitle shows the clock, so it ticks every second while the round runs.
-  const now = useNow(phase === "live" && activeRound?.timerStatus === "running", 1000);
 
   if (error && !bundle) {
     return (
@@ -115,13 +110,6 @@ export function Organizer({
   const tabs = phaseTabs(phase, { isTeam, isDraft, isRoto, roundRobin: isRoto && event.pairing === "round_robin", earlier,
                                   prizes: event.status !== "cancelled" && !!money?.fee && ((money.pool?.pool_cents ?? 0) > 0 || (money.prizes?.length ?? 0) > 0) });
   const tab = resolveTab(selected, phase, tabs);
-  const activePlayers = participants.filter((p) => p.status === "active").length;
-  const subtitle =
-    phase === "setup"
-      ? setupSubtitle(event, activePlayers)
-      : phase === "live"
-        ? liveSubtitle(event, rounds, now)
-        : resultsSubtitle(event, rounds, participants.length);
   const openMatch: Match | null =
     (openMatchId && rounds.flatMap((r) => r.matches).find((m) => m.id === openMatchId)) || null;
 
@@ -193,7 +181,6 @@ export function Organizer({
     <Screen width="wide">
       <Bar
         title={event.name}
-        subtitle={subtitle}
         onBack={onExit}
         right={
           // A desktop bar names each action; a phone's has room for one, so they sit behind More.
@@ -302,7 +289,7 @@ export function Organizer({
               items={PRINT_VIEWS.map((v) => ({ title: v.label, detail: v.detail, onClick: () => onPrint(v.value) }))} />
       )}
       {draftOpen && (
-        <RotoDraftOverlay eventId={eventId} title={event.name} isOrganizer pairing={event.pairing} onClose={() => setDraftOpen(false)} />
+        <RotoDraftOverlay eventId={eventId} title={event.name} isOrganizer onClose={() => setDraftOpen(false)} />
       )}
       {stale && <Notice tone="info">{stale}</Notice>}
     </Screen>

@@ -59,7 +59,7 @@ function NoticesBody({ onBack }: { onBack: () => void }) {
   const n = s.notices;
   return (
     <Screen>
-      <Bar title="From Table 1" subtitle="Changes to your content" onBack={onBack} />
+      <Bar title="From Table 1" onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {s.error && <Notice tone="error">{s.error}</Notice>}
         <Notice tone="info">
@@ -101,7 +101,7 @@ function AppealPanel({ notice, onClose }: { notice: ModerationNotice; onClose: (
   return (
     <div className="fixed inset-0 z-50 bg-t1-bg flex flex-col" role="dialog" aria-modal="true" aria-label="Appeal">
       <div className="flex-1 min-h-0 flex flex-col w-full max-w-[640px] mx-auto">
-        <Bar title="Appeal" subtitle={notice.label}
+        <Bar title="Appeal"
              right={<button type="button" onClick={onClose} className="t1-label hover:text-t1-text px-2 py-1 -my-1">Cancel</button>} />
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
           {error && <Notice tone="error">{error}</Notice>}
@@ -159,7 +159,7 @@ function ReviewBody({ onBack }: { onBack: () => void }) {
   const q = s.queue;
   return (
     <Screen>
-      <Bar title="Review" subtitle={q ? `${waiting(q)} waiting` : undefined} onBack={onBack} />
+      <Bar title="Review" onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {(error ?? s.error) && <Notice tone="error">{error ?? s.error}</Notice>}
         {!q && !(error ?? s.error) && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}

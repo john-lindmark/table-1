@@ -15,7 +15,7 @@ struct AddPlayersView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Add players", subtitle: "Invitations — they accept to take a seat") {
+            Bar(title: "Add players") {
                 BarButton("Done") { dismiss() }
             }
             HStack(spacing: 8) {

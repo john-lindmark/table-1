@@ -171,7 +171,7 @@ struct RedraftView: View {
     var body: some View {
         let printings = printingsById
         T1Screen {
-            Bar(title: "Redraft", subtitle: subtitle, back: { dismiss() })
+            Bar(title: "Redraft", back: { dismiss() })
             HairlineList {
                 Ghost(text: busy ? "Adding…" : "Scan cards", accent: true) { scan() }
                 if let error { Notice(error, error: true) }
@@ -199,12 +199,6 @@ struct RedraftView: View {
             catalog.load(userInitiated: true)
             await load()
         }
-    }
-
-    private var subtitle: String? {
-        guard let pile, pile.count > 0 else { return nil }
-        let total = PriceBook.text(pile.totalUsd) ?? ""
-        return "\(pile.count) \(pile.count == 1 ? "card" : "cards") · \(total)"
     }
 
     private var printingsById: [String: CatalogPrinting] {
@@ -292,7 +286,7 @@ struct DeckPhotosView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Deck photos", subtitle: bundle?.event.name, back: { dismiss() })
+            Bar(title: "Deck photos", back: { dismiss() })
             HairlineList {
                 if bundle?.event.isCancelled == false, me != nil || bundle?.isOrganizer == true {
                     Ghost(text: busy ? "Uploading…" : "Add a deck photo", accent: true) { add() }
@@ -596,7 +590,7 @@ private struct DeckNotePanel: View {
 
     var body: some View {
         VStack(spacing: 1) {
-            Bar(title: title, subtitle: "Deck photo") {
+            Bar(title: title) {
                 BarButton("Cancel") { T1Overlays.shared.dismissPanel() }
             }
             if let image {

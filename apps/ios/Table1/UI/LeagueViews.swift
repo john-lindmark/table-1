@@ -62,11 +62,11 @@ struct LeagueView: View {
                         Button { path.append(.leagueTools(page.league.id)) } label: {
                             TuneIcon().fill(T1.text).frame(width: 18, height: 18).frame(width: 50, height: 50).contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain).padding(.vertical, -16)
+                        .buttonStyle(.plain)
                         .accessibilityLabel("Organizer tools")
                     } else {
                         LabelText(page.me.following ? "Following" : "Follow", color: page.me.following ? T1.accent : T1.text)
-                            .padding(.vertical, 12).contentShape(Rectangle()).padding(.vertical, -12)
+                            .padding(.horizontal, 16).frame(maxHeight: .infinity).contentShape(Rectangle())
                             .onTapGesture { setFollow(!page.me.following, nil) }
                             .onLongPressGesture { followMenu(page) }
                             .accessibilityAddTraits(.isButton)
@@ -74,7 +74,7 @@ struct LeagueView: View {
                     Button { path.append(.leagueDetails(page.league.id)) } label: {
                         ListIcon().fill(T1.text).frame(width: 18, height: 18).frame(width: 50, height: 50).contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain).padding(.vertical, -16).padding(.trailing, -16).padding(.leading, -8)
+                    .buttonStyle(.plain)
                     .accessibilityLabel("Details")
                 }
             }

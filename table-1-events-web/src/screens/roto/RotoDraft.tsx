@@ -56,20 +56,20 @@ export function RotoDraftGate({
 }
 
 /** The read-only Draft over Live / Results (players look at each other's picks during the matches). */
-export function RotoDraftOverlay({ eventId, title, isOrganizer, pairing, onClose }: {
-  eventId: string; title: string; isOrganizer: boolean; pairing: "swiss" | "round_robin"; onClose: () => void;
+export function RotoDraftOverlay({ eventId, title, isOrganizer, onClose }: {
+  eventId: string; title: string; isOrganizer: boolean; onClose: () => void;
 }) {
   const store = useRoto(eventId);
   if (!store) return null;
   return (
     <div className="fixed inset-0 z-40 bg-t1-bg">
-      <RotoDraftScreen store={store} title={title} isOrganizer={isOrganizer} readOnly onBack={onClose} pairing={pairing} />
+      <RotoDraftScreen store={store} title={title} isOrganizer={isOrganizer} readOnly onBack={onClose} />
     </div>
   );
 }
 
 export function RotoDraftScreen({
-  store: s, title, isOrganizer, readOnly = false, onBack, pairRound1, pairing, busy = false, outsideError, initialTab = "grid",
+  store: s, title, isOrganizer, readOnly = false, onBack, pairRound1, busy = false, outsideError, initialTab = "grid",
 }: {
   store: RotoStore;
   title: string;
@@ -78,7 +78,6 @@ export function RotoDraftScreen({
   readOnly?: boolean;
   onBack?: () => void;
   pairRound1?: () => void;
-  pairing?: "swiss" | "round_robin";
   busy?: boolean;
   outsideError?: string | null;
   initialTab?: RotoTab;
@@ -102,15 +101,13 @@ export function RotoDraftScreen({
     navigate(`/library/list/${id}`);
   };
 
-  const parts = [readOnly && pairing ? (pairing === "round_robin" ? "Round robin" : "Swiss") : "Draft",
-                 `${store.players} players`, `${store.draft.picksPerPlayer} picks each`, store.snake ? "Snake" : "Same order"];
   const organizerLive = isOrganizer && !readOnly && store.phase === "drafting";
   const pickFor = organizerLive && !!store.onClock && store.onClock.participantId !== store.me?.participantId;
   const open = (slot: number, from: PickSource) => setPanel({ slot, from });
 
   return (
     <div className="h-[100dvh] w-full bg-t1-bg text-t1-text flex flex-col gap-px">
-      <Bar title={title} subtitle={parts.join(" · ")} onBack={onBack}
+      <Bar title={title} onBack={onBack}
            right={organizerLive ? <button type="button" className="t1-label hover:text-t1-text shrink-0" onClick={() => setMenu(true)}>More</button> : undefined} />
       <RotoSummary store={store} onPickFor={pickFor ? () => setTab("cube") : undefined} />
       {(outsideError ?? store.error) && <Notice tone="error">{outsideError ?? store.error}</Notice>}
@@ -587,7 +584,7 @@ function RotoCardPanel({ store, slot, from, isOrganizer, readOnly, onClose }: {
     <div className="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true" aria-label={card?.name ?? "Card"}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div className="relative w-full max-w-[480px] bg-t1-bg flex flex-col gap-px max-h-[92dvh] overflow-y-auto">
-        <Bar title={card?.name ?? "Card"} subtitle={card?.typeLine}
+        <Bar title={card?.name ?? "Card"}
              right={<button type="button" className="t1-label hover:text-t1-text shrink-0" onClick={onClose}>Close</button>} />
         <div className="bg-t1-surface py-4 flex justify-center">
           {cat && card?.p != null

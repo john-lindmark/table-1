@@ -145,7 +145,7 @@ export function BindersScreen({ onBack, onOpen, onCard }: { onBack: () => void; 
   if (!session) return <SignedOut title="Binders" onBack={onBack} />;
   return (
     <Screen>
-      <Bar title="Binders" subtitle={`${b.binders.length} · ${b.binders.filter((x) => x.for_trade).length} for trade`} onBack={onBack} />
+      <Bar title="Binders" onBack={onBack} />
       {(b.error || col.error) && <Notice tone="error">{b.error ?? col.error}</Notice>}
       {col.items.size > 0 && <Field label="Find a card in your binders" value={q} onChange={setQ} placeholder="Name or type" />}
       {normName(q) ? (
@@ -255,7 +255,6 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
   return (
     <LibScreen width={layout === "list" ? "column" : "wide"}>
       <Bar title={unsorted ? "Unsorted" : binder?.name ?? "Binder"} onBack={onBack}
-           subtitle={[`${copies.toLocaleString()} cards`, binder?.for_trade ? "For trade" : null, usdText(value(items))].filter(Boolean).join(" · ")}
            right={<span className="flex gap-4">
              <ViewButton layout={layout} onChange={setLayout} screen="binder" printings={printings} onPrintings={setPrintings}
                          grouping={grouping} onGrouping={setGrouping} sort={sort} onSort={setSort} sorts="binder" />
@@ -590,7 +589,7 @@ export function WantsScreen({ onBack, onCard, onBuy }: { onBack?: () => void; on
   return (
     <LibScreen>
       {!onBack && <TabNav />}
-      <Bar title="Wants" subtitle={`${wanted} wanted · ${short} missing`} onBack={onBack} />
+      <Bar title="Wants" onBack={onBack} />
       {(error || fail || b.error) && <Notice tone="error">{error ?? fail ?? b.error}</Notice>}
       {(wants.length > 0 || missing.length > 0) && <Field label="Search wants" value={q} onChange={setQ} placeholder="Name or type" />}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">

@@ -54,7 +54,7 @@ struct BuyView: View {
         let rows = BuyList.rows(lines, holdings, effective)
         let t = BuyList.totals(rows)
         T1Screen {
-            Bar(title: "Buy", subtitle: list?.name, back: { dismiss() })
+            Bar(title: "Buy", back: { dismiss() })
             CatalogStatusRow(catalog: catalog)
             if let error { Notice(error, error: true) }
             HairlineList {

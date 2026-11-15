@@ -34,7 +34,7 @@ struct BindersView: View {
         let totals = store.totals(col.items)
         let _ = store.version
         T1Screen {
-            Bar(title: "Binders", subtitle: "\(store.binders.count) · \(store.binders.filter(\.forTrade).count) for trade", back: { dismiss() })
+            Bar(title: "Binders", back: { dismiss() })
             if let error = store.error { Notice(error, error: true) }
             if !col.items.isEmpty { T1SearchField(text: $query, prompt: "Find a card in your binders") }
             HairlineList {
@@ -201,10 +201,8 @@ struct BinderView: View {
         let rows = store.items(in: unsorted ? nil : binderId, col.items)
         let copies = rows.reduce(0) { $0 + $1.qty }
         T1Screen {
-            Bar(title: unsorted ? "Unsorted" : binder?.name ?? "Binder",
-                subtitle: ["\(copies.formatted()) cards", binder?.forTrade == true ? "For trade" : nil, money(value(rows))].compactMap { $0 }.joined(separator: " · "),
-                back: { dismiss() }) {
-                HStack(spacing: 20) {
+            Bar(title: unsorted ? "Unsorted" : binder?.name ?? "Binder", back: { dismiss() }) {
+                HStack(spacing: 0) {
                     if let binder { BarButton("Edit") { menu(binder) } }
                     BarButton("View") {
                         CardLayout.menu($layout, screen: "binder", printings: $printings, grouping: $groupingRaw, list: false, sort: $sortRaw, sorts: .binder)
@@ -595,7 +593,7 @@ struct WantsView: View {
         let shownWants = query.isEmpty ? rows : rows.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
         let shownMissing = query.isEmpty ? missing : missing.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
         T1Screen {
-            Bar(title: "Wants", subtitle: "\(wanted) wanted · \(short) missing", back: root ? nil : { dismiss() })
+            Bar(title: "Wants", back: root ? nil : { dismiss() })
             if let error = store.error { Notice(error, error: true) }
             CatalogStatusRow(catalog: catalog)
             if !rows.isEmpty || !missing.isEmpty { T1SearchField(text: $query, prompt: "Name or type") }
@@ -776,7 +774,7 @@ struct WantPickPanel: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Add a want", subtitle: added, back: { T1Overlays.shared.dismissPanel() })
+            Bar(title: "Add a want", back: { T1Overlays.shared.dismissPanel() })
             CatalogStatusRow(catalog: catalog)
             CardSearchBar(query: $query, prompt: "Lightning Bolt, or Scryfall syntax", scan: { scan() }, focused: $focused)
             CardSearchStatus(query: query, result: result)
@@ -869,7 +867,7 @@ struct WantPrintingPanel: View {
     var body: some View {
         let shown = query.isEmpty ? printings : printings.filter { CardSearch.matches(query, set: $0.set, cn: $0.cn, releasedAt: $0.releasedAt) }
         T1Screen {
-            Bar(title: replacing == nil ? "Want which printing" : "Change printing", subtitle: name, back: { T1Overlays.shared.dismissPanel() })
+            Bar(title: replacing == nil ? "Want which printing" : "Change printing", back: { T1Overlays.shared.dismissPanel() })
             if let error { Notice(error, error: true) }
             CatalogStatusRow(catalog: catalog)
             if printings.count > 8 { T1SearchField(text: $query, prompt: "Set, number or year") }

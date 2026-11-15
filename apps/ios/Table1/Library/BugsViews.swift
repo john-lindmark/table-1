@@ -40,7 +40,7 @@ struct BugsView: View {
     var body: some View {
         let inbox = store.inbox
         T1Screen {
-            Bar(title: "Bugs", subtitle: inbox.map { "\($0.needsYou.count) need you · \($0.open.count) open" }, back: { dismiss() })
+            Bar(title: "Bugs", back: { dismiss() })
             HairlineList {
                 if let error = store.error { Notice(error, error: true) }
                 if let inbox {
@@ -114,7 +114,7 @@ struct BugView: View {
     var body: some View {
         let b = store.details[id]
         T1Screen {
-            Bar(title: "Bug #\(id)" + (b?.severity.map { " · \($0)" } ?? ""), subtitle: b.map { BugWords.status($0.status) }, back: { dismiss() }) {
+            Bar(title: "Bug #\(id)" + (b?.severity.map { " · \($0)" } ?? ""), back: { dismiss() }) {
                 if let url = b?.sentryURL { BarButton("Sentry") { openURL(url) } }
             }
             HairlineList {
@@ -292,7 +292,7 @@ struct BugNotePanel: View {
 
     var body: some View {
         VStack(spacing: 1) {
-            Bar(title: sendBack ? "Answer" : "Note", subtitle: "Bug #\(bug.id)") { BarButton("Cancel") { T1Overlays.shared.dismissPanel() } }
+            Bar(title: sendBack ? "Answer" : "Note") { BarButton("Cancel") { T1Overlays.shared.dismissPanel() } }
             if let error { Notice(error, error: true) }
             if sendBack, let q = bug.notes?.split(separator: "\n").last { Notice(String(q)) }
             Notice(sendBack ? "Your answer goes to the fix runner, and the bug goes back in its queue."

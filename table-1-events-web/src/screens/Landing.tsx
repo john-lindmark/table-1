@@ -2,7 +2,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useSession } from "../lib/useSession";
 import { SignInButtons } from "../components/SignInButtons";
 import { JoinByCode } from "../components/JoinByCode";
-import { BackArrow, BigAction, Screen, T1Logo } from "../components/kit";
+import { Bar, BigAction, Screen, T1Logo } from "../components/kit";
 import { FAN_CONTENT, copyrightLine } from "../lib/legal";
 import { SPOTS, shotUrl, spots } from "../lib/spots";
 
@@ -49,15 +49,11 @@ export function Landing() {
 /** Sign in or create an account (the same step: the first sign-in makes the account). Signed in, it goes home. */
 export function SignInPage() {
   const { session, ready } = useSession();
+  const navigate = useNavigate();
   if (ready && session) return <Navigate to="/" replace />;
   return (
     <Screen>
-      <div className="shrink-0 bg-t1-surface pr-4 py-3 flex items-center gap-3">
-        <Link to="/" aria-label="Back" className="px-4 py-1 -my-1 text-t1-text">
-          <BackArrow />
-        </Link>
-        <span className="t1-label text-t1-text!">Sign in or sign up</span>
-      </div>
+      <Bar title="Sign in or sign up" onBack={() => navigate("/")} />
       <div className="flex-1 bg-t1-surface flex items-center justify-center pt-10 overflow-hidden">
         <T1Logo className="w-full max-w-[720px] h-auto" />
       </div>

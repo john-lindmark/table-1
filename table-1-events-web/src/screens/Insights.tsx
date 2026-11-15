@@ -87,9 +87,9 @@ export function InsightsHome({ section }: { section: "constructed" | "limited" }
   return (
     <Screen>
       <TabNav />
-      <Bar title="Insights" subtitle={section === "limited" ? "Arena draft" : "Constructed metagame"}
+      <Bar title="Insights"
            right={section === "constructed" && (data.session || data.demo) ? (
-             <button type="button" aria-label="Search cards" className="w-[50px] h-[50px] -my-3 -mr-4 flex items-center justify-center hover:text-t1-accent"
+             <button type="button" aria-label="Search cards" className="t1-icon-btn w-[50px] h-[50px] flex items-center justify-center hover:text-t1-accent"
                      onClick={() => { capture("insights_card_search_opened", { format: data.picks.format }); nav(`/insights/${data.picks.format}/cards${data.demo ? "?demo" : ""}`); }}>
                <Icon d={ICON.search} />
              </button>) : undefined} />
@@ -217,7 +217,6 @@ export function InsightsPart() {
   const key = part as PartKey;
   const title = (pack && formatParts(pack, tier, days).find((p) => p.key === key)?.title)
     ?? { meta: "Meta now", cards: "Cards rising and falling", new_set: "New set", changes: "Bans and unbans", events: tier === "big" ? "Big events" : "Events" }[key] ?? "Insights";
-  const scope = `${tier === "big" ? "Big events" : "All events"}, last ${days} days`;
   if (!session && !demo) return <Screen><Bar title={title} onBack={() => nav(-1)} />{ready && <SignInFirst />}</Screen>;
   const go = (p: string) => nav(p);
   const f = pack?.format ?? format;
@@ -303,7 +302,7 @@ export function InsightsPart() {
   };
   return (
     <Screen>
-      <Bar title={title} subtitle={`${pack?.name ?? format}${key === "meta" || key === "cards" ? ` · ${scope}` : ""}`} onBack={() => nav(-1)} />
+      <Bar title={title} onBack={() => nav(-1)} />
       <Scroll>{body()}</Scroll>
     </Screen>
   );
@@ -370,7 +369,7 @@ export function InsightsArchetype() {
     const title = group ? colorsName(group.colors || "C", "") : name;
     const loading = (
       <Screen>
-        <Bar title={title} subtitle={fin ? `${fin.event} · ${shortDay(fin.on)}` : undefined} onBack={back} />
+        <Bar title={title} onBack={back} />
         <Notice tone="info">Loading…</Notice>
       </Screen>
     );
@@ -405,7 +404,7 @@ export function InsightsArchetype() {
   };
   return (
     <Screen>
-      <Bar title={name} subtitle={`${pack?.name ?? format} · all events, last ${picks.days} days`} onBack={back} />
+      <Bar title={name} onBack={back} />
       {error && <Notice tone="error">{error}</Notice>}
       {!page && !error && <Notice tone="info">Loading…</Notice>}
       {page && (
@@ -630,7 +629,7 @@ export function InsightsBan() {
   const ids = b && aw ? [...new Set([...b.before.slice(0, 6).map((x) => x.a), ...aw.shares.slice(0, 6).map((x) => x.a)])].slice(0, 8) : [];
   return (
     <Screen>
-      <Bar title={ch ? changeWords(ch) : "Format change"} subtitle={ch ? `${pack?.name} · ${shortDay(ch.on)}` : undefined} onBack={() => nav(-1)} />
+      <Bar title={ch ? changeWords(ch) : "Format change"} onBack={() => nav(-1)} />
       {!b || !pack ? <Notice tone="info">This change isn't in the pack.</Notice> : (
         <Scroll>
           <Brief text={b.brief} scope="what changed after" thin={!b.before.length || !aw} />
@@ -674,7 +673,7 @@ export function InsightsMatchups() {
   if (!session && !demo) return <Screen><Bar title="Matchups" onBack={() => nav(-1)} />{ready && <SignInFirst />}</Screen>;
   return (
     <Screen>
-      <Bar title="Matchups" subtitle={`${pack?.name ?? format} · ${grid?.scope ?? "last 90 days"}`} onBack={() => nav(-1)} />
+      <Bar title="Matchups" onBack={() => nav(-1)} />
       {pack && grid && <Scroll><WindowPickers tier={tier} days={picks.days} /><MatchupGrid key={`${tier}-${picks.days}`} pack={pack} m={grid.m} share={gridShare(pack, tier, picks.days)} /></Scroll>}
     </Screen>
   );
@@ -1025,7 +1024,7 @@ export function InsightsPair() {
   const best = (view?.cards ?? []).flatMap((c) => (c.pair_gih?.[pair] != null ? [[c, c.pair_gih[pair]] as const] : [])).sort((a, b) => b[1] - a[1]).slice(0, 20);
   return (
     <Screen>
-      <Bar title={`${PAIR_NAMES[pair] ?? pair} ${pair}`} subtitle={`${limitedLabel(set, pack?.name)} ${EVENT_LABELS[event] ?? event}`} onBack={() => nav(-1)} />
+      <Bar title={`${PAIR_NAMES[pair] ?? pair} ${pair}`} onBack={() => nav(-1)} />
       {!p || !view || !pack ? <Notice tone="info">This pair isn't in the pack.</Notice> : (
         <Scroll>
           <a href={pack.credit.url} target="_blank" rel="noreferrer" className="bg-t1-surface px-4 py-2.5 t1-label underline">Data from 17Lands</a>
@@ -1067,7 +1066,7 @@ export function InsightsLimitedCard() {
   const lo = Math.max(0.35, Math.min(...pairs.map(([, v]) => v)) - 0.02), hi = Math.min(0.8, Math.max(...pairs.map(([, v]) => v)) + 0.01);
   return (
     <Screen>
-      <Bar title={name} subtitle={`${limitedLabel(set, pack?.name)} ${EVENT_LABELS[event] ?? event}`} onBack={() => nav(-1)} />
+      <Bar title={name} onBack={() => nav(-1)} />
       {!c || !view || !pack ? <Notice tone="info">This card isn't in the pack.</Notice> : (
         <Scroll>
           {face && catalog && (
@@ -1129,7 +1128,7 @@ export function InsightsReview() {
   );
   return (
     <Screen>
-      <Bar title="Review" subtitle="Archetypes and bans" onBack={() => nav(-1)} />
+      <Bar title="Review" onBack={() => nav(-1)} />
       {error && <Notice tone="error">{error}</Notice>}
       {!review && !error && <Notice tone="info">Loading…</Notice>}
       {review && (
