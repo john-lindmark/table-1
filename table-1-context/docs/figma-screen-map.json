@@ -20,7 +20,13 @@
     "page": "6:3",
     "T1 Kit": "544:566",
     "T1 Kit additions": "649:629",
-    "areas": { "A1": "691:23043", "A2": "691:23045", "A3": "691:23047", "A4": "691:23049", "A5": "691:23051", "A6": "691:23053", "A7": "691:23055" }
+    "areas": { "A1": "691:23043", "A2": "691:23045", "A3": "691:23047", "A4": "691:23049", "A5": "691:23051", "A6": "691:23053", "A7": "691:23055" },
+    "added 2026-11-14": {
+      "A1": { "T1/Achievement Tile": "767:122870", "T1/Achievement Tile · Android": "767:122917", "T1/Achievement Tile · Web": "767:122964" },
+      "A2": { "T1/Found Event Row": "767:123432", "T1/League Standing Row": "767:123445", "T1/Board Row": "767:123464", "T1/Rating Hero": "767:123471", "T1/Info Row · Leagues": "767:123475", "T1/Linked Text": "767:123478", "T1/Arrow Row": "767:123546" },
+      "A3": { "T1/Deck List Line": "767:122765", "T1/Judge Call Row": "767:123488", "T1/Team Bracket Match": "767:123501", "T1/Team Bracket Seat": "767:123517", "T1/Join Team Row": "767:123532", "T1/Team Code Row": "767:123533" },
+      "A7": { "W1/Upcoming Row": "767:122718" }
+    }
   },
   "platforms": {
     "ios": {
@@ -37,23 +43,30 @@
           "Bugs · iOS and Android (not on the web)": ["696:54169", "696:54171", 7],
           "Friends": ["696:56934", "696:56936", 15],
           "Profiles": ["696:64582", "696:64584", 15],
-          "Sharing": ["696:75203", "696:75205", 8],
+          "Sharing": ["696:75203", "696:75205", 9],
           "Share and links": ["696:76106", "696:76108", 10],
           "Shared from a profile": ["696:82379", "696:82381", 11],
           "Following and changes": ["696:83397", "696:83399", 6],
           "Sharing offers and the join notice": ["696:84622", "696:84624", 5]
         } },
         "A2": { "id": "690:15435", "rows": {
-          "Events home": ["696:41475", "696:41477", 16],
+          "Events home": ["696:41475", "696:41477", 19],
           "Event code (Events home)": ["696:49684", "696:49686", 8],
           "Scan to join": ["696:50391", "696:50393", 4],
           "Joining · signed out (sign-in with the event named)": ["696:50625", "696:50627", 4],
-          "Create event": ["696:65974", "696:65976", 13],
+          "Create event": ["696:65974", "696:65976", 16],
           "Set picker (Create → Product → Set)": ["696:80784", "696:80786", 6],
           "Add players": ["696:81225", "696:81227", 9],
           "Nearby": ["696:81986", "696:81988", 7],
-          "Event page (table-1.site/s/<id> in the app) · before round 1": ["696:91471", "696:91473", 14],
-          "Event page · after round 1 (standings and matchups)": ["697:76996", "697:76998", 10]
+          "Event page (table-1.site/s/<id> in the app) · before round 1": ["696:91471", "696:91473", 17],
+          "Event page · after round 1 (standings and matchups)": ["697:76996", "697:76998", 10],
+          "Find · events (Events home → Find, or All N under Find events)": ["769:67602", "769:67604", 10],
+          "Event alerts (Find → Events → Alerts)": ["769:179835", "769:179837", 4],
+          "Find · leagues (Find → Leagues; All leagues / Find leagues on the Events home)": ["769:180183", "769:180185", 5],
+          "Find · boards (Find → Boards)": ["770:127780", "770:127782", 2],
+          "Format board (Find → Boards → a board)": ["770:127947", "770:127949", 5],
+          "League page (a league: standings, a player's season, details, Follow, the final)": ["771:130314", "771:130316", 12],
+          "League · organizer tools (the tune icon on a league you run; New league from + New or Find → Leagues)": ["772:71093", "772:71095", 15]
         } },
         "A3": { "id": "690:15437", "rows": {
           "Organizer · Setup · Players": ["696:50752", "696:50754", 9],
@@ -68,12 +81,16 @@
           "Player · event screen · before, between, after": ["699:119918", "699:119920", 10],
           "Player · event screen · team, spectating, offline, cancelled": ["699:123179", "699:123181", 6],
           "Decklist panel": ["699:151904", "699:151906", 6],
-          "Deck photos · event": ["699:153497", "699:153499", 10],
+          "Deck photos · event": ["699:153497", "699:153499", 11],
           "Account · Deck photos": ["699:155477", "699:155479", 4],
           "Roto · setup": ["699:189628", "699:189630", 7],
           "Roto · schedule and draft picks": ["699:191334", "699:191336", 5],
           "Roto · draft": ["700:158053", "700:158055", 15],
-          "Organizer · Live · top 8 playoffs": ["702:170994", "702:170996", 6]
+          "Organizer · Live · top 8 playoffs": ["702:170994", "702:170996", 6],
+          "Teams · sign up, join, your team": ["767:177011", "767:177013", 8],
+          "Decklist from a deck photo": ["767:178072", "767:178074", 10],
+          "Organizer · Team Trios and top 4": ["770:181828", "770:181830", 9],
+          "Room tools": ["773:72113", "773:72115", 10]
         } },
         "A4": { "id": "690:15439", "rows": {
           "Life tracker · setup and tables": ["696:40929", "696:40931", 7],
@@ -128,15 +145,16 @@
           "Matchup grid widget · medium, large": ["693:15888", "693:15890", 5],
           "Archetype matchups widget · small, medium, large": ["694:17483", "694:17485", 5],
           "Card icon widget · small": ["694:17904", "694:17906", 2],
-          "Widget settings · Edit Widget (system sheet, from each AppIntent)": ["694:17941", "694:17943", 4],
+          "Widget settings · Edit Widget (system sheet, from each AppIntent)": ["694:17941", "694:17943", 8],
           "Current match widget · small, medium, Lock Screen": ["696:43364", "696:43366", 10],
           "Next event widget · small, medium, Lock Screen": ["696:43530", "696:43532", 6],
           "Collection value widget · small, medium": ["696:43609", "696:43611", 5],
           "Live Activities · player and organizer (Lock Screen, StandBy, Dynamic Island)": ["696:52816", "696:52818", 11],
           "Controls · Control Center and Lock Screen (iOS 18), App Shortcuts": ["696:53126", "696:53128", 2],
           "Limited cards widget · small, medium, large": ["696:53166", "696:53168", 5],
-          "Push notifications · every kind (copy from notify-worker; a tap opens the screen named)": ["696:58324", "696:58326", 5],
-          "Foldables · tabletop and book (iPhone Duo stand-in, from UI/Fold.swift)": ["696:61252", "696:61254", 5]
+          "Push notifications · every kind (copy from notify-worker; a tap opens the screen named)": ["696:58324", "696:58326", 8],
+          "Foldables · tabletop and book (iPhone Duo stand-in, from UI/Fold.swift)": ["696:61252", "696:61254", 5],
+          "Upcoming events widget · small, medium, large": ["767:175105", "767:175107", 8]
         } }
       }
     },
@@ -154,22 +172,29 @@
           "Bugs · iOS and Android (not on the web)": ["697:93743", "697:93745", 6],
           "Friends": ["697:106426", "697:106428", 14],
           "Profiles": ["698:26691", "698:26693", 15],
-          "Sharing": ["698:100865", "698:100867", 7],
+          "Sharing": ["698:100865", "698:100867", 8],
           "Share and links": ["698:101633", "698:101635", 9],
           "Shared from a profile": ["698:107143", "698:107145", 8],
           "Following and changes": ["698:107845", "698:107847", 5],
           "Sharing offers and the join notice": ["698:108159", "698:108161", 3]
         } },
         "A2": { "id": "691:10493", "rows": {
-          "Events home": ["697:85492", "697:85494", 15],
+          "Events home": ["697:85492", "697:85494", 19],
           "Event code and Scan QR (Google code scanner)": ["697:87021", "697:87023", 10],
-          "Create event": ["697:94304", "697:94306", 12],
+          "Create event": ["697:94304", "697:94306", 15],
           "Set picker (Create → Product → Set)": ["697:109081", "697:109083", 5],
           "Add players": ["697:109355", "697:109357", 7],
           "Nearby": ["697:109957", "697:109959", 8],
-          "Event page (table-1.site/s/<id> in the app) · before round 1": ["698:103690", "698:103692", 12],
-          "Event page · after round 1 (standings and matchups)": ["698:104379", "698:104381", 8],
-          "Joining · signed out (sign-in with the event named)": ["698:105154", "698:105156", 4]
+          "Event page (table-1.site/s/<id> in the app) · before round 1": ["698:103690", "698:103692", 15],
+          "Event page · after round 1 (standings and matchups)": ["698:104379", "698:104381", 9],
+          "Joining · signed out (sign-in with the event named)": ["698:105154", "698:105156", 4],
+          "Find · events (Events home → Find, or All N under Find events)": ["775:115008", "775:115010", 10],
+          "Event alerts (Find → Events → Alerts)": ["775:115932", "775:115934", 4],
+          "Find · leagues (Find → Leagues; All leagues / Find leagues on the Events home)": ["775:116270", "775:116272", 5],
+          "Find · boards (Find → Boards)": ["776:117890", "776:117892", 2],
+          "Format board (Find → Boards → a board)": ["776:118049", "776:118051", 5],
+          "League page (a league: standings, a player's season, details, Follow, the final)": ["776:118668", "776:118670", 12],
+          "League · organizer tools (the tune icon on a league you run; New league from + New or Find → Leagues)": ["777:118472", "777:118474", 14]
         } },
         "A3": { "id": "691:10495", "rows": {
           "Organizer · Setup · Players": ["696:59070", "696:59072", 9],
@@ -182,14 +207,19 @@
           "Redraft pile": ["698:100127", "698:100129", 4],
           "Player · event screen · during a round": ["699:109067", "699:109069", 10],
           "Player · event screen · before, between, after": ["699:121085", "699:121087", 10],
-          "Player · event screen · team, spectating, offline, cancelled": ["699:123754", "699:123756", 6],
+          "Player · event screen · team, spectating, offline, cancelled": ["699:123754", "699:123756", 7],
           "Decklist panel": ["699:152459", "699:152461", 6],
-          "Deck photos · event": ["699:154228", "699:154230", 10],
+          "Deck photos · event": ["699:154228", "699:154230", 11],
           "Account · Deck photos": ["699:155745", "699:155747", 4],
           "Roto · setup": ["699:190288", "699:190290", 7],
           "Roto · schedule and draft picks": ["699:192089", "699:192091", 3],
           "Roto · draft": ["700:161934", "700:161936", 15],
-          "Organizer · Live · top 8 playoffs": ["702:171360", "702:171362", 6]
+          "Organizer · Live · top 8 playoffs": ["702:171360", "702:171362", 6],
+          "Teams · sign up, join, your team": ["768:57791", "768:57793", 8],
+          "Decklist from a deck photo": ["769:178889", "769:178891", 10],
+          "Organizer · Team Trios and top 4": ["771:59064", "771:59066", 9],
+          "Room tools": ["774:133216", "774:133218", 11],
+          "Second screen · Android": ["774:135066", "774:135068", 3]
         } },
         "A4": { "id": "691:10497", "rows": {
           "Life tracker · setup and tables": ["699:141478", "699:141480", 7],
@@ -262,9 +292,12 @@
           "Limited cards · buttons on one pick (Uncommon, Colorless)": ["699:171922", "699:171924", 8],
           "Limited cards · IWD, commons and uncommons, W + U": ["699:172431", "699:172433", 8],
           "Limited cards · no set yet": ["699:173148", "699:173150", 8],
-          "Widget settings (configuration activities)": ["699:183653", "699:183655", 8],
-          "Live notifications (Android 16 Live Updates), pushes, Quick Settings tiles, shortcuts": ["696:66676", "696:66678", 7],
-          "Foldables · tabletop and book (Galaxy Z Fold / Pixel Fold stand-in, from ui/components/Fold.kt)": ["696:72988", "696:72990", 5]
+          "Widget settings (configuration activities)": ["699:183653", "699:183655", 10],
+          "Live notifications (Android 16 Live Updates), pushes, Quick Settings tiles, shortcuts": ["696:66676", "696:66678", 9],
+          "Foldables · tabletop and book (Galaxy Z Fold / Pixel Fold stand-in, from ui/components/Fold.kt)": ["696:72988", "696:72990", 5],
+          "Upcoming events · all formats, near me (the first running now)": ["767:175705", "767:175707", 8],
+          "Upcoming events · Modern and Legacy, you're in the first": ["767:175955", "767:175957", 8],
+          "Upcoming events · none found (three formats picked)": ["767:176079", "767:176081", 8]
         } }
       }
     },
@@ -292,24 +325,31 @@
         } },
         "A2": { "id": "691:22517", "rows": {
           "Landing (table-1.site signed out) · web only": ["699:114167", "699:114169", 1],
-          "Events home": ["699:114209", "699:114211", 13],
+          "Events home": ["699:114209", "699:114211", 16],
           "Event code (Events home and landing)": ["699:115426", "699:115428", 6],
-          "Create event (New event)": ["699:130195", "699:130197", 9],
+          "Create event (New event)": ["699:130195", "699:130197", 11],
           "Add players": ["699:142684", "699:142686", 6],
           "Nearby (/nearby)": ["699:143127", "699:143129", 7],
           "Join by code (/join/:code) · web only": ["699:143375", "699:143377", 6],
           "QR join (/j/:code?s=…) · web only": ["699:143570", "699:143572", 5],
-          "Event page (/s/:id) · before round 1 (sign-up page)": ["699:159334", "699:159336", 13],
+          "Event page (/s/:id) · before round 1 (sign-up page)": ["699:159334", "699:159336", 15],
           "Event page (/s/:id) · after round 1 (standings and matchups)": ["699:159906", "699:159908", 8],
           "Events home · desktop (1440 × 900, sidebar + 960 column)": ["699:169096", "699:169098", 3],
-          "Event page (/s/:id) · desktop": ["699:169515", "699:169517", 2]
+          "Event page (/s/:id) · desktop": ["699:169515", "699:169517", 2],
+          "Find · events (/find; Events home → Find, or All N under Find events)": ["780:55057", "780:55059", 10],
+          "Event alerts (/find → Alerts)": ["780:55882", "780:55884", 5],
+          "Find · leagues (/find → Leagues; All leagues / Find leagues on the Events home)": ["780:56192", "780:56194", 5],
+          "Find · boards (/find → Boards)": ["780:195844", "780:195846", 2],
+          "Format board (/boards/<format>)": ["780:195985", "780:195987", 5],
+          "League page (/league/<slug>: standings, a player's season, details, Follow, the final)": ["780:196529", "780:196531", 12],
+          "League · organizer tools (League settings on a league you run; New league from + New or /find → Leagues)": ["781:57287", "781:57289", 13]
         } },
         "A3": { "id": "691:22519", "rows": {
           "Organizer · Setup · Players": ["696:60273", "696:60275", 8],
           "Organizer · Setup · Seating, pods and teams": ["696:69696", "696:69698", 9],
           "Organizer · Setup · Teams and Details": ["696:90852", "696:90854", 7],
           "Organizer · Live · Round": ["697:76435", "697:76437", 8],
-          "Organizer · Live · Set result and confirms": ["697:97762", "697:97764", 6],
+          "Organizer · Live · Set result and confirms": ["697:97762", "697:97764", 7],
           "Organizer · Live · Earlier, Standings, Players, top 8, teams": ["697:100619", "697:100621", 9],
           "Organizer · Results": ["698:99160", "698:99162", 6],
           "Redraft pile": ["698:100470", "698:100472", 4],
@@ -317,7 +357,7 @@
           "Player · event screen · before, between, after": ["699:122174", "699:122176", 10],
           "Player · event screen · team, spectating, offline, cancelled": ["699:124307", "699:124309", 6],
           "Decklist panel": ["699:153032", "699:153034", 6],
-          "Deck photos · event": ["699:154929", "699:154931", 9],
+          "Deck photos · event": ["699:154929", "699:154931", 10],
           "Account · Deck photos": ["699:155997", "699:155999", 4],
           "Roto · setup": ["699:190905", "699:190907", 6],
           "Roto · schedule and draft picks": ["699:192650", "699:192652", 4],
@@ -325,7 +365,13 @@
           "Organizer · Live · desktop": ["702:112028", "702:112030", 3],
           "Player · event screen · desktop": ["702:112632", "702:112634", 3],
           "Deck photos · desktop": ["702:113157", "702:113159", 1],
-          "Organizer · Live · top 8 playoffs": ["702:171683", "702:171685", 5]
+          "Organizer · Live · top 8 playoffs": ["702:171683", "702:171685", 5],
+          "Teams · sign up, join, your team": ["769:120489", "769:120491", 8],
+          "Decklist from a deck photo": ["769:179378", "769:179380", 10],
+          "Organizer · Team Trios and top 4": ["771:185160", "771:185162", 9],
+          "Room tools": ["776:53904", "776:53906", 9],
+          "Print · web only": ["777:118046", "777:118048", 5],
+          "TV display · web only": ["778:54575", "778:54577", 11]
         } },
         "A4": { "id": "691:22521", "rows": {
           "Life tracker · setup and tables": ["701:45696", "701:45698", 7],
@@ -384,17 +430,13 @@
     }
   },
   "notDrawnYet": {
-    "about": "Work on main since the 2026-11-12 rebuild that has no rows yet. Add these as new rows in the right area (the only time a new frame is right), then list them above.",
+    "about": "Work on main with no frames yet. Add these as new rows in the right area (the only time a new frame is right), then list them above.",
     "items": [
-      "Finding events (Find: Events | Leagues | Boards), Who can find it Public | Friends | Private, About on the event page (A2)",
-      "Leagues: the league page, standings, a player's season, organizer tools, seasons; Leagues on the Events home and New league from + New (A2)",
-      "Format boards and profile achievements (A1 profiles, A2 Find)",
-      "Team Trios, teams signing themselves up, Cut to top 4, a season's final, event alerts (A2 create, A3 organizer)",
-      "Room tools: Display panel, extra time, judge calls, rules level, decklists due, Print; the TV display /d/<event> (web) (A3)",
-      "Entry fees, payments and prizes (hidden for now: draw only when they open) (A1 Account, A3)",
-      "Decklists from deck photos and the organizer turning any photo (A3 deck photos)",
-      "Upcoming events widget (A7)",
-      "Android error text and the event page for events you're not in (A2/A3 Android)"
+      "Entry fees, payments, prizes, Account → Payments, league dues and Cut per entry (hidden for everyone but testers; draw when they open) (A1, A2, A3)",
+      "Web desktop (1440) rows for Find, the league page and the new organizer screens (T1/Web Sidebar 562:7 has no Find item yet)",
+      "iOS second screen (off in Release until tried on hardware)",
+      "A player's Team Trios seat-and-format line ('Table 1 · A · MODERN · playing') and Results for the winning team after a top 4 (A3)",
+      "About · Trios seats on Android and web (A2 event page)"
     ]
   }
 }
