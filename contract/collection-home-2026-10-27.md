@@ -5,7 +5,7 @@ Figma `Hbkg1vKjdTFpwYt0NtCCYq` node 325:10820. Client-only; all three clients.
 ## Layout
 - **Bar**: COLLECTION (12 pt, tracking 2, uppercase) on the page background, then **+** and **Search** icon buttons (50 × 50, Material weight 300 paths copied from Figma).
 - **Collection shelf** (Figma 696:84121, 2026-11-14): full width, 179 pt high. Up to two art crops side by side (Scryfall `art_crop`), no scrim; total cards bottom left, value (USD) bottom right, 16 pt in from the edges, each 9 pt muted (tracking 1.5) on a background-colored tag 2 pt wider either side. Tap: All cards. (Until 2026-11-14 the art sat under a 60 % scrim with bare labels.)
-- **Shelves**: Decks, Binders, Cubes. Each: 32 pt above, a 50 pt header (icon, title 12 pt tracking 2, arrow) that opens Decks / Binders / Cubes, then a sideways row of 258 × 135 tiles 1 pt apart. A tile is art crop + 60 % scrim + title (11 pt) and a detail line (9 pt muted) 16 pt from the bottom left.
+- **Shelves**: Decks, Binders, Cubes. Each: 32 pt above, a 50 pt header (icon, title 12 pt tracking 2, arrow) that opens Decks / Binders / Cubes, then a sideways row of 258 × 135 tiles 1 pt apart. A tile (Figma T1/Tile 696:84136, 2026-11-14) is the art crop with no scrim, then the title (11 pt) and a detail line (9 pt muted), each on a background-colored tag 2 pt wider either side, stacked with no gap, 16 pt from the bottom left; a note (accent, e.g. "2 new") sits on a tag at the bottom right. (Until 2026-11-14 the art sat under a 60 % scrim with bare labels.)
   - Decks: yours (detail: format, or the event for a roto deck), then decks you follow (detail: owner).
   - Binders: yours (no detail), then binders you follow (owner).
   - Cubes: yours (no detail), then cubes you follow (owner).

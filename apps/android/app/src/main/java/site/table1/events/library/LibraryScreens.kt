@@ -179,18 +179,19 @@ object ShelfArt {
 
 private fun shelfText(size: Int) = androidx.compose.ui.text.TextStyle(fontFamily = T1.mono, fontSize = size.sp, letterSpacing = 1.5.sp)
 
-/** One deck, binder or cube on a shelf: its art under a scrim, name and a detail line at the bottom. */
+/** One deck, binder or cube on a shelf (Figma T1/Tile 696:84136): its art with no scrim, name and a detail line at
+ *  the bottom, each on a background tag 2 dp wider either side. */
 @Composable
 private fun ShelfTile(art: CatalogPrinting?, title: String, subtitle: String? = null, note: String? = null, onClick: () -> Unit) {
     Box(Modifier.size(258.dp, 135.dp).clickable(onClick = onClick)) {
         CardArtCrop(art, Modifier.fillMaxSize())
-        Box(Modifier.fillMaxSize().background(T1.bg.copy(alpha = 0.6f)))
         Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom) {
+            val tag = Modifier.background(T1.bg).padding(horizontal = 2.dp)
             Column(Modifier.weight(1f)) {
-                Text(title.uppercase(), color = T1.text, style = shelfText(11), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (!subtitle.isNullOrEmpty()) Text(subtitle.uppercase(), color = T1.muted, style = shelfText(9), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title.uppercase(), tag, color = T1.text, style = shelfText(11), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (!subtitle.isNullOrEmpty()) Text(subtitle.uppercase(), tag, color = T1.muted, style = shelfText(9), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            note?.let { Text(it.uppercase(), color = T1.accent, style = shelfText(9)) }
+            note?.let { Text(it.uppercase(), tag, color = T1.accent, style = shelfText(9)) }
         }
     }
 }

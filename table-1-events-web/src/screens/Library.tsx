@@ -555,20 +555,21 @@ export function shelfArt(c: Catalog, heroes: string[], held: string[], basics: S
   return out;
 }
 
-/** One deck, binder or cube on a shelf: its art under a scrim, name and a detail line at the bottom. */
+/** One deck, binder or cube on a shelf (Figma T1/Tile 696:84136): its art with no scrim, name and a detail line at
+ *  the bottom, each on a background tag 2 px wider either side. */
 function ShelfTile({ c, p, title, subtitle, note, onClick }: {
   c: Catalog | null; p: number | null; title: string; subtitle?: string | null; note?: string | null; onClick: () => void;
 }) {
   return (
     <button type="button" onClick={onClick} className="relative shrink-0 w-[258px] h-[135px] text-left uppercase tracking-[1.5px] group">
       <ArtCrop c={c} p={p} />
-      <span className="absolute inset-0 bg-t1-bg/60 group-hover:bg-t1-bg/40" />
-      <span className="absolute inset-x-4 bottom-4 flex items-end gap-2">
-        <span className="flex-1 min-w-0 flex flex-col">
-          <span className="text-[11px] truncate">{title}</span>
-          {subtitle && <span className="text-[9px] text-t1-muted truncate">{subtitle}</span>}
+      <span className="absolute inset-0 group-hover:bg-t1-bg/20" />
+      <span className="absolute inset-x-4 bottom-4 flex items-end gap-2 leading-none">
+        <span className="flex-1 min-w-0 flex flex-col items-start">
+          <span className="max-w-full bg-t1-bg px-[2px] text-[11px] truncate">{title}</span>
+          {subtitle && <span className="max-w-full bg-t1-bg px-[2px] text-[9px] text-t1-muted truncate">{subtitle}</span>}
         </span>
-        {note && <span className="text-[9px] text-t1-accent">{note}</span>}
+        {note && <span className="bg-t1-bg px-[2px] text-[9px] text-t1-accent">{note}</span>}
       </span>
     </button>
   );

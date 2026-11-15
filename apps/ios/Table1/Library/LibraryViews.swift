@@ -541,7 +541,8 @@ private struct ShelfTag: View {
     }
 }
 
-/// One deck, binder or cube on a shelf: its art under a scrim, name and a detail line at the bottom.
+/// One deck, binder or cube on a shelf (Figma T1/Tile 696:84136): its art with no scrim, name and a detail line at the
+/// bottom, each on a background tag 2 pt wider either side.
 struct ShelfTile: View {
     static let width: CGFloat = 258
     static let height: CGFloat = 135
@@ -555,14 +556,13 @@ struct ShelfTile: View {
         Button(action: action) {
             ZStack(alignment: .bottomLeading) {
                 CardArtCrop(printing: art)
-                T1.bg.opacity(0.6)
                 HStack(alignment: .bottom, spacing: 8) {
                     VStack(alignment: .leading, spacing: 0) {
-                        ShelfText(title, size: 11, color: T1.text)
-                        if let subtitle, !subtitle.isEmpty { ShelfText(subtitle, size: 9, color: T1.muted) }
+                        tag(ShelfText(title, size: 11, color: T1.text))
+                        if let subtitle, !subtitle.isEmpty { tag(ShelfText(subtitle, size: 9, color: T1.muted)) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    if let note { ShelfText(note, size: 9, color: T1.accent) }
+                    if let note { tag(ShelfText(note, size: 9, color: T1.accent)) }
                 }
                 .padding(16)
             }
@@ -570,6 +570,11 @@ struct ShelfTile: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// A label on bare art: the text on the background, 2 pt wider either side.
+    private func tag(_ text: ShelfText) -> some View {
+        text.padding(.horizontal, 2).background(T1.bg)
     }
 }
 
