@@ -302,7 +302,8 @@ struct LibraryHomeView: View {
 
     // MARK: pieces
 
-    /// The whole collection: up to two hero arts side by side, cards and value along the bottom. Opens All cards.
+    /// The whole collection: up to two hero arts side by side, no scrim, cards and value in tags along the bottom
+    /// (Figma 696:84121). Opens All cards.
     private var collectionShelf: some View {
         let s = col.summary
         let heroes = Array((art[HeroScope.collection.key] ?? []).prefix(2))
@@ -311,11 +312,10 @@ struct LibraryHomeView: View {
                 HStack(spacing: 0) {
                     if heroes.isEmpty { T1.surface } else { ForEach(heroes, id: \.cardId) { CardArtCrop(printing: $0) } }
                 }
-                T1.bg.opacity(0.6)
                 HStack(spacing: 0) {
-                    ShelfText(s.map { $0.totalQty.formatted() } ?? (col.ready ? "0" : "…"), size: 9, color: T1.muted)
+                    ShelfTag(s.map { $0.totalQty.formatted() } ?? (col.ready ? "0" : "…"))
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    if let s { ShelfText(money(s.valueUsd, "USD"), size: 9, color: T1.muted) }
+                    if let s { ShelfTag(money(s.valueUsd, "USD")) }
                 }
                 .padding(16)
             }
@@ -529,6 +529,15 @@ private struct ShelfText: View {
     init(_ text: String, size: CGFloat, color: Color) { self.text = text; self.size = size; self.color = color }
     var body: some View {
         Text(text.uppercased()).font(T1.mono(size)).tracking(1.5).foregroundStyle(color).lineLimit(1)
+    }
+}
+
+/// A label on bare art: 9 pt muted text on a background tag, 2 pt either side (Figma 765:80867).
+private struct ShelfTag: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        ShelfText(text, size: 9, color: T1.muted).padding(.horizontal, 2).background(T1.bg)
     }
 }
 

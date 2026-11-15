@@ -658,10 +658,11 @@ export function LibraryHome({ go, onNew }: {
           {(art.get("collection") ?? []).length
             ? (art.get("collection") ?? []).map((p) => <span key={p} className="relative flex-1 h-full"><ArtCrop c={catalog} p={p} /></span>)
             : <span className="flex-1 bg-t1-surface" />}
-          <span className="absolute inset-0 bg-t1-bg/60 group-hover:bg-t1-bg/40" />
-          <span className="absolute inset-x-4 bottom-4 flex text-[9px] uppercase tracking-[1.5px] text-t1-muted">
-            <span className="flex-1 text-left">{s ? s.total_qty.toLocaleString() : col.ready ? "0" : "…"}</span>
-            {s && <span>{money(s.value_usd, "USD")}</span>}
+          {/* No scrim (Figma 696:84121): the labels sit in background tags. */}
+          <span className="absolute inset-0 group-hover:bg-t1-bg/20" />
+          <span className="absolute inset-x-4 bottom-4 flex justify-between items-start text-[9px] uppercase tracking-[1.5px] text-t1-muted">
+            <span className="bg-t1-bg px-[2px]">{s ? s.total_qty.toLocaleString() : col.ready ? "0" : "…"}</span>
+            {s && <span className="bg-t1-bg px-[2px]">{money(s.value_usd, "USD")}</span>}
           </span>
         </button>
         <Shelf icon={ICON.decks} title="Decks" onOpen={() => go("/library/decks")}>

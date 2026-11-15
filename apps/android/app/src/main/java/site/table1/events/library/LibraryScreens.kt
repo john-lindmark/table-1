@@ -296,10 +296,11 @@ fun LibraryHomeScreen(foregrounds: Int, go: (String) -> Unit) {
                         if (heroArt.isEmpty()) Box(Modifier.fillMaxSize().background(T1.surface))
                         heroArt.forEach { CardArtCrop(it, Modifier.weight(1f).fillMaxHeight()) }
                     }
-                    Box(Modifier.fillMaxSize().background(T1.bg.copy(alpha = 0.6f)))
-                    Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(16.dp)) {
-                        Text(s?.let { count(it.totalQty) } ?: if (col.ready) "0" else "…", Modifier.weight(1f), color = T1.muted, style = shelfText(9))
-                        s?.let { Text(money(it.valueUsd, "USD"), color = T1.muted, style = shelfText(9)) }
+                    // No scrim (Figma 696:84121): cards and value sit in background tags, 2 dp either side.
+                    Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        val tag = Modifier.background(T1.bg).padding(horizontal = 2.dp)
+                        Text(s?.let { count(it.totalQty) } ?: if (col.ready) "0" else "…", tag, color = T1.muted, style = shelfText(9))
+                        s?.let { Text(money(it.valueUsd, "USD"), tag, color = T1.muted, style = shelfText(9)) }
                     }
                 }
             }
