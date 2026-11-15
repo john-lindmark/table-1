@@ -14,9 +14,11 @@ final class PriceBookTests: XCTestCase {
     func testAFailedFetchIsAskedAgainByTheScreenWaitingOnIt() async {
         let book = PriceBook()
         var calls = 0
+        var asked: [String: Int] = [:]
         book.fetcher = { ids in
             calls += 1
             let n = calls
+            for id in ids { asked[id, default: 0] += 1 }
             try await Task.sleep(for: .milliseconds(50))
             if n == 1 { throw URLError(.networkConnectionLost) }
             return ids.map { self.row($0) }
@@ -26,7 +28,11 @@ final class PriceBookTests: XCTestCase {
         await book.load([kaldra])
         XCTAssertEqual(book.usd(kaldra, "nonfoil", "LP"), 8.62)
         await collection.value
-        XCTAssertEqual(calls, 2)
+        // Which task runs or wakes first decides how the asks are grouped (one call for both cards, or one each);
+        // either way no card is asked more than once per round.
+        XCTAssertEqual(asked[kaldra], 2)
+        XCTAssertLessThanOrEqual(asked["other"] ?? 0, 2)
+        XCTAssertNotNil(book.usd("other", "nonfoil"))
     }
 
     /// The screen that started a fetch goes away (its task is cancelled): the fetch carries on for the screen still
