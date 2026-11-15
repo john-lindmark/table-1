@@ -1800,7 +1800,7 @@
    "id": "insights-21",
    "s": "insights",
    "h": "Limited",
-   "x": "After the cards: the color pairs and the rest, In brief and Games · Average · Weeks, New in Insights, and at the very bottom Rank this set, the page's big action, with who has ranked it under the words, then New sets to rank."
+   "x": "After the cards: the color pairs and the rest, In brief and Games · Average · Weeks, New in Insights, and at the very bottom Rank this set, the page's big action, with who has ranked it under the words."
   },
   {
    "id": "insights-22",
@@ -1835,7 +1835,7 @@
    "s": "insights",
    "h": "Limited",
    "t": "Rank this set",
-   "x": "(Rank this cube for a cube run) opens its Rankings, and New sets to rank lists sets with no 17Lands data yet (\"Out Nov 13 · 286 cards\")."
+   "x": "(Rank this cube for a cube run) opens its Rankings. Sets with no 17Lands data yet lead the Set row and open on Rank this set."
   },
   {
    "id": "insights-27",
@@ -3266,7 +3266,7 @@
    "id": "rankings-18",
    "s": "rankings",
    "h": "Rank a Limited set",
-   "x": "From Insights → Limited (Rank this set, or New sets to rank) or Rankings (Sets you can rank: sets from the last year with 60 or more cards, sets due in the next 75 days once 20 of their cards are out, and every Arena cube run). The set's Rankings works like a cube's: Rank <set> starts yours, then sort each color and the final."
+   "x": "From Insights → Limited (Rank this set, on any set in the Set row, including ones not out yet) or Rankings (Sets you can rank: sets from the last year with 60 or more cards, sets due in the next 75 days once 20 of their cards are out, and every Arena cube run). The set's Rankings works like a cube's: Rank <set> starts yours, then sort each color and the final."
   },
   {
    "id": "rankings-19",

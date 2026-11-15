@@ -700,13 +700,6 @@ private fun LimitedHome(navigate: (String) -> Unit) {
         Telemetry.capture("insights_rank_opened", mapOf("set" to key, "kind" to kind, "from" to from))
         navigate(InsightsRoutes.rankSet(key))
     }
-    /** Sets out (or about to be) with no 17Lands data yet: rank them now. */
-    @Composable fun newSets() {
-        val fresh = s.rankable.filter { !it.pack }
-        if (fresh.isEmpty()) return
-        Section("New sets to rank")
-        fresh.forEach { r -> ListRow("Rank ${r.name}", r.detail(), onClick = { rank(r.key, r.kind, "new_sets") }) }
-    }
     @Composable fun alertsRow() {
         s.alerts?.let { on -> ListRow("New in Insights", "A push when a new set, cube or format arrives") { T1Switch(on) { s.setAlerts(it) } } }
     }
@@ -714,7 +707,6 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     if (chips.isEmpty()) {
         Notice(s.error ?: if (s.loading || !s.rankableReady) "Loading draft data…" else "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.", error = s.error != null)
         if (s.error != null) BigAction("Try again") { retryScope.launch { s.load(force = true) } }
-        newSets()
         return
     }
     // Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set; Edit hides any.
@@ -847,7 +839,6 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     val kind = ranked?.kind ?: if (pack.cube != null) "cube" else "set"
     RankAction("Rank this ${if (kind == "cube") "cube" else "set"}",
         ranked?.takeIf { it.rankings > 0 }?.detail() ?: "Stack-rank its cards by color, then a top 100. Compare with friends.") { rank(pack.set_code, kind, "set") }
-    newSets()
 }
 
 @Composable

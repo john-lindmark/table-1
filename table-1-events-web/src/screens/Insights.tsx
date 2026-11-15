@@ -750,18 +750,6 @@ function useRankSet() {
   };
 }
 
-/** Sets out (or about to be) with no 17Lands data yet: rank them now. */
-function NewSetsToRank() {
-  const { rankable } = useInsights();
-  const rank = useRankSet();
-  const fresh = (rankable ?? []).filter((s) => !s.pack);
-  if (!fresh.length) return null;
-  return (<>
-    <Section title="New sets to rank" />
-    {fresh.map((s) => <Row key={s.key} title={`Rank ${s.name}`} detail={rankableDetail(s)} onClick={() => rank(s.key, s.kind, "new_sets")} />)}
-  </>);
-}
-
 const oracleMaps = new WeakMap<Catalog, Map<string, number>>();
 
 /** Each card's mana cost and its printing in the set (art), by name; a cube's cards take their original printing. */
@@ -851,7 +839,6 @@ function LimitedHome() {
       {error ? <Notice tone="error">{error}</Notice>
         : <Notice tone="info">{index && rankable ? "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena." : "Loading draft data…"}</Notice>}
       {error && <GhostAction label="Try again" onClick={() => void loadInsights(true)} />}
-      <NewSetsToRank />
     </>);
   }
   const setCell: FilterCell = {
@@ -992,7 +979,6 @@ function LimitedHome() {
       {alertsRow}
       <RankAction title={`Rank this ${kind === "cube" ? "cube" : "set"}`} onClick={() => rank(pack.set_code, kind, "set")}
                   detail={r && r.rankings > 0 ? rankableDetail(r) : "Stack-rank its cards by color, then a top 100. Compare with friends."} />
-      <NewSetsToRank />
     </Scroll>
   );
 }

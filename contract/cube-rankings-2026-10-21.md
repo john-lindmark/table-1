@@ -67,8 +67,8 @@ an Arena cube version (PWR-2510, contract/insights-2026-10-24.md § Arena cubes)
   spoiled (spoiler season; was 45 days and 60+ until `20261030170000_limited_rankable_spoilers.sql`, test
   `58_limited_spoilers_test.sql`), and every Arena cube version.
   Ranking rows carry `set_key` (and `list_id` null for a set).
-- **Where:** Insights → Limited: **Rank this set** / **Rank this cube** under each set's stats, **New sets to rank** (sets with
-  no 17Lands data yet). Rankings (yours): **Sets you can rank**. The set's Rankings: "Rank <Set>", **Your friends'**
+- **Where:** Insights → Limited: **Rank this set** / **Rank this cube** at the bottom of each set's page (sets with no
+  17Lands data yet lead the Set picker; the New sets to rank list was removed 2026-11-15). Rankings (yours): **Sets you can rank**. The set's Rankings: "Rank <Set>", **Your friends'**
   rankings. Web `/insights/limited/<set>/rankings`; the apps push the Collection Rankings screen in the Insights tab (iOS)
   or route `collection/list/set%3A<KEY>/rankings` (Android).
 - **Not done:** the brief's prompt still says "cube" ("how each likes to draft this cube"); pushes to an owner

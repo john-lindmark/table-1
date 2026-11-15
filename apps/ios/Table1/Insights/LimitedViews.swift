@@ -25,7 +25,6 @@ struct LimitedHomeSection: View {
                     Notice(e, error: true)
                     Ghost(text: "Try again") { Task { await store.load(force: true) } }
                 } else { Notice(store.loading || !store.rankableReady ? "Loading draft data…" : "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.") }
-                newSets
             } else {
                 picked(chips)
             }
@@ -37,17 +36,6 @@ struct LimitedHomeSection: View {
     private func rank(_ key: String, kind: String, from: String) {
         Telemetry.capture("insights_rank_opened", ["set": key, "kind": kind, "from": from])
         path.append(.library(.rankings(RankSubject.setId(key))))
-    }
-
-    /// Sets out (or about to be) that have no 17Lands data yet: rank them now.
-    @ViewBuilder private var newSets: some View {
-        let fresh = store.rankable.filter { !$0.pack }
-        if !fresh.isEmpty {
-            Section1("New sets to rank")
-            ForEach(fresh) { s in
-                Button { rank(s.key, kind: s.kind, from: "new_sets") } label: { ListRow(title: "Rank \(s.name)", detail: s.detail) }.buttonStyle(.plain)
-            }
-        }
     }
 
     /// The page's one big action: rank the set (or cube), with who has already.
@@ -145,13 +133,10 @@ struct LimitedHomeSection: View {
         }
     }
 
-    /// Rank this set (and New sets to rank) end the page, under New in Insights (John, 2026-11-10: "move rank set all
-    /// the way to the bottom").
+    /// Rank this set ends the page, under New in Insights (John, 2026-11-10: "move rank set all the way to the bottom").
+    /// New sets to rank is gone (John, 2026-11-15): sets with no data yet lead the Set picker, and Rankings lists them.
     @ViewBuilder private func rankLast(_ pack: Insights.LimitedPack?) -> some View {
-        if let pack {
-            rankBlock(pack)
-            newSets
-        }
+        if let pack { rankBlock(pack) }
     }
 
     @ViewBuilder
