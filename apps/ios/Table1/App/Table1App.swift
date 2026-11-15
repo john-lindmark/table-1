@@ -414,7 +414,7 @@ struct SignedInView: View {
     /// Account → Friends, profiles, Sharing (the Library's routes, so a profile's cards and trades open in place).
     @State private var accountPath: [LibraryRoute] = []
     @State private var joinError: String?
-    @State private var keyboardUp = false
+    @State private var keyboard = KeyboardCover()
 
     static let tabs: [T1TabItem<Tab>] = [
         T1TabItem(id: .events, label: MainNav.label(.events), icon: .tabEvents),
@@ -430,7 +430,7 @@ struct SignedInView: View {
         let stack = rail == nil ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
         // The bars show only on a tab's root (anything pushed above it hides them), and hide while typing so they
         // don't ride up on the keyboard.
-        let bars = !keyboardUp && atTabRoot
+        let bars = !keyboard.up && atTabRoot
         stack {
             if rail == .leading && bars {
                 T1TabBar(items: Self.tabs, selection: tab, rail: .leading) { select($0) }
@@ -596,8 +596,16 @@ struct SignedInView: View {
         .onChange(of: tab) { Keyboard.dismiss() }
         // Going back on any tab puts it away too (a box under the pushed screen kept it).
         .keyboardAwayOnBack(path.count + libraryPath.count + insightsPath.count + accountPath.count)
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in keyboardUp = true }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in keyboardUp = false }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { note in
+            if let f = Keyboard.frames(note) { keyboard.frame(f.end, in: f.screen) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in keyboard.hidden() }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in keyboard.hidden() }
+        // The notifications can miss a hide (Back from a focused search box), so look again once the screen settles.
+        .task(id: "\(tab) \(path.count) \(libraryPath.count) \(insightsPath.count) \(accountPath.count) \(session.foregrounds)") {
+            guard (try? await Task.sleep(for: .milliseconds(600))) != nil else { return }
+            keyboard.settled(editing: Keyboard.editing)
+        }
         .task(id: session.pendingEvent) {
             if let id = session.pendingEvent {
                 session.pendingEvent = nil

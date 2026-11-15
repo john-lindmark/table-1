@@ -320,7 +320,40 @@ enum Keyboard {
         return Finder.found
     }
 
+    /// A text box has the keyboard now.
+    static var editing: Bool { current() is UIKeyInput }
+
+    /// A keyboard notification's end frame and the screen it's on.
+    static func frames(_ note: Notification) -> (end: CGRect, screen: CGRect)? {
+        guard let end = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return nil }
+        let screen = (note.object as? UIScreen)?.bounds
+            ?? UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.screen.bounds }.first
+            ?? .zero
+        return (end, screen)
+    }
+
     fileprivate enum Finder { static weak var found: UIResponder? }
+}
+
+/// Whether the keyboard covers the screen, which hides the tab bar and sub-tabs (SignedInView). UIKit's keyboard
+/// notifications don't always come in pairs: Back from a screen whose box had the keyboard (Insights → Cards) could
+/// leave a "will show" with no "will hide" after it, and the bars stayed hidden on the tab root. So each notification
+/// sets it from where the keyboard ends up, and once a screen settles (after Back or a push, a tab switch, a return to
+/// the app) it's cleared when no text box has the keyboard. Cases in KeyboardCoverTests.
+struct KeyboardCover: Equatable {
+    private(set) var up = false
+
+    /// A keyboard frame change: up when the keyboard ends more than a strip (a hardware keyboard's shortcut bar) on screen.
+    mutating func frame(_ end: CGRect, in screen: CGRect) {
+        up = end.intersection(screen).height > 100
+    }
+
+    mutating func hidden() { up = false }
+
+    /// A screen settled: nothing can be covering it unless a text box has the keyboard.
+    mutating func settled(editing: Bool) {
+        if !editing { up = false }
+    }
 }
 
 extension UIResponder {
