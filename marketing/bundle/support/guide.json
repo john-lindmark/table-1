@@ -1780,7 +1780,7 @@
    "s": "insights",
    "h": "Limited",
    "t": "Cards first",
-   "x": "Top cards leads the page, with Sort (win rate in hand, in the opening hand, improvement when drawn, average pick), Rarity (not for a cube) and Color (W U B R G, Multicolor, Colorless) dropdowns, each taking several picks (the list stays open; a tap puts an option in or out, Any clears, Done closes; the cell reads \"C · U\" or \"WU · Multi\"), a search box, and the ten best cards for them. Each row: its place, the art of the set's own printing, the name, the mana cost in Scryfall's symbols, rarity and games in hand, and the sort's number with, for the win rates, the points above or below the format's average under it (\"+4.1\"). Show all N opens the rest. Art and mana costs come from the card file on your device (the page fetches it if it's missing)."
+   "x": "Top cards leads the page, with Sort (win rate in hand, in the opening hand, improvement when drawn, average pick), Rarity (not for a cube) and Color (W U B R G, Multicolor, Colorless) dropdowns, each taking several picks (the list stays open; a tap puts an option in or out, Any clears, Done closes; the cell reads \"C · U\" or \"WU · Multi\"), a search box, and the ten best cards for them. Each row: the card itself in the set's own printing, the name with its mana cost in Scryfall's symbols, its rarity, and the sort's number with, for the win rates, the points above or below the format's average under it (\"+4.1\"). Show all N opens the rest. Art and mana costs come from the card file on your device (the page fetches it if it's missing)."
   },
   {
    "id": "insights-19",
@@ -2190,7 +2190,7 @@
    "s": "binders",
    "h": "Binders",
    "t": "View",
-   "x": "shows a binder's cards as a list, a grid or stacks, and can expand every card's printings."
+   "x": "shows a binder's cards as a list, a grid or stacks, and can expand every card's printings. In the list each card is just its picture, name and count (no type line or printings count)."
   },
   {
    "id": "binders-7",
@@ -2599,7 +2599,7 @@
    "id": "decks-3",
    "s": "decks",
    "h": "Missing",
-   "x": "Each line says what you own and what's missing, and the Decks list shows the total. Any copy of the card covers a line: any printing, finish or language. Copies of the printing and finish the line names count first, then your other copies of that card, line by line; one copy covers one line. \"Owned N\" on a row counts the card in any printing; a printing's own row, opened under a card with several, counts that printing. Basic lands are never missing: their lines just say how many you own, and in Grid and Stacks they never get the red short mark."
+   "x": "A line you're short on shows its count in red, and the Decks list shows how many cards are missing. Any copy of the card covers a line: any printing, finish or language. Copies of the printing and finish the line names count first, then your other copies of that card, line by line; one copy covers one line. Rows no longer spell out what you own or the finish: a line you're short on shows its count in red, and a foil shows its sheen on the card. Basic lands are never missing: their lines just say how many you own, and in Grid and Stacks they never get the red short mark."
   },
   {
    "id": "decks-4",

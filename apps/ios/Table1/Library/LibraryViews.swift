@@ -641,7 +641,7 @@ struct CardGroup: Identifiable, Hashable, Sendable {
 /// A card's collapsed row (and, open, one row per printing and finish under it) in All cards and binders.
 struct CardGroupRows: View {
     let group: CardGroup
-    let detail: String
+    let detail: String?
     var hero = false
     var open = false
     var partDetail: (CardGroup.Part) -> String? = { _ in nil }

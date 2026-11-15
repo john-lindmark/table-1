@@ -33,7 +33,7 @@ import { hasGuide } from "../lib/sideboardGuide";
 import { RankingsRow } from "./Rankings";
 import { DeckImageScreen } from "./DeckImage";
 import { ListToCollectionScreen } from "./ListToCollection";
-import { cardOfCatalog, holdings, ownedOfCard, ownedOfPrinting, shorts } from "../lib/ownedByCard";
+import { cardOfCatalog, holdings, shorts } from "../lib/ownedByCard";
 import { ShareRow } from "./Share";
 import { WhoSeesRow } from "../components/PersonActions";
 import { CommandZoneCards, CommandZonePicker } from "./CommandZone";
@@ -485,19 +485,15 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const zoneSections = (b: Board): Board[] => (list.kind === "deck" && ZONE_FORMATS.has(list.format) && b !== ZONE_BOARD ? [ZONE_BOARD as Board] : []);
 
   const lineRow = (x: Line, sub = false) => {
-    // A printing's own sub-row counts that printing; a card's row, every printing of it.
-    const have = sub ? ownedOfPrinting(held, x.cardId, x.finish) : ownedOfCard(held, x.cardId);
     const need = shortOf(x);
-    const fin = x.finish === "nonfoil" ? null : FINISH_NAME[x.finish];
     const pts = x.points > 0 && list.format === "canlander" ? `${x.points} pt${x.points === 1 ? "" : "s"}` : null;
-    const considering = x.board === "maybe";
     const short = need > 0; // basics are never missing
     const issue = issues.get(x.oracleId ?? x.cardId);
     if (editing) {
       return (
         <div key={lineKey(x)} className="flex items-stretch gap-px h-[60px]">
           <div className="flex-1 min-w-0">
-            <CardRow c={catalog!} p={x.p} title={x.name} detail={[fin, langTag(x.lang), condTag(x.cond), "Tap to move, change or remove"].filter(Boolean).join(" · ")}
+            <CardRow c={catalog!} p={x.p} title={x.name} detail={[langTag(x.lang), condTag(x.cond), "Tap to move, change or remove"].filter(Boolean).join(" · ")}
                      finish={x.finish} hero={isHero(x.oracleId, heroScope, heroes)} value={x.qty} onClick={() => setMoving(x)} />
           </div>
           <button type="button" aria-label="Remove one" className="w-14 bg-t1-surface-hover text-[20px]"
@@ -507,14 +503,13 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         </div>
       );
     }
+    // No ownership or finish on the row (contract/card-rows-2026-11-15.md): a short count is red, the finish is the sheen.
     return (
       <div key={lineKey(x)} className="h-[60px] shrink-0">
         <CardRow c={catalog!} p={x.p} value={x.qty} warn={short || !!issue} finish={x.finish} indent={sub}
                  title={sub && x.p != null ? `${catalog!.pSet[x.p].toUpperCase()} #${catalog!.pCn[x.p]}` : x.name}
                  hero={!sub && isHero(x.oracleId, heroScope, heroes)}
-                 detail={[issue && !sub ? issue : null, pts, fin, langTag(x.lang), condTag(x.cond),
-                          considering ? (have ? `Owned ${have}` : "Not owned") : short ? `Owned ${have} · missing ${need}` : x.basic && !have ? null : `Owned ${have}`]
-                         .filter(Boolean).join(" · ")}
+                 detail={[issue && !sub ? issue : null, pts, langTag(x.lang), condTag(x.cond)].filter(Boolean).join(" · ")}
                  onClick={() => x.oracleId && onCard(x.oracleId)} />
       </div>
     );
@@ -531,9 +526,6 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
     const issue = issues.get(lead.oracleId ?? lead.cardId);
     // Basics are never missing (contract/basics-2026-10-24.md).
     const short = cg.lines.reduce((n, l) => n + shortOf(l), 0);
-    const have = ownedOfCard(held, lead.cardId);
-    const haveText = list.eventId ? null : considering ? (have ? `Owned ${have}` : "Not owned")
-      : lead.basic ? (have ? `Owned ${have}` : null) : short ? `Missing ${short}` : "All owned";
     return (
       <div key={cg.id} className="flex flex-col gap-px">
         <div className="h-[60px] shrink-0">
@@ -541,7 +533,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                         onToggle={() => { setPrintings(toggleOne(printings, cg.id)); capture("printings_toggled", { expanded: !open, all: false, screen: "list" }); }}>
             <CardRow c={catalog!} p={lead.p} title={lead.name} value={cg.qty} warn={(!considering && short > 0 && !list.eventId) || !!issue}
                      finish={lead.finish} hero={hero}
-                     detail={[issue, versionsText(cg.lines), haveText].filter(Boolean).join(" · ")}
+                     detail={[issue, versionsText(cg.lines)].filter(Boolean).join(" · ")}
                      onClick={() => lead.oracleId && onCard(lead.oracleId)} />
           </CardGroupRow>
         </div>

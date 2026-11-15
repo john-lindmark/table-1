@@ -13,7 +13,8 @@ struct LimitedHomeSection: View {
     @State private var query = ""
     @State private var all = false
     /// Each card's mana cost and its printing in the set (art), by name, for the pack on screen.
-    @State private var faces: [String: LimitedFace] = [:]
+    @State private var faces: [String: CardFace] = [:]
+    @State private var elsewhereFaces: [String: CardFace] = [:]
 
     var body: some View {
         // The picker waits for the sets to rank (kept on the device after the first visit) so it draws whole.
@@ -119,11 +120,7 @@ struct LimitedHomeSection: View {
         editor
         if let v = groups[grp] {
             cards(pack, ev, grp, v)
-                .task(id: "\(pack.set_code) \(CatalogStore.shared.generation)") {
-                    // art and mana costs come from the card catalog: ask for it (any network) like the Library does
-                    CatalogStore.shared.load(userInitiated: true)
-                    faces = await LimitedFace.load(set: pack.set_code, cards: v.cards)
-                }
+                .loadsFaces(v.cards.compactMap(\.c), set: pack.set_code, into: $faces)
             pairs(pack, ev, grp, v)
             scatter(pack, ev, grp, v)
             facts(v)
@@ -197,7 +194,7 @@ struct LimitedHomeSection: View {
             let rows = Insights.limitedCards(v.cards, sort: sort, rarity: rarity, color: color)
             let shown = all ? rows : Array(rows.prefix(Insights.limitedTop))
             ForEach(Array(shown.enumerated()), id: \.element.id) { i, c in
-                cardRow(c, rank: i + 1, v) { path.append(.limitedCard(pack.set_code, ev, grp, c.n)) }
+                cardRow(c, v) { path.append(.limitedCard(pack.set_code, ev, grp, c.n)) }
             }
             if rows.isEmpty { Notice("No card matches these filters.") }
             if rows.count > Insights.limitedTop {
@@ -219,7 +216,7 @@ struct LimitedHomeSection: View {
         let hits = Insights.limitedSearch(query, here: v.cards.map(\.n), others: others)
         let byName = Dictionary(v.cards.map { ($0.n, $0) }, uniquingKeysWith: { a, _ in a })
         ForEach(hits.here, id: \.self) { n in
-            if let c = byName[n] { cardRow(c, rank: nil, v) { path.append(.limitedCard(pack.set_code, ev, grp, c.n)) } }
+            if let c = byName[n] { cardRow(c, v) { path.append(.limitedCard(pack.set_code, ev, grp, c.n)) } }
         }
         if hits.here.isEmpty && !hits.elsewhere.isEmpty {
             Section1("Not in \(LimitedPicker.label(pack.set_code, pack.name)) · in other sets")
@@ -230,8 +227,12 @@ struct LimitedHomeSection: View {
                     let e = other.flatMap { store.currentEvent(of: $0) } ?? "PremierDraft"
                     path.append(.limitedCard(h.set, e, "all", h.name))
                 } label: {
-                    ListRow(title: h.name, detail: LimitedPicker.label(h.set, store.limitedName(h.set)))
+                    CardRow(printing: elsewhereFaces[h.name]?.printing, title: h.name,
+                            detail: LimitedPicker.label(h.set, store.limitedName(h.set)), cost: elsewhereFaces[h.name]?.cost)
                 }.buttonStyle(.plain)
+            }
+            .task(id: "\(hits.elsewhere.map(\.name)) \(CatalogStore.shared.generation)") {
+                elsewhereFaces = await CardFace.load(names: hits.elsewhere.map(\.name))
             }
         }
         if hits.here.isEmpty && hits.elsewhere.isEmpty {
@@ -239,10 +240,10 @@ struct LimitedHomeSection: View {
         }
     }
 
-    private func cardRow(_ c: Insights.LCard, rank: Int?, _ v: Insights.LView, open: @escaping () -> Void) -> some View {
+    private func cardRow(_ c: Insights.LCard, _ v: Insights.LView, open: @escaping () -> Void) -> some View {
         let shown = Insights.limitedValue(c, sort: sort, average: v.wr)
         return Button(action: open) {
-            LimitedCardRow(rank: rank, card: c, face: faces[c.n], value: shown.value, vs: shown.vs, dim: c.gih == nil)
+            LimitedCardRow(card: c, face: c.c.flatMap { faces[$0.lowercased()] }, value: shown.value, vs: shown.vs, dim: c.gih == nil)
         }.buttonStyle(.plain)
     }
 
@@ -269,66 +270,67 @@ struct LimitedHomeSection: View {
     }
 }
 
-/// A card's mana cost and its printing in the set (for the art); a cube's cards take their original printing.
-struct LimitedFace: Hashable {
+/// A card's mana cost and the printing an Insights row draws: its printing in the set when there is one (Limited, New
+/// set), else its usual picture (the original paper printing).
+struct CardFace: Hashable {
     let cost: String
     let printing: CatalogPrinting?
 
-    @MainActor static func load(set: String, cards: [Insights.LCard]) async -> [String: LimitedFace] {
-        guard let db = CatalogStore.shared.db else { return [:] }
-        let ids = cards.compactMap(\.c)
+    /// By Oracle id (lowercase keys).
+    @MainActor static func load(oracleIds: [String], set: String? = nil) async -> [String: CardFace] {
+        guard let db = CatalogStore.shared.db, !oracleIds.isEmpty else { return [:] }
         return await Task.detached(priority: .userInitiated) {
-            let oracles = db.oracles(oracleIds: ids)
+            let oracles = db.oracles(oracleIds: oracleIds)
             var inSet: [Int: CatalogPrinting] = [:]
-            for p in db.printings(set: set.lowercased()) where inSet[p.oracleIdx] == nil || (p.lang == "en" && inSet[p.oracleIdx]?.lang != "en") {
-                inSet[p.oracleIdx] = p
+            if let set {
+                for p in db.printings(set: set.lowercased()) where inSet[p.oracleIdx] == nil || (p.lang == "en" && inSet[p.oracleIdx]?.lang != "en") {
+                    inSet[p.oracleIdx] = p
+                }
             }
-            let missing = oracles.values.map(\.idx).filter { inSet[$0] == nil }
-            let covers = missing.isEmpty ? [:] : db.covers(oracleIdxs: missing)
-            var out: [String: LimitedFace] = [:]
-            for c in cards {
-                guard let id = c.c, let o = oracles[id] else { continue }
-                out[c.n] = LimitedFace(cost: o.manaCost, printing: inSet[o.idx] ?? covers[o.idx])
-            }
-            return out
+            let covers = db.covers(oracleIdxs: oracles.values.map(\.idx).filter { inSet[$0] == nil })
+            return oracles.mapValues { o in CardFace(cost: o.manaCost, printing: inSet[o.idx] ?? covers[o.idx]) }
+        }.value
+    }
+
+    /// By card name, for names without an Oracle id (Limited search in other sets).
+    @MainActor static func load(names: [String]) async -> [String: CardFace] {
+        guard let db = CatalogStore.shared.db, !names.isEmpty else { return [:] }
+        return await Task.detached(priority: .userInitiated) {
+            let printings = db.printings(names: names)
+            let oracles = db.oracles(idxs: Array(Set(printings.values.map(\.oracleIdx))))
+            return printings.mapValues { p in CardFace(cost: oracles[p.oracleIdx]?.manaCost ?? "", printing: p) }
         }.value
     }
 }
 
-/// One card on the Limited page: its place, art, name, mana cost, rarity and games, and the sort's number with how far
-/// it sits from the average under it.
+extension View {
+    /// Loads the faces of the cards a list shows into `faces` (Oracle id keys), asking for the card catalog like the
+    /// Library does; again when the catalog changes.
+    func loadsFaces(_ ids: [String], set: String? = nil, into faces: Binding<[String: CardFace]>) -> some View {
+        task(id: "\(set ?? "") \(ids.joined(separator: ",")) \(CatalogStore.shared.generation)") {
+            CatalogStore.shared.load(userInitiated: true)
+            let got = await CardFace.load(oracleIds: ids, set: set)
+            faces.wrappedValue.merge(got) { _, new in new }
+        }
+    }
+}
+
+/// One card on the Limited page: the card, name, mana cost and rarity, and the sort's number with how far it sits
+/// from the average under it.
 struct LimitedCardRow: View {
-    let rank: Int?
     let card: Insights.LCard
-    let face: LimitedFace?
+    let face: CardFace?
     let value: String
     let vs: String?
     var dim = false
 
     var body: some View {
-        HStack(spacing: 10) {
-            if let rank {
-                Text("\(rank)").font(T1.mono(11)).foregroundStyle(T1.muted).frame(width: 22, alignment: .trailing)
-            }
-            Group { if let p = face?.printing { CardArtCrop(printing: p) } else { T1.bg } }.frame(width: 52, height: 38)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(card.n).font(T1.mono(14)).lineLimit(1)
-                HStack(spacing: 6) {
-                    if let cost = face?.cost, !cost.isEmpty { ManaCostView(cost: cost, size: 12) }
-                    LabelText([card.r.map { String($0.prefix(1)).uppercased() }, "\(card.gih_n.formatted()) in hand"].compactMap { $0 }.joined(separator: " · "))
-                        .lineLimit(1)
-                }
-            }
-            Spacer(minLength: 0)
+        CardRow(printing: face?.printing, title: card.n, detail: card.r.map { String($0.prefix(1)).uppercased() }, cost: face?.cost) {
             VStack(alignment: .trailing, spacing: 3) {
                 Text(value).font(T1.mono(14)).foregroundStyle(dim ? T1.disabled : T1.text)
                 if let vs { LabelText(vs, color: vs.hasPrefix("+") ? T1.text : T1.muted) }
             }
         }
-        .padding(.horizontal, 16).padding(.vertical, 8)
-        .frame(maxWidth: .infinity)
-        .background(T1.surface)
-        .contentShape(Rectangle())
     }
 }
 
@@ -357,6 +359,7 @@ struct RankAction: View {
 struct PairInsightView: View {
     let set: String, event: String, group: String, pair: String
     @Binding var path: [InsightsRoute]
+    @State private var faces: [String: CardFace] = [:]
     private var store: InsightsStore { InsightsStore.shared }
 
     var body: some View {
@@ -380,12 +383,15 @@ struct PairInsightView: View {
                         Section1("Best cards in \(pair) · win rate in hand")
                         let best = v.cards.compactMap { c in c.pair_gih?[pair].map { (c, $0) } }.sorted { $0.1 > $1.1 }.prefix(20)
                         ForEach(Array(best), id: \.0.n) { c, wr in
+                            let face = c.c.flatMap { faces[$0.lowercased()] }
                             Button { path.append(.limitedCard(set, event, group, c.n)) } label: {
-                                ListRow(title: c.n, detail: [c.r?.capitalized, c.col].compactMap { $0 }.joined(separator: " · ")) {
+                                CardRow(printing: face?.printing, title: c.n, detail: [c.r?.capitalized, c.col].compactMap { $0 }.joined(separator: " · "),
+                                        cost: face?.cost) {
                                     Text(InsightCharts.pct1(wr)).font(T1.mono(13))
                                 }
                             }.buttonStyle(.plain)
                         }
+                        .loadsFaces(best.compactMap(\.0.c), set: set, into: $faces)
                     } else { Notice("This pair isn't in the pack.") }
                 }
             }
@@ -409,7 +415,7 @@ struct LimitedCardView: View {
     let set: String, event: String, group: String, name: String
     @Binding var path: [InsightsRoute]
     @Environment(SessionModel.self) private var session
-    @State private var face: LimitedFace?
+    @State private var face: CardFace?
     private var store: InsightsStore { InsightsStore.shared }
 
     var body: some View {
@@ -431,7 +437,7 @@ struct LimitedCardView: View {
                         .frame(maxWidth: .infinity).padding(.vertical, 20)
                         .task(id: "\(name) \(CatalogStore.shared.generation)") {
                             CatalogStore.shared.load(userInitiated: true)
-                            face = await LimitedFace.load(set: set, cards: [c]).values.first
+                            if let id = c.c { face = await CardFace.load(oracleIds: [id], set: set).values.first }
                         }
                         CreditRow(url: pack.credit.url)
                         if c.gih == nil { Notice("Fewer than 500 games with this card in hand: no win rates yet.") }

@@ -232,9 +232,9 @@ export function CardArt({ c, p, width, alt = "", finish = "nonfoil", back = fals
 
 /** Pointer handlers that show a card large beside the pointer (desktop with a mouse only; contract/web-desktop-2026-10-22.md
  *  § Card preview). Spread onto the row or card. */
-export function usePeek(c: Catalog, p: number | null, finish: CardFinish = "nonfoil") {
+export function usePeek(c: Catalog | null, p: number | null, finish: CardFinish = "nonfoil") {
   const on = useHoverPreview();
-  if (!on || p == null || c.pFaces[p] === 0) return {};
+  if (!on || !c || p == null || c.pFaces[p] === 0) return {};
   return {
     onMouseEnter: (e: MouseEvent) => showPeek(<CardArt c={c} p={p} width={PEEK_W} finish={finish} />, e.clientX, e.clientY),
     onMouseMove: (e: MouseEvent) => movePeek(e.clientX, e.clientY),
@@ -248,11 +248,15 @@ function HeroEdge() {
   return <span aria-label="Hero card" className="absolute left-0 top-0 bottom-0 w-[2px] bg-t1-text" />;
 }
 
-/** A list row led by a card thumbnail; same type and spacing as Row. A hero card's row is a shade lighter with a
- *  white left edge. */
-export function CardRow({ c, p, title, detail, note, noteAccent, value, warn, onClick, finish, hero, indent }: {
-  c: Catalog; p: number | null; title: ReactNode; detail?: ReactNode; value?: ReactNode; warn?: boolean; onClick?: () => void;
+/** The one row for a card in a list, everywhere (decks, cubes, binders, wants, trades, Insights): the whole card as a
+ *  thumbnail, the name (Insights adds the mana cost beside it, `beside`), up to two lines of data, a value on the right.
+ *  Same type and spacing as Row. A hero card's row is a shade lighter with a white left edge. Without a catalog yet
+ *  (Insights before it loads) the thumbnail is an empty card. Contract: contract/card-rows-2026-11-15.md. */
+export function CardRow({ c, p, title, beside, detail, note, noteAccent, value, warn, onClick, finish, hero, indent }: {
+  c: Catalog | null; p: number | null; title: ReactNode; detail?: ReactNode; value?: ReactNode; warn?: boolean; onClick?: () => void;
   finish?: CardFinish; hero?: boolean;
+  /** Beside the name: the mana cost on Insights rows. */
+  beside?: ReactNode;
   /** A second detail line (a want's price trend), in the accent when `noteAccent`. */
   note?: ReactNode; noteAccent?: boolean;
   /** A printing row under its card. */
@@ -263,9 +267,15 @@ export function CardRow({ c, p, title, detail, note, noteAccent, value, warn, on
     <button type="button" onClick={onClick} {...peek}
             className={`relative ${hero ? "bg-t1-surface-hover" : "bg-t1-surface hover:bg-t1-surface-hover"} ${indent ? "pl-10" : "pl-4"} pr-4 py-[5px] h-full flex items-center gap-3 text-left w-full`}>
       {hero && <HeroEdge />}
-      <CardArt c={c} p={p} width={36} finish={finish} />
+      {c ? <CardArt c={c} p={p} width={36} finish={finish} />
+        : <span className="bg-t1-bg shrink-0" style={{ width: 36, height: Math.round(36 / ASPECT), borderRadius: 36 * 0.0432 }} />}
       <span className="flex-1 min-w-0 flex flex-col gap-0.5">
-        <span className="text-[13px] truncate">{title}</span>
+        {beside ? (
+          <span className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[13px] truncate">{title}</span>
+            <span className="shrink-0 flex">{beside}</span>
+          </span>
+        ) : <span className="text-[13px] truncate">{title}</span>}
         {detail && <span className="t1-label truncate">{detail}</span>}
         {note && <span className={`t1-label truncate ${noteAccent ? "!text-t1-accent" : ""}`}>{note}</span>}
       </span>

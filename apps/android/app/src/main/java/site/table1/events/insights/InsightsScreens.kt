@@ -61,6 +61,7 @@ import site.table1.events.library.ListKind
 import site.table1.events.library.ListsStore
 import site.table1.events.library.LimitedPicker
 import site.table1.events.library.CardArt
+import site.table1.events.library.CardRow as CardListRow
 import site.table1.events.library.SearchBand
 import androidx.compose.foundation.layout.width
 import site.table1.events.ui.components.Bar
@@ -291,19 +292,22 @@ fun ConstructedPartScreen(format: String, part: String, navigate: (String) -> Un
                     WindowPickers(tier)
                     T1Segmented(listOf("Main deck", "Sideboard"), if (board == "main") 0 else 1) { board = if (it == 0) "main" else "side" }
                     w?.cards?.get(board)?.let { m ->
+                        val faces = rememberCardFaces((m.up + m.down).map { it.c })
                         if (m.up.isNotEmpty()) Section("Rising")
-                        m.up.forEach { CardMoveRow(f, it, true, navigate) }
+                        m.up.forEach { CardMoveRow(f, it, true, faces.of(it.c), navigate) }
                         if (m.down.isNotEmpty()) Section("Falling")
-                        m.down.forEach { CardMoveRow(f, it, false, navigate) }
+                        m.down.forEach { CardMoveRow(f, it, false, faces.of(it.c), navigate) }
                         if (m.up.isEmpty() && m.down.isEmpty()) Notice("No card moved much in this window.")
                     }
                 }
                 "new_set" -> {
                     WindowPickers(tier, days = false)
                     val ns = view?.new_set
+                    val faces = rememberCardFaces(ns?.cards?.map { it.c }.orEmpty(), ns?.set_code)
                     ns?.cards?.forEach { c ->
-                        ListRow(c.n, "in ${InsightCharts.pct(c.rate)} of decks" + (c.`in`?.firstOrNull()?.let { " · most in ${pack.name(it)}" } ?: ""),
-                            onClick = { navigate(InsightsRoutes.card(f, c.c, c.n)) }) { Text(InsightCharts.pct(c.rate), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp) }
+                        val face = faces.of(c.c)
+                        CardListRow(face?.printing, c.n, "in ${InsightCharts.pct(c.rate)} of decks", note = c.`in`?.firstOrNull()?.let { "most in ${pack.name(it)}" },
+                            cost = face?.cost, onClick = { navigate(InsightsRoutes.card(f, c.c, c.n)) }) { Text(InsightCharts.pct(c.rate), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp) }
                     }
                     if (ns?.cards.isNullOrEmpty()) Notice("No new set cards played yet.")
                 }
@@ -328,9 +332,9 @@ fun ConstructedPartScreen(format: String, part: String, navigate: (String) -> Un
 }
 
 @Composable
-private fun CardMoveRow(f: String, c: CardRow, up: Boolean, navigate: (String) -> Unit) {
-    ListRow(c.n, "in ${InsightCharts.pct(c.rate)} of decks · was ${InsightCharts.pct(c.prev ?: 0.0)}" + (c.copies?.let { " · %.1f copies".format(it) } ?: ""),
-        onClick = { navigate(InsightsRoutes.card(f, c.c, c.n)) }) {
+private fun CardMoveRow(f: String, c: CardRow, up: Boolean, face: CardFace?, navigate: (String) -> Unit) {
+    CardListRow(face?.printing, c.n, "in ${InsightCharts.pct(c.rate)} of decks · was ${InsightCharts.pct(c.prev ?: 0.0)}",
+        note = c.copies?.let { "%.1f copies".format(it) }, cost = face?.cost, onClick = { navigate(InsightsRoutes.card(f, c.c, c.n)) }) {
         Text("${if (up) "▲" else "▼"} ${InsightCharts.delta(c.rate - (c.prev ?: 0.0)).drop(1)}", color = if (up) T1.accent else T1.muted, fontFamily = T1.mono, fontSize = 12.sp)
     }
 }
@@ -420,8 +424,11 @@ fun ArchetypeInsightScreen(format: String, id: Int, finish: Int?, navigate: (Str
             if (id != 0) listOf("Core · in 80%+ of lists" to p.core, "Flex slots" to p.flex, "Sideboard" to p.side).forEach { (title, rows) ->
                 if (rows.isNotEmpty()) {
                     Section(title)
+                    val faces = rememberCardFaces(rows.take(16).map { it.c })
                     rows.take(16).forEach { c ->
-                        ListRow(c.n, c.copies?.let { "%.1f copies".format(it) }, onClick = { navigate(InsightsRoutes.card(format, c.c, c.n)) }) {
+                        val face = faces.of(c.c)
+                        CardListRow(face?.printing, c.n, c.copies?.let { "%.1f copies".format(it) }, cost = face?.cost,
+                            onClick = { navigate(InsightsRoutes.card(format, c.c, c.n)) }) {
                             Text(InsightCharts.pct(c.rate), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp)
                         }
                     }
@@ -569,8 +576,10 @@ fun CardSearchScreen(format: String, navigate: (String) -> Unit, onBack: () -> U
         Scroll {
             error?.let { Notice(it, error = true) }
             if (error == null && q.length >= 2 && answered == q && hits.isEmpty()) Notice("No $label lists played a card called that this year.")
+            val faces = rememberCardFaces(if (q.length >= 2) hits.map { it.c } else emptyList())
             if (q.length >= 2) hits.forEach { h ->
-                ListRow(h.n, CardInsights.hitDetail(h), onClick = {
+                val face = faces.of(h.c)
+                CardListRow(face?.printing, h.n, CardInsights.hitDetail(h), cost = face?.cost, onClick = {
                     Telemetry.capture("insights_card_opened", mapOf("format" to format, "from" to "search"))
                     navigate(InsightsRoutes.card(format, h.c, h.n))
                 })
@@ -604,8 +613,11 @@ fun BanStudyScreen(format: String, changeId: Int, navigate: (String) -> Unit, on
             Stats("Settled" to (b.settled_days?.let { "$it days" } ?: "Not yet"), "Lost most" to (b.losers.firstOrNull()?.let { pack.name(it.a) } ?: "–"),
                 "Gained most" to (b.gainers.firstOrNull()?.let { pack.name(it.a) } ?: "–"))
             if (b.replacements.isNotEmpty()) Section(if (ch?.kind == "unban" || ch?.kind == "unrestrict") "Where it's played" else "What replaced it")
+            val faces = rememberCardFaces(b.replacements.map { it.c })
             b.replacements.forEach { r ->
-                ListRow(r.n, "in ${pack.name(r.`in`)} · ${InsightCharts.pct(r.before)} → ${InsightCharts.pct(r.after)} of lists", onClick = { navigate(InsightsRoutes.card(format, r.c, r.n)) })
+                val face = faces.of(r.c)
+                CardListRow(face?.printing, r.n, "in ${pack.name(r.`in`)}", note = "${InsightCharts.pct(r.before)} → ${InsightCharts.pct(r.after)} of lists",
+                    cost = face?.cost, onClick = { navigate(InsightsRoutes.card(format, r.c, r.n)) })
             }
         }
     }
@@ -644,7 +656,6 @@ private fun MatchupGrid(pack: ConstructedPack, m: Matchups, share: List<ShareRow
     val cols = m.archetypes
     val ordered = yoursFirst(m.rowIds, mine)
     val rows = ordered.map { it.first }
-    Notice("Each archetype with 1% of decks (rows) against the 10 most played (columns): the row's match win rate, and first its win rate against every archetype. Your decks come first, then archetypes your collection nearly builds. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
     InsightHeatmap(rows.map { pack.name(it) }, cols.map { pack.name(it) }, { r, c -> rows[r] == cols[c] },
                    { r, c -> m.cell(rows[r], cols[c])?.let { it.first to it.second } }, picked = picked, notes = ordered.map { it.second },
                    overall = { r -> LimitedCards.overall(share, m, rows[r])?.let { it.wins to it.losses } }) { r, c ->
@@ -747,12 +758,8 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     val v = groups[grp] ?: return
 
     // Cards first: the best for the sort and filters (ten, then Show all), with search across the set, then every other set.
-    val catalog by CatalogStore.state.collectAsState()
-    var faces by remember { mutableStateOf<Map<String, LimitedFace>>(emptyMap()) }
-    LaunchedEffect(pack.set_code, catalog.generation) {
-        CatalogStore.load(userInitiated = true)   // art and mana costs come from the card catalog
-        faces = LimitedFace.load(pack.set_code, v.cards)
-    }
+    // pictures and mana costs come from the card catalog: the card's printing in the set
+    val faces = rememberCardFaces(v.cards.mapNotNull { it.c }, pack.set_code)
     val rated = v.cards.any { it.r != null }
     val sortOpt = LimitedCards.sorts.firstOrNull { it.first == sort }
     Section("Top cards · ${sortOpt?.second?.lowercase() ?: sort}")
@@ -766,19 +773,20 @@ private fun LimitedHome(navigate: (String) -> Unit) {
             null, picked = color) { color = LimitedCards.toggle(color, it); all = false })
     })
     SearchBand(query, "Search cards") { query = it }
-    @Composable fun row(c: LCard, i: Int?) {
+    @Composable fun row(c: LCard) {
         val (value, vs) = LimitedCards.value(c, sort, v.wr)
-        LimitedCardRow(i, c, faces[c.n], value, vs) { navigate(InsightsRoutes.limitedCard(pack.set_code, ev, grp, c.n)) }
+        LimitedCardRow(c, faces.of(c.c), value, vs) { navigate(InsightsRoutes.limitedCard(pack.set_code, ev, grp, c.n)) }
     }
     if (LimitedCards.norm(query).length >= LimitedCards.MIN_QUERY) {
         val others = s.limited.values.filter { it.set_code != pack.set_code }.sortedByDescending { it.released ?: "" }
             .map { p -> p.set_code to p.events.values.flatMap { e -> e.groups["all"]?.cards?.map { it.n }.orEmpty() }.distinct().sorted() }
         val (here, elsewhere) = LimitedCards.search(query, v.cards.map { it.n }, others)
-        here.forEach { n -> v.cards.firstOrNull { it.n == n }?.let { row(it, null) } }
+        here.forEach { n -> v.cards.firstOrNull { it.n == n }?.let { row(it) } }
         if (here.isEmpty() && elsewhere.isNotEmpty()) {
             Section("Not in ${LimitedPicker.label(pack.set_code, pack.name)} · in other sets")
+            val elsewhereFaces = rememberCardFacesByName(elsewhere.map { it.second })
             elsewhere.forEach { (k, n) ->
-                ListRow(n, LimitedPicker.label(k, s.limitedName(k)), onClick = {
+                CardListRow(elsewhereFaces[n]?.printing, n, LimitedPicker.label(k, s.limitedName(k)), cost = elsewhereFaces[n]?.cost, onClick = {
                     Telemetry.capture("insights_card_search_elsewhere", mapOf("set" to k))
                     val e = s.limited[k]?.let { s.currentEvent(it) } ?: "PremierDraft"
                     navigate(InsightsRoutes.limitedCard(k, e, "all", n))
@@ -788,7 +796,7 @@ private fun LimitedHome(navigate: (String) -> Unit) {
         if (here.isEmpty() && elsewhere.isEmpty()) Notice("No card in any set's draft data is called that.")
     } else {
         val cards = LimitedCards.cards(v.cards, sort, rarity, color)
-        (if (all) cards else cards.take(LimitedCards.TOP)).forEachIndexed { i, c -> row(c, i + 1) }
+        (if (all) cards else cards.take(LimitedCards.TOP)).forEach { c -> row(c) }
         if (cards.isEmpty()) Notice("No card matches these filters.")
         if (cards.size > LimitedCards.TOP) Row(Modifier.fillMaxWidth()) {
             Ghost(if (all) "Show the top ${LimitedCards.TOP}" else "Show all ${cards.size}") {
@@ -862,8 +870,12 @@ fun PairInsightScreen(set: String, event: String, group: String, pair: String, n
                     format = InsightCharts::pct1, labelWidth = 60.dp)
             }
             Section("Best cards in $pair · win rate in hand")
-            v.cards.mapNotNull { c -> c.pair_gih?.get(pair)?.let { c to it } }.sortedByDescending { it.second }.take(20).forEach { (c, wr) ->
-                ListRow(c.n, listOfNotNull(c.r?.replaceFirstChar { it.uppercase() }, c.col).joinToString(" · "), onClick = { navigate(InsightsRoutes.limitedCard(set, event, group, c.n)) }) {
+            val best = v.cards.mapNotNull { c -> c.pair_gih?.get(pair)?.let { c to it } }.sortedByDescending { it.second }.take(20)
+            val faces = rememberCardFaces(best.mapNotNull { it.first.c }, set)
+            best.forEach { (c, wr) ->
+                val face = faces.of(c.c)
+                CardListRow(face?.printing, c.n, listOfNotNull(c.r?.replaceFirstChar { it.uppercase() }, c.col).joinToString(" · "), cost = face?.cost,
+                    onClick = { navigate(InsightsRoutes.limitedCard(set, event, group, c.n)) }) {
                     Text(InsightCharts.pct1(wr), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp)
                 }
             }
@@ -882,10 +894,10 @@ fun LimitedCardScreen(set: String, event: String, group: String, name: String, n
         Bar(name, "${LimitedPicker.label(set, pack?.name)} ${Insights.eventLabels[event] ?: event}", onBack = onBack)
         if (c == null || pack == null) { Notice("This card isn't in the pack."); return@T1Screen }
         val catalog by CatalogStore.state.collectAsState()
-        var face by remember { mutableStateOf<LimitedFace?>(null) }
+        var face by remember { mutableStateOf<CardFace?>(null) }
         LaunchedEffect(name, catalog.generation) {
             CatalogStore.load(userInitiated = true)
-            face = LimitedFace.load(set, listOf(c)).values.firstOrNull()
+            face = c.c?.let { id -> CardFace.load(listOf(id), set).values.firstOrNull() }
         }
         Scroll {
             // the card first: its picture in the set's printing and its mana cost

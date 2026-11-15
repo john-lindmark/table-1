@@ -1352,16 +1352,12 @@ struct ListDetailView: View {
             let open = printings.open(cg.id)
             let hero = HeroesStore.shared.isHero(cg.lead.oracleId, heroScope)
             let considering = cg.lead.board == "maybe"
-            let eventDeck = ListsStore.shared.list(id: listId)?.eventId != nil
             // Basics are never missing (contract/basics-2026-10-24.md).
             let short = cg.lines.reduce(0) { $0 + owned.short($1) }
-            let have = owned.owned(cg.lead)
-            let haveText: String? = eventDeck ? nil : considering ? (have > 0 ? "Owned \(have)" : "Not owned")
-                : cg.lead.basic ? (have > 0 ? "Owned \(have)" : nil) : short > 0 ? "Missing \(short)" : "All owned"
             HStack(spacing: 1) {
                 Button { if let o = cg.lead.oracleId { path.append(.cardIn(o, .list(listId))) } } label: {
                     CardRow(printing: cg.lead.printing, title: cg.lead.name,
-                            detail: [issue, "\(cg.lines.count) \(Set(cg.lines.map(\.cardId)).count == cg.lines.count ? "printings" : "versions")", haveText].compactMap { $0 }.joined(separator: " · "),
+                            detail: [issue, "\(cg.lines.count) \(Set(cg.lines.map(\.cardId)).count == cg.lines.count ? "printings" : "versions")"].compactMap { $0 }.joined(separator: " · "),
                             finish: cg.lead.finish, hero: hero) {
                         Text("\(cg.qty)").font(T1.mono(17)).monospacedDigit()
                             .foregroundStyle((!considering && short > 0) || issue != nil ? T1.error : T1.text)
@@ -1384,13 +1380,10 @@ struct ListDetailView: View {
     /// `owned`: copies of the card in any printing (a sub-row: of its printing); `missing`: what the line still needs
     /// once the card's copies cover it (contract/owned-by-card-2026-10-31.md).
     private func lineRow(_ line: ListLine, owned: Int, short missing: Int, issue: String?, sub: Bool = false) -> some View {
-        let considering = line.board == "maybe"
         let short = missing > 0
-        let eventDeck = ListsStore.shared.list(id: listId)?.eventId != nil
-        let have: String? = eventDeck ? nil : considering ? (owned > 0 ? "Owned \(owned)" : "Not owned")
-            : line.basic && owned == 0 ? nil : short ? "Owned \(owned) · missing \(missing)" : "Owned \(owned)"
         let pts = line.points > 0 && ListsStore.shared.list(id: listId)?.format == "canlander" ? "\(line.points) pt\(line.points == 1 ? "" : "s")" : nil
-        let detail = [sub ? nil : issue, pts, line.finishLabel, line.langLabel, line.condLabel, have].compactMap { $0 }.joined(separator: " · ")
+        // No ownership or finish on the row (contract/card-rows-2026-11-15.md): a short count is red, the finish is the sheen.
+        let detail = [sub ? nil : issue, pts, line.langLabel, line.condLabel].compactMap { $0 }.joined(separator: " · ")
         return Button {
             if let o = line.oracleId { path.append(.cardIn(o, .list(listId))) }
         } label: {
@@ -1427,7 +1420,7 @@ struct ListDetailView: View {
                 }])
             } label: {
                 CardRow(printing: line.printing, title: line.name,
-                        detail: [line.finishLabel, line.langLabel, line.condLabel, "Tap to move, change or remove"].compactMap { $0 }.joined(separator: " · "),
+                        detail: [line.langLabel, line.condLabel, "Tap to move, change or remove"].compactMap { $0 }.joined(separator: " · "),
                         finish: line.finish, hero: HeroesStore.shared.isHero(line.oracleId, .list(list.id))) {
                     Text("\(line.qty)").font(T1.mono(17)).monospacedDigit()
                 }

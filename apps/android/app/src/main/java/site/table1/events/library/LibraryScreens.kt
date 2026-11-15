@@ -419,7 +419,7 @@ data class CardGroup(
 }
 
 /** A card's collapsed row (and, open, one row per printing and finish under it) in All cards and binders. */
-fun LazyListScope.cardGroupRows(g: CardGroup, detail: String, hero: Boolean, open: Boolean, toggle: () -> Unit, tap: () -> Unit) {
+fun LazyListScope.cardGroupRows(g: CardGroup, detail: String?, hero: Boolean, open: Boolean, toggle: () -> Unit, tap: () -> Unit) {
     item(key = g.id) {
         WithChevron(g.parts.size, open, hero, toggle) {
             CardRow(g.cover, g.name, detail, onClick = tap, finish = g.coverFinish, hero = hero) {

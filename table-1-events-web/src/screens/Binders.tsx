@@ -308,8 +308,8 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
                   <div className="h-[60px] shrink-0">
                     <CardGroupRow open={open} parts={g.parts.length} hero={hero}
                                   onToggle={() => { setPrintings(toggleOne(printings, g.key)); capture("printings_toggled", { expanded: !open, all: false, screen: "binder" }); }}>
+                      {/* No types or printings on binder rows (contract/card-rows-2026-11-15.md). */}
                       <CardRow c={catalog} p={g.cover} title={g.name} value={g.qty} finish={g.coverFinish} hero={hero}
-                               detail={`${g.printings} printing${g.printings === 1 ? "" : "s"} · ${g.type}`}
                                onClick={() => g.oracle >= 0 && onCard(g.key)} />
                     </CardGroupRow>
                   </div>

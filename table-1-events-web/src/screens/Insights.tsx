@@ -15,7 +15,7 @@ import {
 import { isLibraryDemo } from "../lib/libraryDemo";
 import { storeSub } from "../lib/mainNav";
 import { limitedLabel, limitedPicker, rankableDetail, shownChips, soonText } from "../lib/limitedRank";
-import { ICON, Icon, useCatalog } from "./Library";
+import { CardRow as LibraryCardRow, ICON, Icon, useCatalog } from "./Library";
 import { createList, type Entry } from "../lib/lists";
 import type { ProfileCard } from "../lib/friends";
 
@@ -207,6 +207,7 @@ export function InsightsPart() {
   const nav = useNavigate();
   const { constructed, picks, session, demo, ready } = useInsightsData();
   const [board, setBoard] = useState<"main" | "side">("main");
+  const { catalog } = useCatalog();
   useEffect(() => { window.scrollTo(0, 0); }, [format, part]);   // its row sits at the bottom of the format page
   const pack = constructed[format];
   const tier: Tier = picks.tier ?? pack?.default_tier ?? "big";
@@ -220,10 +221,14 @@ export function InsightsPart() {
   if (!session && !demo) return <Screen><Bar title={title} onBack={() => nav(-1)} />{ready && <SignInFirst />}</Screen>;
   const go = (p: string) => nav(p);
   const f = pack?.format ?? format;
+  const movers = w?.cards[board];
+  const ns = view?.new_set;
+  const faces = key === "cards" ? limitedFaces(catalog, "", movers ? [...movers.up, ...movers.down] : [])
+    : key === "new_set" ? limitedFaces(catalog, ns?.set_code ?? "", ns?.cards ?? []) : new Map<string, Face>();
   const cardRow = (c: CardRow, up: boolean) => (
-    <Row key={c.c} title={c.n} onClick={() => go(`/insights/${f}/card/${c.c}?n=${encodeURIComponent(c.n)}`)}
-         detail={`in ${pct(c.rate)} of decks · was ${pct(c.prev ?? 0)}${c.copies != null ? ` · ${c.copies.toFixed(1)} copies` : ""}`}
-         value={`${up ? "▲" : "▼"} ${delta(c.rate - (c.prev ?? 0)).slice(1)}`} accentValue={up} />
+    <InsightCardRow key={c.c} name={c.n} face={faces.get(c.n)} catalog={catalog} onClick={() => go(`/insights/${f}/card/${c.c}?n=${encodeURIComponent(c.n)}`)}
+                    detail={`in ${pct(c.rate)} of decks · was ${pct(c.prev ?? 0)}`} note={c.copies != null ? `${c.copies.toFixed(1)} copies` : null}
+                    value={<span className={`text-[12px] ${up ? "text-t1-accent" : "text-t1-muted"}`}>{`${up ? "▲" : "▼"} ${delta(c.rate - (c.prev ?? 0)).slice(1)}`}</span>} />
   );
   const body = (): ReactNode => {
     if (!pack) return <Notice tone="info">Loading the metagame…</Notice>;
@@ -246,8 +251,7 @@ export function InsightsPart() {
         );
       }
       case "cards": {
-        if (!w) return null;
-        const movers = w.cards[board];
+        if (!w || !movers) return null;
         return (
           <>
             <WindowPickers tier={tier} days={days} />
@@ -261,13 +265,13 @@ export function InsightsPart() {
         );
       }
       case "new_set": {
-        const ns = view?.new_set;
         return (
           <>
             <WindowPickers tier={tier} days={days} showDays={false} />
             {ns?.cards.map((c) => (
-              <Row key={c.c} title={c.n} value={pct(c.rate)} onClick={() => go(`/insights/${f}/card/${c.c}?n=${encodeURIComponent(c.n)}`)}
-                   detail={`in ${pct(c.rate)} of decks${c.in?.[0] != null ? ` · most in ${archetypeName(pack, c.in[0])}` : ""}`} />
+              <InsightCardRow key={c.c} name={c.n} face={faces.get(c.n)} catalog={catalog} value={pct(c.rate)}
+                              onClick={() => go(`/insights/${f}/card/${c.c}?n=${encodeURIComponent(c.n)}`)}
+                              detail={`in ${pct(c.rate)} of decks`} note={c.in?.[0] != null ? `most in ${archetypeName(pack, c.in[0])}` : null} />
             ))}
             {!ns?.cards.length && <Notice tone="info">No new set cards played yet.</Notice>}
           </>
@@ -386,13 +390,19 @@ export function InsightsArchetype() {
 
   const share = pack?.tiers.all.windows[String(picks.days)]?.share.find((s) => s.a === Number(id));
   const example = page ? exampleFinish(page.finishes) : -1;
-  const cards = (title: string, rows: CardRow[]) => rows.length > 0 && (
-    <>
-      <Section title={title} />
-      {rows.slice(0, 16).map((c) => <Row key={c.c} title={c.n} value={pct(c.rate)} detail={c.copies != null ? `${c.copies.toFixed(1)} copies` : undefined}
-                                         onClick={() => nav(`/insights/${format}/card/${c.c}?n=${encodeURIComponent(c.n)}`)} />)}
-    </>
-  );
+  const cards = (title: string, rows: CardRow[]) => {
+    if (!rows.length) return null;
+    const shown = rows.slice(0, 16);
+    const faces = limitedFaces(catalog, "", shown);
+    return (
+      <>
+        <Section title={title} />
+        {shown.map((c) => <InsightCardRow key={c.c} name={c.n} face={faces.get(c.n)} catalog={catalog} value={pct(c.rate)}
+                                          detail={c.copies != null ? `${c.copies.toFixed(1)} copies` : null}
+                                          onClick={() => nav(`/insights/${format}/card/${c.c}?n=${encodeURIComponent(c.n)}`)} />)}
+      </>
+    );
+  };
   return (
     <Screen>
       <Bar title={name} subtitle={`${pack?.name ?? format} · all events, last ${picks.days} days`} onBack={back} />
@@ -560,6 +570,7 @@ export function InsightsCardSearch() {
   const { format = "" } = useParams();
   const nav = useNavigate();
   const { session, demo, ready } = useInsightsData();
+  const { catalog } = useCatalog();
   const label = FORMATS.find((f) => f.key === format)?.label ?? format;
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<{ q: string; hits: CardHit[] } | null>(null);
@@ -590,10 +601,14 @@ export function InsightsCardSearch() {
       <Scroll>
         {error && <Notice tone="error">{error}</Notice>}
         {!error && found && found.q === q && found.hits.length === 0 && <Notice tone="info">No {label} lists played a card called that this year.</Notice>}
-        {q.length >= 2 && found?.hits.map((h) => (
-          <Row key={h.c} title={h.n} detail={hitDetail(h)}
-               onClick={() => { capture("insights_card_opened", { format, from: "search" }); nav(`/insights/${format}/card/${h.c}?n=${encodeURIComponent(h.n)}${demo ? "&demo" : ""}`); }} />
-        ))}
+        {q.length >= 2 && (() => {
+          const hits = found?.hits ?? [];
+          const faces = limitedFaces(catalog, "", hits);
+          return hits.map((h) => (
+            <InsightCardRow key={h.c} name={h.n} face={faces.get(h.n)} catalog={catalog} detail={hitDetail(h)}
+                            onClick={() => { capture("insights_card_opened", { format, from: "search" }); nav(`/insights/${format}/card/${h.c}?n=${encodeURIComponent(h.n)}${demo ? "&demo" : ""}`); }} />
+          ));
+        })()}
       </Scroll>
     </Screen>
   );
@@ -605,6 +620,7 @@ export function InsightsBan() {
   const { format = "", id = "0" } = useParams();
   const nav = useNavigate();
   const { constructed, session, demo, ready } = useInsightsData();
+  const { catalog } = useCatalog();
   const pack = constructed[format];
   const b = pack?.bans.find((x) => x.change === Number(id));
   const ch = pack?.changes.find((c) => c.id === Number(id));
@@ -632,10 +648,14 @@ export function InsightsBan() {
           <Stats items={[["Settled", b.settled_days != null ? `${b.settled_days} days` : "Not yet"], ["Lost most", b.losers[0] ? archetypeName(pack, b.losers[0].a) : "–"],
                          ["Gained most", b.gainers[0] ? archetypeName(pack, b.gainers[0].a) : "–"]]} />
           {b.replacements.length > 0 && <Section title={ch?.kind === "unban" || ch?.kind === "unrestrict" ? "Where it's played" : "What replaced it"} />}
-          {b.replacements.map((r) => (
-            <Row key={`${r.in}-${r.c}`} title={r.n} onClick={() => nav(`/insights/${format}/card/${r.c}?n=${encodeURIComponent(r.n)}`)}
-                 detail={`in ${archetypeName(pack, r.in)} · ${pct(r.before)} → ${pct(r.after)} of lists`} />
-          ))}
+          {(() => {
+            const faces = limitedFaces(catalog, "", b.replacements);
+            return b.replacements.map((r) => (
+              <InsightCardRow key={`${r.in}-${r.c}`} name={r.n} face={faces.get(r.n)} catalog={catalog}
+                              onClick={() => nav(`/insights/${format}/card/${r.c}?n=${encodeURIComponent(r.n)}`)}
+                              detail={`in ${archetypeName(pack, r.in)}`} note={`${pct(r.before)} → ${pct(r.after)} of lists`} />
+            ));
+          })()}
         </Scroll>
       )}
     </Screen>
@@ -689,7 +709,6 @@ function MatchupGrid({ pack, m: grid, share }: { pack: ConstructedPack; m: Match
   const [lo, hi] = m ? wilson(m.wins, n) : [0, 1];
   return (
     <>
-      <Notice tone="info">Each archetype with 1% of decks (rows) against the 10 most played (columns): the row's match win rate, and first its win rate against every archetype. Your decks come first, then archetypes your collection nearly builds. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.</Notice>
       <Heatmap rows={rows.map((a) => archetypeName(pack, a))} notes={ordered.map((r) => r.note)} cols={cols.map((a) => archetypeName(pack, a))} same={(r, c) => rows[r] === cols[c]}
                picked={picked} onPick={(r, c) => { setPicked([r, c]); capture("insights_matchup_opened", { format: pack.format, overall: c < 0 }); }}
                cell={(r, c) => matchup(grid, rows[r], cols[c])} overall={(r) => overall(share, grid, rows[r])} />
@@ -752,9 +771,10 @@ function useRankSet() {
 
 const oracleMaps = new WeakMap<Catalog, Map<string, number>>();
 
-/** Each card's mana cost and its printing in the set (art), by name; a cube's cards take their original printing. */
-function limitedFaces(catalog: Catalog | null, set: string, cards: LCard[]): Map<string, { cost: string; p: number }> {
-  const out = new Map<string, { cost: string; p: number }>();
+/** Each card's mana cost and its printing in the set (art), by name; a cube's cards, and Constructed cards (no set, or
+ *  a New set card the catalog lacks in it), take their original printing. */
+function limitedFaces(catalog: Catalog | null, set: string, cards: { c?: string | null; n: string }[]): Map<string, Face> {
+  const out = new Map<string, Face>();
   if (!catalog) return out;
   let ids = oracleMaps.get(catalog);
   if (!ids) { ids = new Map(catalog.oId.map((id, i) => [id, i])); oracleMaps.set(catalog, ids); }
@@ -772,29 +792,39 @@ function limitedFaces(catalog: Catalog | null, set: string, cards: LCard[]): Map
   return out;
 }
 
-/** One card on the Limited page: its place, art, name, mana cost, rarity and games, and the sort's number with how far
- *  it sits from the average under it. */
-function LimitedCardRow({ rank, c, face, catalog, value, vs, onClick }: {
-  rank: number | null; c: LCard; face?: { cost: string; p: number }; catalog: Catalog | null; value: string; vs: string | null; onClick: () => void;
+/** Faces for cards known only by name (Limited search hits in other sets): the default printing and its mana cost. */
+function nameFaces(catalog: Catalog | null, names: string[]): Map<string, Face> {
+  const out = new Map<string, Face>();
+  if (!catalog) return out;
+  for (const [n, p] of printingsByName(catalog, names)) out.set(n, { cost: catalog.oCost[catalog.pOracle[p]], p });
+  return out;
+}
+
+type Face = { cost: string; p: number };
+
+/** A card in an Insights list: the Library's card row (the whole card, the name and up to two lines of data, a value on
+ *  the right) with the mana cost beside the name (contract/card-rows-2026-11-15.md). */
+function InsightCardRow({ name, face, catalog, detail, note, value, onClick }: {
+  name: string; face?: Face; catalog: Catalog | null; detail?: string | null; note?: string | null; value?: ReactNode; onClick: () => void;
 }) {
   return (
-    <button type="button" onClick={onClick} className="w-full flex items-center gap-2.5 bg-t1-surface hover:bg-t1-surface-hover px-4 py-2 text-left">
-      {rank != null && <span className="w-[22px] shrink-0 text-right text-[11px] text-t1-muted tabular-nums">{rank}</span>}
-      <span className="w-[52px] h-[38px] shrink-0 bg-t1-bg overflow-hidden">
-        {catalog && face && face.p >= 0 && <img src={cardImageUrl(catalog, face.p, "art_crop")} alt="" loading="lazy" className="w-full h-full object-cover" />}
-      </span>
-      <span className="flex-1 min-w-0 flex flex-col gap-1">
-        <span className="text-[14px] truncate">{c.n}</span>
-        <span className="flex items-center gap-1.5 min-w-0">
-          {face?.cost && <ManaCost cost={face.cost} size={12} />}
-          <span className="t1-label truncate">{[c.r ? c.r[0].toUpperCase() : null, `${c.gih_n.toLocaleString()} in hand`].filter(Boolean).join(" · ")}</span>
-        </span>
-      </span>
-      <span className="shrink-0 flex flex-col items-end gap-0.5">
-        <span className={`text-[14px] tabular-nums ${c.gih == null ? "text-t1-disabled" : ""}`}>{value}</span>
-        {vs && <span className={`t1-label ${vs.startsWith("+") ? "text-t1-text" : ""}`}>{vs}</span>}
-      </span>
-    </button>
+    <LibraryCardRow c={catalog} p={catalog && face && face.p >= 0 ? face.p : null} title={name} onClick={onClick}
+             beside={face?.cost ? <ManaCost cost={face.cost} size={12} /> : undefined}
+             detail={detail || undefined} note={note || undefined} value={value} />
+  );
+}
+
+/** One card on the Limited page: the card, name, mana cost and rarity, and the sort's number with how far it sits from
+ *  the average under it. */
+function LimitedCardRow({ c, face, catalog, value, vs, onClick }: {
+  c: LCard; face?: Face; catalog: Catalog | null; value: string; vs: string | null; onClick: () => void;
+}) {
+  return (
+    <InsightCardRow name={c.n} face={face} catalog={catalog} detail={c.r ? c.r[0].toUpperCase() : null} onClick={onClick}
+                    value={<span className="flex flex-col items-end gap-0.5">
+                      <span className={`text-[14px] ${c.gih == null ? "text-t1-disabled" : ""}`}>{value}</span>
+                      {vs && <span className={`t1-label ${vs.startsWith("+") ? "!text-t1-text" : ""}`}>{vs}</span>}
+                    </span>} />
   );
 }
 
@@ -879,9 +909,9 @@ function LimitedHome() {
   const hits = searching ? limitedSearch(query, view.cards.map((c) => c.n), Object.values(limited).filter((p) => p.set_code !== pack.set_code)
     .sort((a, b) => (b.released ?? "").localeCompare(a.released ?? ""))
     .map((p) => ({ key: p.set_code, names: [...new Set(Object.values(p.events).flatMap((e) => e.groups.all?.cards.map((c) => c.n) ?? []))].sort() }))) : null;
-  const row = (c: LCard, i: number | null) => {
+  const row = (c: LCard) => {
     const v = limitedValue(c, sort, view.wr);
-    return <LimitedCardRow key={c.n} rank={i} c={c} face={faces.get(c.n)} catalog={catalog} value={v.value} vs={v.vs}
+    return <LimitedCardRow key={c.n} c={c} face={faces.get(c.n)} catalog={catalog} value={v.value} vs={v.vs}
                            onClick={() => nav(`${base}/card/${encodeURIComponent(c.n)}`)} />;
   };
   const r = rankable?.find((x) => x.key === pack.set_code);
@@ -908,26 +938,26 @@ function LimitedHome() {
       </label>
       {hits ? (
         <>
-          {hits.here.map((n) => { const c = view.cards.find((x) => x.n === n); return c ? row(c, null) : null; })}
+          {hits.here.map((n) => { const c = view.cards.find((x) => x.n === n); return c ? row(c) : null; })}
           {!hits.here.length && hits.elsewhere.length > 0 && (
             <>
               <Section title={`Not in ${limitedLabel(pack.set_code, pack.name)} · in other sets`} />
-              {hits.elsewhere.map(([k, n]) => (
-                <Row key={`${k}|${n}`} title={n} detail={limitedLabel(k, nameOf(k))}
+              {(() => { const elsewhere = nameFaces(catalog, hits.elsewhere.map(([, n]) => n)); return hits.elsewhere.map(([k, n]) => (
+                <InsightCardRow key={`${k}|${n}`} name={n} face={elsewhere.get(n)} catalog={catalog} detail={limitedLabel(k, nameOf(k))}
                      onClick={() => {
                        capture("insights_card_search_elsewhere", { set: k });
                        const other = limited[k];
                        const e = other ? EVENT_ORDER.find((x) => other.events[x]) ?? "PremierDraft" : "PremierDraft";
                        nav(`/insights/limited/${k}/${e}/all/card/${encodeURIComponent(n)}`);
                      }} />
-              ))}
+              )); })()}
             </>
           )}
           {!hits.here.length && !hits.elsewhere.length && <Notice tone="info">No card in any set's draft data is called that.</Notice>}
         </>
       ) : (
         <>
-          {(all ? cards : cards.slice(0, LIMITED_TOP)).map((c, i) => row(c, i + 1))}
+          {(all ? cards : cards.slice(0, LIMITED_TOP)).map((c) => row(c))}
           {!cards.length && <Notice tone="info">No card matches these filters.</Notice>}
           {cards.length > LIMITED_TOP && (
             <GhostAction label={all ? `Show the top ${LIMITED_TOP}` : `Show all ${cards.length}`}
@@ -987,6 +1017,7 @@ export function InsightsPair() {
   const { set = "", event = "", group = "all", pair = "" } = useParams();
   const nav = useNavigate();
   const { limited, session, demo, ready } = useInsightsData();
+  const { catalog } = useCatalog();
   const pack = limited[set];
   const view = pack?.events[event]?.groups[group as "all" | "top"];
   const p = view?.pairs.find((x) => x.p === pair);
@@ -1008,8 +1039,14 @@ export function InsightsPair() {
             </>
           )}
           <Section title={`Best cards in ${pair} · win rate in hand`} />
-          {best.map(([c, wr]) => <Row key={c.n} title={c.n} value={pct1(wr)} detail={[(c.r ? c.r[0].toUpperCase() + c.r.slice(1) : null), c.col].filter(Boolean).join(" · ")}
-                                      onClick={() => nav(`/insights/limited/${set}/${event}/${group}/card/${encodeURIComponent(c.n)}`)} />)}
+          {(() => {
+            const faces = limitedFaces(catalog, pack.set_code, best.map(([c]) => c));
+            return best.map(([c, wr]) => (
+              <InsightCardRow key={c.n} name={c.n} face={faces.get(c.n)} catalog={catalog} value={pct1(wr)}
+                              detail={[(c.r ? c.r[0].toUpperCase() + c.r.slice(1) : null), c.col].filter(Boolean).join(" · ")}
+                              onClick={() => nav(`/insights/limited/${set}/${event}/${group}/card/${encodeURIComponent(c.n)}`)} />
+            ));
+          })()}
         </Scroll>
       )}
     </Screen>

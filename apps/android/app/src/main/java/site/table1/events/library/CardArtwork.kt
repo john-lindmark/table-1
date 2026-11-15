@@ -3,6 +3,7 @@ package site.table1.events.library
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.LruCache
+import site.table1.events.insights.ManaCost
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -277,12 +278,14 @@ fun WithChevron(parts: Int, open: Boolean, hero: Boolean = false, onToggle: () -
     }
 }
 
-/** A list row led by a card thumbnail; same type and spacing as ListRow. A hero card's row is a shade lighter with a
+/** The one row for a card in a list, everywhere (decks, cubes, binders, wants, trades, Insights): the whole card as a
+ *  thumbnail, the name (Insights adds the mana cost beside it, `cost`), up to two lines of data, a value on the right
+ *  (contract/card-rows-2026-11-15.md). Same type and spacing as ListRow. A hero card's row is a shade lighter with a
  *  white left edge; `indent` is a printing row under its card. */
 @Composable
 fun CardRow(printing: CatalogPrinting?, title: String, detail: String? = null, onClick: (() -> Unit)? = null,
             finish: String = "nonfoil", hero: Boolean = false, indent: Boolean = false,
-            note: String? = null, noteAccent: Boolean = false,
+            note: String? = null, noteAccent: Boolean = false, cost: String? = null,
             trailing: @Composable () -> Unit = {}) {
     Row(
         Modifier.fillMaxWidth().background(if (hero) T1.surfaceHover else T1.surface)
@@ -293,8 +296,12 @@ fun CardRow(printing: CatalogPrinting?, title: String, detail: String? = null, o
     ) {
         CardArt(printing, 36.dp, finish = finish)
         Column(Modifier.weight(1f)) {
-            Text(title, color = T1.text, fontFamily = T1.mono, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            detail?.let { Label(it) }
+            if (cost.isNullOrEmpty()) Text(title, color = T1.text, fontFamily = T1.mono, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            else Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(title, Modifier.weight(1f, fill = false), color = T1.text, fontFamily = T1.mono, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                ManaCost(cost, 12.dp)
+            }
+            detail?.takeIf { it.isNotEmpty() }?.let { Label(it) }
             // A second detail line (a want's price trend), in the accent when noteAccent.
             note?.let { Label(it, color = if (noteAccent) T1.accent else T1.muted) }
         }

@@ -13,10 +13,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,14 +29,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import site.table1.events.library.CardArtCrop
+import site.table1.events.library.CardRow as CardListRow
 import site.table1.events.library.CatalogPrinting
 import site.table1.events.library.CatalogStore
 import site.table1.events.library.IconGlyph
@@ -252,43 +252,70 @@ fun FilterRow(cells: List<FilterCell>, event: String = "insights_filter_changed"
     }
 }
 
-/** A card's mana cost and its printing in the set (for the art); a cube's cards take their original printing. */
-data class LimitedFace(val cost: String, val printing: CatalogPrinting?) {
+/** A card's mana cost and the printing an Insights row draws: its printing in the set when there is one (Limited, New
+ *  set), English first, else its usual picture (the original paper printing, the catalog's cover). Same as iOS `CardFace`
+ *  (contract/card-rows-2026-11-15.md). */
+data class CardFace(val cost: String, val printing: CatalogPrinting?) {
     companion object {
-        suspend fun load(set: String, cards: List<LCard>): Map<String, LimitedFace> = withContext(Dispatchers.IO) {
+        /** By Oracle id (lowercase keys). */
+        suspend fun load(oracleIds: Collection<String>, set: String? = null): Map<String, CardFace> = withContext(Dispatchers.IO) {
             val db = CatalogStore.db ?: return@withContext emptyMap()
-            val oracles = db.oraclesById(cards.mapNotNull { it.c })
+            if (oracleIds.isEmpty()) return@withContext emptyMap()
+            val oracles = db.oraclesById(oracleIds)
             val inSet = HashMap<Int, CatalogPrinting>()
-            for (p in db.printings(set.lowercase())) {
+            if (set != null) for (p in db.printings(set.lowercase())) {
                 val had = inSet[p.oracleIdx]
                 if (had == null || (p.lang == "en" && had.lang != "en")) inSet[p.oracleIdx] = p
             }
             val missing = oracles.values.map { it.idx }.filter { it !in inSet }
             val covers = if (missing.isEmpty()) emptyMap() else db.covers(missing)
-            cards.mapNotNull { c ->
-                val o = c.c?.let { oracles[it.lowercase()] } ?: return@mapNotNull null
-                c.n to LimitedFace(o.manaCost, inSet[o.idx] ?: covers[o.idx])
-            }.toMap()
+            oracles.mapValues { (_, o) -> CardFace(o.manaCost, inSet[o.idx] ?: covers[o.idx]) }
+        }
+
+        /** By card name, for names without an Oracle id (Limited search in other sets). */
+        suspend fun load(names: Collection<String>): Map<String, CardFace> = withContext(Dispatchers.IO) {
+            val db = CatalogStore.db ?: return@withContext emptyMap()
+            if (names.isEmpty()) return@withContext emptyMap()
+            val printings = db.printingsByName(names)
+            val oracles = db.oracles(printings.values.map { it.oracleIdx }.toSet())
+            printings.mapValues { (_, p) -> CardFace(oracles[p.oracleIdx]?.manaCost ?: "", p) }
         }
     }
 }
 
-/** One card on the Limited page: its place, art, name, mana cost, rarity and games, and the sort's number with how far
- *  it sits from the average under it. */
+/** The faces of the cards a list shows (Oracle id keys, lowercase), asking for the card catalog like the Library does;
+ *  again when the catalog changes. Until it's in, rows draw an empty card. */
 @Composable
-fun LimitedCardRow(rank: Int?, card: LCard, face: LimitedFace?, value: String, vs: String?, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().background(T1.surface).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (rank != null) Text("$rank", Modifier.width(22.dp), color = T1.muted, fontFamily = T1.mono, fontSize = 11.sp, textAlign = TextAlign.End)
-        if (face?.printing != null) CardArtCrop(face.printing, Modifier.width(52.dp).height(38.dp))
-        else Box(Modifier.width(52.dp).height(38.dp).background(T1.bg))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(card.n, color = T1.text, fontFamily = T1.mono, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                face?.cost?.takeIf { it.isNotEmpty() }?.let { ManaCost(it, 12.dp) }
-                Label(listOfNotNull(card.r?.take(1)?.uppercase(), "%,d in hand".format(card.gih_n)).joinToString(" · "))
-            }
-        }
+fun rememberCardFaces(ids: List<String>, set: String? = null): Map<String, CardFace> {
+    val catalog by CatalogStore.state.collectAsState()
+    var faces by remember { mutableStateOf<Map<String, CardFace>>(emptyMap()) }
+    LaunchedEffect(set, ids, catalog.generation) {
+        CatalogStore.load(userInitiated = true)
+        faces = faces + CardFace.load(ids, set)
+    }
+    return faces
+}
+
+/** As [rememberCardFaces], by card name. */
+@Composable
+fun rememberCardFacesByName(names: List<String>): Map<String, CardFace> {
+    val catalog by CatalogStore.state.collectAsState()
+    var faces by remember { mutableStateOf<Map<String, CardFace>>(emptyMap()) }
+    LaunchedEffect(names, catalog.generation) {
+        CatalogStore.load(userInitiated = true)
+        faces = faces + CardFace.load(names)
+    }
+    return faces
+}
+
+/** A card face's lookup in [rememberCardFaces]' map. */
+fun Map<String, CardFace>.of(oracleId: String?): CardFace? = oracleId?.let { this[it.lowercase()] }
+
+/** One card on the Limited page, drawn as the shared card row: the card, name, mana cost and rarity, and the sort's
+ *  number with how far it sits from the average under it. */
+@Composable
+fun LimitedCardRow(card: LCard, face: CardFace?, value: String, vs: String?, onClick: () -> Unit) {
+    CardListRow(face?.printing, card.n, card.r?.take(1)?.uppercase(), onClick = onClick, cost = face?.cost) {
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(value, color = if (card.gih == null) T1.disabled else T1.text, fontFamily = T1.mono, fontSize = 14.sp)
             vs?.let { Label(it, color = if (it.startsWith("+")) T1.text else T1.muted) }

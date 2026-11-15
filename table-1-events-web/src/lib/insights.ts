@@ -680,7 +680,8 @@ export async function loadInsightsDemo() {
       const k = name.slice("constructed-".length);
       constructed[k] = body as ConstructedPack;
       index.push({ kind: "constructed", key: k, name: k, version: "demo", url: "", bytes: 0, through: null });
-    } else if (name.startsWith("limited-")) {
+    } else if (name.startsWith("limited-") && (body as Partial<LimitedPack>).events) {
+      // limited-home.json is a test case file, not a pack
       const k = name.slice("limited-".length);
       limited[k] = body as LimitedPack;
       index.push({ kind: "limited", key: k, name: k, version: "demo", url: "", bytes: 0, through: null });

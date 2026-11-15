@@ -411,6 +411,7 @@ struct ConstructedPartView: View {
     @Binding var path: [InsightsRoute]
     @Bindable private var store = InsightsStore.shared
     @State private var board = "main"
+    @State private var faces: [String: CardFace] = [:]
     @Environment(SessionModel.self) private var session
 
     var body: some View {
@@ -457,22 +458,28 @@ struct ConstructedPartView: View {
             WindowPickers(tier: tierBinding)
             T1Segmented(options: [("main", "Main deck"), ("side", "Sideboard")], selection: $board)
             if let m = w?.cards[board] {
-                if !m.up.isEmpty { Section1("Rising") }
-                ForEach(m.up, id: \.c) { c in cardRow(pack, c, up: true) }
-                if !m.down.isEmpty { Section1("Falling") }
-                ForEach(m.down, id: \.c) { c in cardRow(pack, c, up: false) }
-                if m.up.isEmpty && m.down.isEmpty { Notice("No card moved much in this window.") }
+                Group {
+                    if !m.up.isEmpty { Section1("Rising") }
+                    ForEach(m.up, id: \.c) { c in cardRow(pack, c, up: true) }
+                    if !m.down.isEmpty { Section1("Falling") }
+                    ForEach(m.down, id: \.c) { c in cardRow(pack, c, up: false) }
+                    if m.up.isEmpty && m.down.isEmpty { Notice("No card moved much in this window.") }
+                }
+                .loadsFaces((m.up + m.down).map(\.c), into: $faces)
             }
         case "new_set":
             WindowPickers(tier: tierBinding, days: false)
             if let ns = view?.new_set, !ns.cards.isEmpty {
                 ForEach(ns.cards, id: \.c) { c in
+                    let face = faces[c.c.lowercased()]
                     Button { path.append(.card(pack.format, c.c, c.n)) } label: {
-                        ListRow(title: c.n, detail: "in \(InsightCharts.pct(c.rate)) of decks" + (c.in?.first.map { " · most in \(pack.name($0))" } ?? "")) {
+                        CardRow(printing: face?.printing, title: c.n, detail: "in \(InsightCharts.pct(c.rate)) of decks",
+                                note: c.in?.first.map { "most in \(pack.name($0))" }, cost: face?.cost) {
                             Text(InsightCharts.pct(c.rate)).font(T1.mono(13))
                         }
                     }.buttonStyle(.plain)
                 }
+                .loadsFaces(ns.cards.map(\.c), set: ns.set_code, into: $faces)
             } else { Notice("No new set cards played yet.") }
         case "changes":
             ForEach(pack.bans, id: \.change) { b in
@@ -502,8 +509,10 @@ struct ConstructedPartView: View {
     }
 
     private func cardRow(_ pack: Insights.ConstructedPack, _ c: Insights.CardRow, up: Bool) -> some View {
-        Button { path.append(.card(pack.format, c.c, c.n)) } label: {
-            ListRow(title: c.n, detail: "in \(InsightCharts.pct(c.rate)) of decks · was \(InsightCharts.pct(c.prev ?? 0))" + (c.copies.map { String(format: " · %.1f copies", $0) } ?? "")) {
+        let face = faces[c.c.lowercased()]
+        return Button { path.append(.card(pack.format, c.c, c.n)) } label: {
+            CardRow(printing: face?.printing, title: c.n, detail: "in \(InsightCharts.pct(c.rate)) of decks · was \(InsightCharts.pct(c.prev ?? 0))",
+                    note: c.copies.map { String(format: "%.1f copies", $0) }, cost: face?.cost) {
                 Text("\(up ? "▲" : "▼") \(InsightCharts.delta(c.rate - (c.prev ?? 0)).dropFirst())")
                     .font(T1.mono(12)).foregroundStyle(up ? T1.accent : T1.muted)
             }
@@ -534,6 +543,7 @@ struct ArchetypeInsightView: View {
     @State private var page: Insights.ArchetypePage?
     @State private var error: String?
     @State private var added: AddedDeck?
+    @State private var faces: [String: CardFace] = [:]
     @Environment(SessionModel.self) private var session
     private var store: InsightsStore { InsightsStore.shared }
 
@@ -625,12 +635,14 @@ struct ArchetypeInsightView: View {
         if !rows.isEmpty {
             Section1(title)
             ForEach(rows.prefix(16), id: \.c) { c in
+                let face = faces[c.c.lowercased()]
                 Button { path.append(.card(format, c.c, c.n)) } label: {
-                    ListRow(title: c.n, detail: c.copies.map { String(format: "%.1f copies", $0) }) {
+                    CardRow(printing: face?.printing, title: c.n, detail: c.copies.map { String(format: "%.1f copies", $0) }, cost: face?.cost) {
                         Text(InsightCharts.pct(c.rate)).font(T1.mono(13))
                     }
                 }.buttonStyle(.plain)
             }
+            .loadsFaces(rows.prefix(16).map(\.c), into: $faces)
         }
     }
 }
@@ -836,6 +848,7 @@ struct CardSearchView: View {
     @Binding var path: [InsightsRoute]
     @State private var query = ""
     @State private var hits: [Insights.CardHit] = []
+    @State private var faces: [String: CardFace] = [:]
     /// The query the shown hits answer; nil until a search settles.
     @State private var answered: String?
     @State private var error: String?
@@ -855,11 +868,13 @@ struct CardSearchView: View {
                         Notice("No \(label) lists played a card called that this year.")
                     }
                     ForEach(hits) { h in
+                        let face = faces[h.c.lowercased()]
                         Button {
                             Telemetry.capture("insights_card_opened", ["format": format, "from": "search"])
                             path.append(.card(format, h.c, h.n))
-                        } label: { ListRow(title: h.n, detail: Insights.hitDetail(h)) }.buttonStyle(.plain)
+                        } label: { CardRow(printing: face?.printing, title: h.n, detail: Insights.hitDetail(h), cost: face?.cost) }.buttonStyle(.plain)
                     }
+                    .loadsFaces(hits.map(\.c), into: $faces)
                 }
             }
             .scrollDismissesKeyboard(.immediately)
@@ -889,6 +904,7 @@ struct BanStudyView: View {
     let format: String
     let changeId: Int
     @Binding var path: [InsightsRoute]
+    @State private var faces: [String: CardFace] = [:]
     private var store: InsightsStore { InsightsStore.shared }
 
     var body: some View {
@@ -919,10 +935,13 @@ struct BanStudyView: View {
                         if !b.replacements.isEmpty {
                             Section1(ch?.kind == "unban" || ch?.kind == "unrestrict" ? "Where it's played" : "What replaced it")
                             ForEach(b.replacements, id: \.self) { r in
+                                let face = faces[r.c.lowercased()]
                                 Button { path.append(.card(format, r.c, r.n)) } label: {
-                                    ListRow(title: r.n, detail: "in \(pack.name(r.in)) · \(InsightCharts.pct(r.before)) → \(InsightCharts.pct(r.after)) of lists")
+                                    CardRow(printing: face?.printing, title: r.n, detail: "in \(pack.name(r.in))",
+                                            note: "\(InsightCharts.pct(r.before)) → \(InsightCharts.pct(r.after)) of lists", cost: face?.cost)
                                 }.buttonStyle(.plain)
                             }
+                            .loadsFaces(b.replacements.map(\.c), into: $faces)
                         }
                     } else { Notice("This change isn't in the pack.") }
                 }
@@ -970,7 +989,6 @@ struct MatchupGrid: View {
         let cols = m.archetypes
         let ordered = Insights.yoursFirst(m.rowIds, mine)
         let rows = ordered.map(\.a)
-        Notice("Each archetype with 1% of decks (rows) against the 10 most played (columns): the row's match win rate, and first its win rate against every archetype. Your decks come first, then archetypes your collection nearly builds. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
         InsightHeatmap(rows: rows.map { pack.name($0) }, notes: ordered.map(\.note), cols: cols.map { pack.name($0) }, same: { rows[$0] == cols[$1] }, cell: { r, c in
             m.cell(rows[r], cols[c]).map { ($0.wins, $0.losses) }
         }, picked: picked.map { (row: $0.0, col: $0.1) }, onTap: { r, c in

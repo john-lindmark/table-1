@@ -229,7 +229,9 @@ struct FoilSheen: View {
     }
 }
 
-/// A list row led by a card thumbnail; same layout and type as ListRow.
+/// The one row for a card in a list, everywhere (decks, cubes, binders, wants, trades, Insights): the whole card as a
+/// thumbnail, the name (Insights adds the mana cost beside it), up to two lines of data, a value on the right.
+/// Contract: contract/card-rows-2026-11-15.md.
 struct CardRow<Trailing: View>: View {
     let printing: CatalogPrinting?
     let title: String
@@ -240,6 +242,8 @@ struct CardRow<Trailing: View>: View {
     /// A second detail line (a want's price trend), in the accent when `noteAccent`.
     var note: String?
     var noteAccent = false
+    /// The mana cost beside the name (Insights rows only).
+    var cost: String? = nil
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -250,7 +254,10 @@ struct CardRow<Trailing: View>: View {
                 RoundedRectangle(cornerRadius: 36 * 0.0432).fill(T1.bg).frame(width: 36, height: 36 / CardArt.aspect)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(T1.mono(14)).lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(title).font(T1.mono(14)).lineLimit(1)
+                    if let cost, !cost.isEmpty { ManaCostView(cost: cost, size: 12).fixedSize() }
+                }
                 if let detail { LabelText(detail) }
                 if let note { LabelText(note, color: noteAccent ? T1.accent : T1.muted) }
             }
@@ -302,12 +309,15 @@ struct CardTile: View {
 }
 
 extension CardRow where Trailing == EmptyView {
-    init(printing: CatalogPrinting?, title: String, detail: String? = nil, finish: String = "nonfoil", hero: Bool = false) {
+    init(printing: CatalogPrinting?, title: String, detail: String? = nil, finish: String = "nonfoil", hero: Bool = false,
+         note: String? = nil, cost: String? = nil) {
         self.printing = printing
         self.title = title
         self.detail = detail
         self.finish = finish
         self.hero = hero
+        self.note = note
+        self.cost = cost
         self.trailing = EmptyView()
     }
 }

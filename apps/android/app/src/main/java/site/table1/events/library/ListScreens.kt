@@ -428,16 +428,11 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     }
 
     val lineRow: @Composable (ListLine, Boolean) -> Unit = { x, sub ->
-        // A printing's own sub-row counts that printing; a card's row, every printing of it.
-        val have = if (sub) owned.ownedPrinting(x.cardId, x.finish) else owned.ownedCard(x.cardId)
-        val considering = x.board == "maybe"
-        val need = shortOf(x)
-        val short = need > 0 // basics are never missing
+        val short = shortOf(x) > 0 // basics are never missing
         val issue = issues[x.oracleId ?: x.cardId]
-        val owns = if (considering) (if (have > 0) "Owned $have" else "Not owned") else if (short) "Owned $have · missing $need"
-            else if (x.basic && have == 0) null else "Owned $have"
         val pts = if (x.points > 0 && list.format == "canlander") "${x.points} pt${if (x.points == 1) "" else "s"}" else null
-        CardRow(x.printing, if (sub) x.printing?.setLabel ?: x.name else x.name, listOfNotNull(if (sub) null else issue, pts, x.finishLabel, x.langLabel, x.condLabel, owns).joinToString(" · "),
+        // No ownership or finish on the row (contract/card-rows-2026-11-15.md): a short count is red, the finish is the sheen.
+        CardRow(x.printing, if (sub) x.printing?.setLabel ?: x.name else x.name, listOfNotNull(if (sub) null else issue, pts, x.langLabel, x.condLabel).joinToString(" · ").ifEmpty { null },
             onClick = { x.oracleId?.let(onCard) }, finish = x.finish, hero = !sub && heroes.isHero(x.oracleId, heroScope), indent = sub) {
             Text("${x.qty}", color = if (short || issue != null) T1.error else T1.text, fontFamily = T1.mono, fontSize = 17.sp)
         }
@@ -450,14 +445,11 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         val issue = issues[cg.key]
         // Basics are never missing (contract/basics-2026-10-24.md).
         val short = cg.lines.sumOf { shortOf(it) }
-        val have = owned.ownedCard(lead.cardId)
-        val haveText = if (considering) (if (have > 0) "Owned $have" else "Not owned")
-            else if (lead.basic) (if (have > 0) "Owned $have" else null) else if (short > 0) "Missing $short" else "All owned"
         WithChevron(cg.lines.size, open, hero, {
             printings.value = printings.value.toggle(cg.id)
             Telemetry.capture("printings_toggled", mapOf("expanded" to !open, "all" to false, "screen" to "list"))
         }) {
-            CardRow(lead.printing, lead.name, listOfNotNull(issue, "${cg.lines.size} ${if (cg.lines.map { it.cardId }.toSet().size == cg.lines.size) "printings" else "versions"}", haveText).joinToString(" · "),
+            CardRow(lead.printing, lead.name, listOfNotNull(issue, "${cg.lines.size} ${if (cg.lines.map { it.cardId }.toSet().size == cg.lines.size) "printings" else "versions"}").joinToString(" · "),
                 onClick = { lead.oracleId?.let(onCard) }, finish = lead.finish, hero = hero) {
                 Text("${cg.qty}", color = if ((!considering && short > 0) || issue != null) T1.error else T1.text, fontFamily = T1.mono, fontSize = 17.sp)
             }
@@ -535,7 +527,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                             if (editing) {
                                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                                     Box(Modifier.weight(1f)) {
-                                        CardRow(x.printing, x.name, listOfNotNull(x.finishLabel, x.langLabel, x.condLabel, "Tap to move, change or remove").joinToString(" · "), onClick = { moving = x },
+                                        CardRow(x.printing, x.name, listOfNotNull(x.langLabel, x.condLabel, "Tap to move, change or remove").joinToString(" · "), onClick = { moving = x },
                                             finish = x.finish, hero = heroes.isHero(x.oracleId, heroScope)) {
                                             Text("${x.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                                         }

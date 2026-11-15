@@ -263,7 +263,7 @@ struct BinderView: View {
                                     .id("grid|\(sec.key)|\(printings.all)")
                                 } else {
                                     ForEach(sec.cards) { g in
-                                        CardGroupRows(group: g, detail: "\(g.printings) printing\(g.printings == 1 ? "" : "s") · \(g.type)",
+                                        CardGroupRows(group: g, detail: nil,  // no types or printings on binder rows (contract/card-rows-2026-11-15.md)
                                                       hero: isHero(g), open: printings.open(g.id),
                                                       partDetail: { PriceBook.text(PriceBook.shared.usd($0.cardId, $0.finish, $0.condition)) },
                                                       toggle: { printings.toggle(g.id) },

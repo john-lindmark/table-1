@@ -312,7 +312,7 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
                 if (grouped) item(key = "h-$key") { Section(title(key, cards)) }
                 for (g in cards) {
                     val open = printings.open(g.id)
-                    cardGroupRows(g, "${g.printings} printing${if (g.printings == 1) "" else "s"} · ${g.type}",
+                    cardGroupRows(g, null,  // no types or printings on binder rows (contract/card-rows-2026-11-15.md)
                         !unsorted && heroes.isHero(g.id, HeroScope.InBinder(id)), open,
                         toggle = {
                             printings = printings.toggle(g.id)
